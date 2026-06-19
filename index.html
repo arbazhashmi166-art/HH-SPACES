@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Site Ledger</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">SL</div>
+          <div>
+            <h1>Site Ledger</h1>
+            <p>Work, wages, material, payments</p>
+          </div>
+        </div>
+
+        <nav class="nav" aria-label="Main navigation">
+          <button class="nav-item active" data-view="dashboard" type="button">Dashboard</button>
+          <button class="nav-item" data-view="sites" type="button">Sites & Clients</button>
+          <button class="nav-item" data-view="wages" type="button">Labour Wages</button>
+          <button class="nav-item" data-view="materials" type="button">Material Expenses</button>
+          <button class="nav-item" data-view="payments" type="button">Client Payments</button>
+          <button class="nav-item" data-view="bills" type="button">Pending Bills</button>
+          <button class="nav-item" data-view="progress" type="button">Work Progress</button>
+          <button class="nav-item" data-view="updates" type="button">Daily Updates</button>
+        </nav>
+
+        <div class="sidebar-actions">
+          <button class="secondary-btn" id="exportCsv" type="button">Export CSV</button>
+          <button class="secondary-btn" id="printReport" type="button">Print Report</button>
+          <button class="danger-btn" id="resetDemo" type="button">Clear Data</button>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Construction account system</p>
+            <h2 id="viewTitle">Dashboard</h2>
+          </div>
+          <div class="topbar-controls">
+            <label>
+              <span>Site</span>
+              <select id="siteFilter"></select>
+            </label>
+            <label>
+              <span>Month</span>
+              <input id="monthFilter" type="month">
+            </label>
+          </div>
+        </header>
+
+        <section class="view active" id="dashboard">
+          <div class="metric-grid">
+            <article class="metric">
+              <span>Total Wages</span>
+              <strong id="metricWages">0</strong>
+            </article>
+            <article class="metric">
+              <span>Material Expenses</span>
+              <strong id="metricMaterials">0</strong>
+            </article>
+            <article class="metric">
+              <span>Client Payments</span>
+              <strong id="metricPayments">0</strong>
+            </article>
+            <article class="metric urgent">
+              <span>Pending Bills</span>
+              <strong id="metricBills">0</strong>
+            </article>
+          </div>
+
+          <div class="content-grid">
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Site Summary</h3>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Site</th>
+                      <th>Client</th>
+                      <th>Progress</th>
+                      <th>Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody id="siteSummaryRows"></tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Latest Daily Updates</h3>
+              </div>
+              <div class="activity-list" id="latestUpdates"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="sites">
+          <section class="form-panel">
+            <h3>Add Site / Client</h3>
+            <form id="siteForm" class="entry-form">
+              <label>Site name<input name="name" required placeholder="e.g. Villa A-12"></label>
+              <label>Client name<input name="client" required placeholder="Client name"></label>
+              <label>Phone<input name="phone" placeholder="Phone number"></label>
+              <label>Location<input name="location" placeholder="Site location"></label>
+              <label>Contract amount<input name="contract" type="number" min="0" step="1" placeholder="0"></label>
+              <label>Start date<input name="startDate" type="date"></label>
+              <label>Status
+                <select name="status">
+                  <option>Active</option>
+                  <option>Paused</option>
+                  <option>Completed</option>
+                </select>
+              </label>
+              <button class="primary-btn" type="submit">Save Site</button>
+            </form>
+          </section>
+          <section class="panel">
+            <div class="panel-header"><h3>All Sites</h3></div>
+            <div class="table-wrap"><table><thead><tr><th>Site</th><th>Client</th><th>Phone</th><th>Contract</th><th>Status</th><th></th></tr></thead><tbody id="siteRows"></tbody></table></div>
+          </section>
+        </section>
+
+        <section class="view" id="wages">
+          <section class="form-panel">
+            <h3>Add Labour Wages</h3>
+            <form id="wageForm" class="entry-form">
+              <label>Date<input name="date" type="date" required></label>
+              <label>Site<select name="siteId" required></select></label>
+              <label>Labour / team<input name="worker" required placeholder="Name or team"></label>
+              <label>Work type<input name="workType" placeholder="Mason, helper, plaster"></label>
+              <label>Days<input name="days" type="number" min="0" step="0.5" value="1"></label>
+              <label>Rate<input name="rate" type="number" min="0" step="1" required></label>
+              <button class="primary-btn" type="submit">Add Wage</button>
+            </form>
+          </section>
+          <section class="panel">
+            <div class="panel-header"><h3>Wage Entries</h3></div>
+            <div class="table-wrap"><table><thead><tr><th>Date</th><th>Site</th><th>Labour</th><th>Work</th><th>Days</th><th>Amount</th><th></th></tr></thead><tbody id="wageRows"></tbody></table></div>
+          </section>
+        </section>
+
+        <section class="view" id="materials">
+          <section class="form-panel">
+            <h3>Add Material Expense</h3>
+            <form id="materialForm" class="entry-form">
+              <label>Date<input name="date" type="date" required></label>
+              <label>Site<select name="siteId" required></select></label>
+              <label>Material<input name="item" required placeholder="Cement, steel, sand"></label>
+              <label>Supplier<input name="supplier" placeholder="Supplier name"></label>
+              <label>Bill no.<input name="billNo" placeholder="Invoice number"></label>
+              <label>Amount<input name="amount" type="number" min="0" step="1" required></label>
+              <button class="primary-btn" type="submit">Add Expense</button>
+            </form>
+          </section>
+          <section class="panel">
+            <div class="panel-header"><h3>Material Expenses</h3></div>
+            <div class="table-wrap"><table><thead><tr><th>Date</th><th>Site</th><th>Material</th><th>Supplier</th><th>Bill</th><th>Amount</th><th></th></tr></thead><tbody id="materialRows"></tbody></table></div>
+          </section>
+        </section>
+
+        <section class="view" id="payments">
+          <section class="form-panel">
+            <h3>Add Client Payment</h3>
+            <form id="paymentForm" class="entry-form">
+              <label>Date<input name="date" type="date" required></label>
+              <label>Site<select name="siteId" required></select></label>
+              <label>Client<input name="client" placeholder="Client name"></label>
+              <label>Mode<select name="mode"><option>Cash</option><option>Bank transfer</option><option>Cheque</option><option>UPI</option></select></label>
+              <label>Reference<input name="reference" placeholder="Receipt / reference"></label>
+              <label>Amount<input name="amount" type="number" min="0" step="1" required></label>
+              <button class="primary-btn" type="submit">Add Payment</button>
+            </form>
+          </section>
+          <section class="panel">
+            <div class="panel-header"><h3>Client Payments</h3></div>
+            <div class="table-wrap"><table><thead><tr><th>Date</th><th>Site</th><th>Client</th><th>Mode</th><th>Ref</th><th>Amount</th><th></th></tr></thead><tbody id="paymentRows"></tbody></table></div>
+          </section>
+        </section>
+
+        <section class="view" id="bills">
+          <section class="form-panel">
+            <h3>Add Pending Payment Bill</h3>
+            <form id="billForm" class="entry-form">
+              <label>Date<input name="date" type="date" required></label>
+              <label>Due date<input name="dueDate" type="date"></label>
+              <label>Site<select name="siteId" required></select></label>
+              <label>Party<input name="party" required placeholder="Supplier / labour / contractor"></label>
+              <label>Bill detail<input name="detail" placeholder="What payment is pending"></label>
+              <label>Amount<input name="amount" type="number" min="0" step="1" required></label>
+              <button class="primary-btn" type="submit">Add Bill</button>
+            </form>
+          </section>
+          <section class="panel">
+            <div class="panel-header"><h3>Pending Bills</h3></div>
+            <div class="table-wrap"><table><thead><tr><th>Date</th><th>Due</th><th>Site</th><th>Party</th><th>Detail</th><th>Amount</th><th></th></tr></thead><tbody id="billRows"></tbody></table></div>
+          </section>
+        </section>
+
+        <section class="view" id="progress">
+          <section class="form-panel">
+            <h3>Add Work Progress</h3>
+            <form id="progressForm" class="entry-form">
+              <label>Date<input name="date" type="date" required></label>
+              <label>Site<select name="siteId" required></select></label>
+              <label>Stage<input name="stage" required placeholder="Foundation, slab, plaster"></label>
+              <label>Completion %<input name="percent" type="number" min="0" max="100" step="1" required></label>
+              <label>Notes<input name="notes" placeholder="Work notes"></label>
+              <button class="primary-btn" type="submit">Add Progress</button>
+            </form>
+          </section>
+          <section class="panel">
+            <div class="panel-header"><h3>Progress Log</h3></div>
+            <div class="table-wrap"><table><thead><tr><th>Date</th><th>Site</th><th>Stage</th><th>Progress</th><th>Notes</th><th></th></tr></thead><tbody id="progressRows"></tbody></table></div>
+          </section>
+        </section>
+
+        <section class="view" id="updates">
+          <section class="form-panel">
+            <h3>Add Daily Update</h3>
+            <form id="updateForm" class="entry-form wide">
+              <label>Date<input name="date" type="date" required></label>
+              <label>Site<select name="siteId" required></select></label>
+              <label>Labour count<input name="labourCount" type="number" min="0" step="1" placeholder="0"></label>
+              <label>Weather<input name="weather" placeholder="Clear / rain / delay"></label>
+              <label class="full">Today work<textarea name="workDone" required placeholder="What work was completed today"></textarea></label>
+              <label class="full">Tomorrow plan<textarea name="nextPlan" placeholder="Next work plan"></textarea></label>
+              <button class="primary-btn" type="submit">Add Update</button>
+            </form>
+          </section>
+          <section class="panel">
+            <div class="panel-header"><h3>Daily Updates</h3></div>
+            <div class="activity-list full-list" id="updateRows"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <template id="emptyState">
+      <tr><td colspan="8" class="empty">No records yet.</td></tr>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
