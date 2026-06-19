@@ -26,6 +26,8 @@ The dashboard shows:
 - Pending payment bills
 - Client balance
 
+Use the search box at the top of the app to find any saved site, client, labour, phone number, bill number, material, payment, amount, work target, progress note, or daily update.
+
 ## Use on Phone With GitHub Pages
 
 1. Create a new GitHub repository.

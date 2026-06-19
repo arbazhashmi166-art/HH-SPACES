@@ -81,8 +81,20 @@
               <span>Month</span>
               <input id="monthFilter" type="month">
             </label>
+            <label>
+              <span>Search</span>
+              <input id="globalSearch" type="search" placeholder="Search anything">
+            </label>
           </div>
         </header>
+
+        <section class="search-results-panel is-hidden" id="searchResultsPanel">
+          <div class="panel-header">
+            <h3 id="searchResultsTitle">Search Results</h3>
+            <button class="secondary-light-btn" id="clearSearch" type="button">Clear</button>
+          </div>
+          <div class="search-results-list" id="searchResultsList"></div>
+        </section>
 
         <section class="view active" id="dashboard">
           <div class="selected-site-line" id="selectedSiteLine">All sites</div>

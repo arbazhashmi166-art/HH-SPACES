@@ -45,6 +45,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   bindAuth();
   bindNavigation();
+  bindSearch();
   bindForms();
   bindActions();
   bindVoice();
@@ -478,6 +479,20 @@ function bindNavigation() {
   document.getElementById("monthFilter").addEventListener("change", render);
 }
 
+function bindSearch() {
+  document.getElementById("globalSearch").addEventListener("input", renderSearchResults);
+  document.getElementById("clearSearch").addEventListener("click", () => {
+    document.getElementById("globalSearch").value = "";
+    renderSearchResults();
+  });
+
+  document.getElementById("searchResultsList").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-search-view]");
+    if (!button) return;
+    activateView(button.dataset.searchView);
+  });
+}
+
 function activateView(viewName) {
   document.querySelectorAll(".nav-item").forEach((item) => {
     item.classList.toggle("active", item.dataset.view === viewName);
@@ -684,6 +699,7 @@ function bindActions() {
 function render() {
   renderSiteFilter();
   renderSiteSelects();
+  renderSearchResults();
   renderDashboard();
   renderCapital();
   renderSites();
@@ -695,6 +711,145 @@ function render() {
   renderSchedule();
   renderProgress();
   renderUpdates();
+}
+
+function renderSearchResults() {
+  const input = document.getElementById("globalSearch");
+  const query = input?.value.trim().toLowerCase() || "";
+  const panel = document.getElementById("searchResultsPanel");
+  const list = document.getElementById("searchResultsList");
+  const title = document.getElementById("searchResultsTitle");
+  if (!query) {
+    panel.classList.add("is-hidden");
+    list.innerHTML = "";
+    return;
+  }
+
+  const results = buildSearchRecords()
+    .filter((record) => record.searchText.includes(query))
+    .slice(0, 40);
+
+  panel.classList.remove("is-hidden");
+  title.textContent = `${results.length} result${results.length === 1 ? "" : "s"} for "${input.value.trim()}"`;
+  list.innerHTML = results.length
+    ? results.map(searchResultCard).join("")
+    : `<div class="activity-card"><p>No matching records found.</p></div>`;
+}
+
+function buildSearchRecords() {
+  const records = [];
+  state.sites.forEach((site) => {
+    records.push(makeSearchRecord("Sites & Clients", "sites", site.name, site.client, site, [
+      ["Phone", site.phone],
+      ["Location", site.location],
+      ["Contract", formatMoney(site.contract)],
+      ["Total", formatMoney(siteTotalAmount(site.id))]
+    ]));
+  });
+  state.capital.forEach((item) => {
+    records.push(makeSearchRecord("Company Capital", "capital", item.source, item.type, item, [
+      ["Date", dateText(item.date)],
+      ["Amount", formatMoney(item.amount)]
+    ]));
+  });
+  state.extraWorks.forEach((item) => {
+    records.push(makeSearchRecord("Extra Works", "extraWorks", item.work, plainSiteName(item.siteId), item, [
+      ["Date", dateText(item.date)],
+      ["Approved", item.approvedBy],
+      ["Amount", formatMoney(item.amount)]
+    ]));
+  });
+  state.wages.forEach((item) => {
+    records.push(makeSearchRecord("Labour Wages", "wages", item.worker, plainSiteName(item.siteId), item, [
+      ["Date", dateText(item.date)],
+      ["Mobile", item.phone],
+      ["Work", item.workType],
+      ["Attendance", item.attendance],
+      ["Amount", formatMoney(item.amount)]
+    ]));
+  });
+  state.materials.forEach((item) => {
+    records.push(makeSearchRecord("Material Expenses", "materials", item.item, plainSiteName(item.siteId), item, [
+      ["Date", dateText(item.date)],
+      ["Supplier", item.supplier],
+      ["Bill", item.billNo],
+      ["Amount", formatMoney(item.amount)]
+    ]));
+  });
+  state.payments.forEach((item) => {
+    records.push(makeSearchRecord("Client Payments", "payments", item.client || plainSiteName(item.siteId), item.mode, item, [
+      ["Date", dateText(item.date)],
+      ["Site", plainSiteName(item.siteId)],
+      ["Ref", item.reference],
+      ["Amount", formatMoney(item.amount)]
+    ]));
+  });
+  state.bills.forEach((item) => {
+    records.push(makeSearchRecord("Pending Bills", "bills", item.party, plainSiteName(item.siteId), item, [
+      ["Date", dateText(item.date)],
+      ["Due", item.dueDate ? dateText(item.dueDate) : ""],
+      ["Detail", item.detail],
+      ["Amount", formatMoney(item.amount)],
+      ["Status", item.status]
+    ]));
+  });
+  state.schedule.forEach((item) => {
+    records.push(makeSearchRecord("Schedule & Targets", "schedule", item.task, plainSiteName(item.siteId), item, [
+      ["Target", dateText(item.targetDate)],
+      ["Assigned", item.assignedTo],
+      ["Status", item.status],
+      ["Notes", item.notes]
+    ]));
+  });
+  state.progress.forEach((item) => {
+    records.push(makeSearchRecord("Work Progress", "progress", item.stage, plainSiteName(item.siteId), item, [
+      ["Date", dateText(item.date)],
+      ["Progress", `${item.percent}%`],
+      ["Notes", item.notes]
+    ]));
+  });
+  state.updates.forEach((item) => {
+    records.push(makeSearchRecord("Daily Updates", "updates", plainSiteName(item.siteId), item.workDone, item, [
+      ["Date", dateText(item.date)],
+      ["Labour", item.labourCount],
+      ["Weather", item.weather],
+      ["Next", item.nextPlan],
+      ["Photos", Array.isArray(item.photos) ? item.photos.length : 0]
+    ]));
+  });
+  return records;
+}
+
+function makeSearchRecord(section, view, title, subtitle, item, details) {
+  const safeDetails = details.filter(([, value]) => value !== undefined && value !== null && value !== "");
+  const itemValues = Object.entries(item)
+    .filter(([key, value]) => !["photo", "photos"].includes(key) && ["string", "number", "boolean"].includes(typeof value))
+    .map(([, value]) => value);
+  const haystack = [
+    section,
+    view,
+    title,
+    subtitle,
+    ...itemValues,
+    ...safeDetails.flatMap(([label, value]) => [label, value])
+  ].join(" ").toLowerCase();
+  return { section, view, title: title || section, subtitle: subtitle || "", details: safeDetails, searchText: haystack };
+}
+
+function searchResultCard(record) {
+  const details = record.details
+    .slice(0, 5)
+    .map(([label, value]) => `<span><b>${escapeHtml(label)}:</b> ${escapeHtml(value)}</span>`)
+    .join("");
+  return `<article class="search-card">
+    <div>
+      <span class="search-section">${escapeHtml(record.section)}</span>
+      <h4>${escapeHtml(record.title)}</h4>
+      <p>${escapeHtml(record.subtitle)}</p>
+      <div class="search-detail-row">${details}</div>
+    </div>
+    <button class="secondary-light-btn" data-search-view="${record.view}" type="button">Open</button>
+  </article>`;
 }
 
 function renderSiteFilter() {
