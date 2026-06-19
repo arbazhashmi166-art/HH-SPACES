@@ -55,6 +55,7 @@
           <button class="secondary-btn" id="exportWord" type="button">Word Report</button>
           <button class="secondary-btn" id="exportExcel" type="button">Excel Report</button>
           <button class="secondary-btn" id="exportPdf" type="button">PDF Report</button>
+          <button class="secondary-btn" id="cloudSync" type="button">Cloud Sync</button>
           <button class="secondary-btn" id="lockApp" type="button">Lock App</button>
           <button class="danger-btn" id="resetDemo" type="button">Clear Data</button>
         </div>
@@ -481,10 +482,33 @@
       <iframe id="reportFrame" title="H&amp;H SPACES report preview"></iframe>
     </section>
 
+    <section class="cloud-modal is-hidden" id="cloudModal" aria-label="Supabase cloud sync setup">
+      <div class="cloud-card">
+        <div class="cloud-card__header">
+          <div>
+            <strong>Supabase Cloud Sync</strong>
+            <span id="cloudStatus">Not connected</span>
+          </div>
+          <button class="secondary-light-btn" id="closeCloud" type="button">Close</button>
+        </div>
+        <div class="cloud-form">
+          <label>Project URL<input id="supabaseUrl" placeholder="https://your-project.supabase.co"></label>
+          <label>Anon public key<input id="supabaseAnonKey" placeholder="Paste anon public key"></label>
+          <div class="cloud-actions">
+            <button class="primary-btn" id="saveCloudConfig" type="button">Save Connection</button>
+            <button class="secondary-light-btn" id="pullCloud" type="button">Load From Cloud</button>
+            <button class="secondary-light-btn" id="pushCloud" type="button">Save To Cloud</button>
+          </div>
+          <p>First create the Supabase table using <strong>supabase-schema.sql</strong>, then paste your Project URL and anon public key here.</p>
+        </div>
+      </div>
+    </section>
+
     <template id="emptyState">
       <tr><td colspan="8" class="empty">No records yet.</td></tr>
     </template>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="app.js"></script>
   </body>
 </html>

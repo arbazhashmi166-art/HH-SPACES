@@ -1,5 +1,8 @@
 const STORAGE_KEY = "site-ledger-data-v1";
 const SESSION_KEY = "site-tracker-session-v1";
+const SUPABASE_CONFIG_KEY = "hh-spaces-supabase-config-v1";
+const CLOUD_TABLE = "hh_spaces_app_state";
+const CLOUD_ROW_ID = "main";
 const ALLOWED_USERS = [
   { username: "SAHIL123", password: "DAVID9529", name: "Sahil" },
   { username: "ARBAZ123", password: "BUCKY1081", name: "Arbaz" }
@@ -16,6 +19,8 @@ const today = new Date().toISOString().slice(0, 10);
 const currentMonth = today.slice(0, 7);
 let voiceRecognition = null;
 let lastVoiceField = null;
+let supabaseClient = null;
+let cloudSaveTimer = null;
 
 const views = {
   dashboard: "Dashboard",
@@ -43,6 +48,8 @@ document.addEventListener("DOMContentLoaded", () => {
   bindForms();
   bindActions();
   bindVoice();
+  bindCloudSync();
+  initSupabaseClient();
   updateAuthView();
   render();
 });
@@ -353,6 +360,107 @@ function normalizeState(data) {
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  queueCloudSave();
+}
+
+function bindCloudSync() {
+  document.getElementById("cloudSync").addEventListener("click", openCloudModal);
+  document.getElementById("closeCloud").addEventListener("click", closeCloudModal);
+  document.getElementById("saveCloudConfig").addEventListener("click", saveCloudConfig);
+  document.getElementById("pullCloud").addEventListener("click", pullCloudState);
+  document.getElementById("pushCloud").addEventListener("click", () => pushCloudState(true));
+}
+
+function openCloudModal() {
+  const config = getSupabaseConfig();
+  document.getElementById("supabaseUrl").value = config.url || "";
+  document.getElementById("supabaseAnonKey").value = config.anonKey || "";
+  document.getElementById("cloudModal").classList.remove("is-hidden");
+  updateCloudStatus(supabaseClient ? "Connected. You can load or save cloud data." : "Not connected. Paste Supabase details.");
+}
+
+function closeCloudModal() {
+  document.getElementById("cloudModal").classList.add("is-hidden");
+}
+
+function getSupabaseConfig() {
+  const saved = localStorage.getItem(SUPABASE_CONFIG_KEY);
+  return saved ? JSON.parse(saved) : {};
+}
+
+function saveCloudConfig() {
+  const url = document.getElementById("supabaseUrl").value.trim();
+  const anonKey = document.getElementById("supabaseAnonKey").value.trim();
+  if (!url || !anonKey) {
+    updateCloudStatus("Enter Project URL and anon public key.");
+    return;
+  }
+  localStorage.setItem(SUPABASE_CONFIG_KEY, JSON.stringify({ url, anonKey }));
+  initSupabaseClient();
+  updateCloudStatus(supabaseClient ? "Connected. Press Save To Cloud once." : "Could not connect. Check URL/key.");
+}
+
+function initSupabaseClient() {
+  const config = getSupabaseConfig();
+  if (!config.url || !config.anonKey || !window.supabase?.createClient) {
+    supabaseClient = null;
+    return;
+  }
+  supabaseClient = window.supabase.createClient(config.url, config.anonKey);
+}
+
+function queueCloudSave() {
+  if (!supabaseClient || sessionStorage.getItem(SESSION_KEY) === null) return;
+  clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = setTimeout(() => pushCloudState(false), 1200);
+}
+
+async function pushCloudState(showResult) {
+  if (!supabaseClient) {
+    if (showResult) updateCloudStatus("Not connected. Save Supabase URL and anon key first.");
+    return;
+  }
+  const payload = JSON.parse(JSON.stringify(state));
+  const { error } = await supabaseClient
+    .from(CLOUD_TABLE)
+    .upsert({ id: CLOUD_ROW_ID, payload, updated_at: new Date().toISOString() });
+
+  if (error) {
+    updateCloudStatus(`Cloud save failed: ${error.message}`);
+    return;
+  }
+  updateCloudStatus(`Saved to cloud at ${new Date().toLocaleTimeString("en-IN")}.`);
+}
+
+async function pullCloudState() {
+  if (!supabaseClient) {
+    updateCloudStatus("Not connected. Save Supabase URL and anon key first.");
+    return;
+  }
+  const { data, error } = await supabaseClient
+    .from(CLOUD_TABLE)
+    .select("payload, updated_at")
+    .eq("id", CLOUD_ROW_ID)
+    .maybeSingle();
+
+  if (error) {
+    updateCloudStatus(`Cloud load failed: ${error.message}`);
+    return;
+  }
+  if (!data?.payload) {
+    updateCloudStatus("No cloud data found. Press Save To Cloud first.");
+    return;
+  }
+
+  Object.assign(state, normalizeState(data.payload));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  render();
+  updateCloudStatus(`Loaded cloud data from ${data.updated_at ? new Date(data.updated_at).toLocaleString("en-IN") : "Supabase"}.`);
+}
+
+function updateCloudStatus(message) {
+  const status = document.getElementById("cloudStatus");
+  if (status) status.textContent = message;
 }
 
 function bindNavigation() {

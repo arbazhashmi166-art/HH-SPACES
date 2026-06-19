@@ -804,6 +804,73 @@ textarea {
   background: #ffffff;
 }
 
+.cloud-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(23, 21, 47, 0.48);
+  backdrop-filter: blur(10px);
+}
+
+.cloud-card {
+  width: min(620px, 100%);
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  box-shadow: 0 28px 80px rgba(23, 21, 47, 0.24);
+}
+
+.cloud-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 18px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.cloud-card__header strong,
+.cloud-card__header span {
+  display: block;
+}
+
+.cloud-card__header strong {
+  color: var(--ink);
+  font-size: 18px;
+}
+
+.cloud-card__header span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.cloud-form {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.cloud-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.cloud-form p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 750;
+}
+
 .content-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.75fr);
@@ -1314,12 +1381,22 @@ td span {
     display: grid;
     grid-template-columns: 1fr 1fr;
   }
+
+  .cloud-card__header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cloud-actions {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media print {
   .sidebar,
   .bottom-nav,
   .voice-panel,
+  .cloud-modal,
   .form-panel,
   .topbar-controls,
   .delete-btn,
