@@ -213,12 +213,14 @@ function bindCloudSync() {
   document.getElementById("pushCloud").addEventListener("click", () => pushCloudState(true));
 }
 
-function openCloudModal() {
+async function openCloudModal() {
   const config = getSupabaseConfig();
   document.getElementById("supabaseUrl").value = config.url || "";
   document.getElementById("supabaseAnonKey").value = config.anonKey || "";
   document.getElementById("cloudModal").classList.remove("is-hidden");
-  updateCloudStatus(supabaseClient ? "Connected. You can load or save cloud data." : "Not connected. Paste SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY.");
+  updateCloudStatus("Checking Supabase connection...");
+  await initSupabaseClient();
+  updateCloudStatus(supabaseClient ? "Connected. You can load or save cloud data." : "Not connected. Check internet, upload latest files, then tap Save Connection.");
 }
 
 function closeCloudModal() {
@@ -230,7 +232,7 @@ function getSupabaseConfig() {
   return saved ? { ...DEFAULT_SUPABASE_CONFIG, ...JSON.parse(saved) } : DEFAULT_SUPABASE_CONFIG;
 }
 
-function saveCloudConfig() {
+async function saveCloudConfig() {
   const url = document.getElementById("supabaseUrl").value.trim();
   const anonKey = document.getElementById("supabaseAnonKey").value.trim();
   if (!url || !anonKey) {
@@ -238,17 +240,48 @@ function saveCloudConfig() {
     return;
   }
   localStorage.setItem(SUPABASE_CONFIG_KEY, JSON.stringify({ url, anonKey }));
-  initSupabaseClient();
-  updateCloudStatus(supabaseClient ? "Connected. Press Save To Cloud once." : "Could not connect. Check URL/key.");
+  updateCloudStatus("Connecting to Supabase...");
+  await initSupabaseClient();
+  updateCloudStatus(supabaseClient ? "Connected. Press Save To Cloud once." : "Could not connect. Check internet, URL and publishable key.");
 }
 
-function initSupabaseClient() {
+async function initSupabaseClient() {
   const config = getSupabaseConfig();
-  if (!config.url || !config.anonKey || !window.supabase?.createClient) {
+  if (!config.url || !config.anonKey) {
+    supabaseClient = null;
+    return;
+  }
+  if (!window.supabase?.createClient) {
+    await loadSupabaseSdk();
+  }
+  if (!window.supabase?.createClient) {
     supabaseClient = null;
     return;
   }
   supabaseClient = window.supabase.createClient(config.url, config.anonKey);
+}
+
+function loadSupabaseSdk() {
+  if (window.supabase?.createClient) return Promise.resolve();
+  return loadScriptOnce("supabase-js-sdk", "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2")
+    .catch(() => loadScriptOnce("supabase-js-sdk-fallback", "https://unpkg.com/@supabase/supabase-js@2"));
+}
+
+function loadScriptOnce(id, src) {
+  return new Promise((resolve, reject) => {
+    const existing = document.getElementById(id);
+    if (existing) {
+      existing.addEventListener("load", resolve, { once: true });
+      existing.addEventListener("error", reject, { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.id = id;
+    script.src = src;
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
 }
 
 function queueCloudSave() {
@@ -259,6 +292,9 @@ function queueCloudSave() {
 
 async function pushCloudState(showResult) {
   if (!supabaseClient) {
+    await initSupabaseClient();
+  }
+  if (!supabaseClient) {
     if (showResult) updateCloudStatus("Not connected. Save Supabase URL and publishable key first.");
     return;
   }
@@ -268,13 +304,16 @@ async function pushCloudState(showResult) {
     .upsert({ id: CLOUD_ROW_ID, payload, updated_at: new Date().toISOString() });
 
   if (error) {
-    updateCloudStatus(`Cloud save failed: ${error.message}`);
+    updateCloudStatus(`Cloud save failed: ${supabaseErrorHelp(error.message)}`);
     return;
   }
   updateCloudStatus(`Saved to cloud at ${new Date().toLocaleTimeString("en-IN")}.`);
 }
 
 async function pullCloudState() {
+  if (!supabaseClient) {
+    await initSupabaseClient();
+  }
   if (!supabaseClient) {
     updateCloudStatus("Not connected. Save Supabase URL and publishable key first.");
     return;
@@ -286,7 +325,7 @@ async function pullCloudState() {
     .maybeSingle();
 
   if (error) {
-    updateCloudStatus(`Cloud load failed: ${error.message}`);
+    updateCloudStatus(`Cloud load failed: ${supabaseErrorHelp(error.message)}`);
     return;
   }
   if (!data?.payload) {
@@ -303,6 +342,17 @@ async function pullCloudState() {
 function updateCloudStatus(message) {
   const status = document.getElementById("cloudStatus");
   if (status) status.textContent = message;
+}
+
+function supabaseErrorHelp(message) {
+  const text = String(message || "");
+  if (text.includes("hh_spaces_app_state") || text.toLowerCase().includes("relation")) {
+    return "Table not found. Run supabase-schema.sql in Supabase SQL Editor first.";
+  }
+  if (text.toLowerCase().includes("permission") || text.toLowerCase().includes("policy")) {
+    return "Permission blocked. Run the full supabase-schema.sql file again.";
+  }
+  return text;
 }
 
 function bindNavigation() {
