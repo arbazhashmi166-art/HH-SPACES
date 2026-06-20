@@ -54,6 +54,7 @@
           <button class="nav-item" data-view="progress" type="button">Work Progress</button>
           <button class="nav-item" data-view="diary" type="button">Site Diary</button>
           <button class="nav-item" data-view="updates" type="button">Daily Updates</button>
+          <button class="nav-item" data-view="tools" type="button">Tools</button>
           <button class="nav-item" data-view="settings" type="button">Settings</button>
         </nav>
 
@@ -125,11 +126,27 @@
           </section>
 
           <section class="quick-actions">
-            <h3>Quick Actions</h3>
+            <h3>All Modules</h3>
             <div class="quick-action-grid">
               <button class="quick-action nav-jump" data-view="capital" type="button">
                 <span class="quick-icon capital-icon"></span>
                 <b>Capital</b>
+              </button>
+              <button class="quick-action nav-jump" data-view="sites" type="button">
+                <span class="quick-icon site-icon"></span>
+                <b>Sites</b>
+              </button>
+              <button class="quick-action nav-jump" data-view="wages" type="button">
+                <span class="quick-icon labour-icon"></span>
+                <b>Labour</b>
+              </button>
+              <button class="quick-action nav-jump" data-view="materials" type="button">
+                <span class="quick-icon material-icon"></span>
+                <b>Materials</b>
+              </button>
+              <button class="quick-action nav-jump" data-view="expenses" type="button">
+                <span class="quick-icon expense-icon"></span>
+                <b>Expenses</b>
               </button>
               <button class="quick-action nav-jump" data-view="payments" type="button">
                 <span class="quick-icon payment-icon"></span>
@@ -139,6 +156,34 @@
                 <span class="quick-icon bill-icon"></span>
                 <b>Bills</b>
               </button>
+              <button class="quick-action nav-jump" data-view="measurements" type="button">
+                <span class="quick-icon measurement-icon"></span>
+                <b>MB</b>
+              </button>
+              <button class="quick-action nav-jump" data-view="boq" type="button">
+                <span class="quick-icon boq-icon"></span>
+                <b>BOQ</b>
+              </button>
+              <button class="quick-action nav-jump" data-view="schedule" type="button">
+                <span class="quick-icon schedule-icon"></span>
+                <b>Targets</b>
+              </button>
+              <button class="quick-action nav-jump" data-view="progress" type="button">
+                <span class="quick-icon progress-icon"></span>
+                <b>Progress</b>
+              </button>
+              <button class="quick-action nav-jump" data-view="diary" type="button">
+                <span class="quick-icon diary-icon"></span>
+                <b>Diary</b>
+              </button>
+              <button class="quick-action nav-jump" data-view="updates" type="button">
+                <span class="quick-icon updates-icon"></span>
+                <b>Updates</b>
+              </button>
+              <button class="quick-action nav-jump" data-view="extraWorks" type="button">
+                <span class="quick-icon extra-icon"></span>
+                <b>Extra</b>
+              </button>
               <button class="quick-action nav-jump" data-view="customerBills" type="button">
                 <span class="quick-icon customer-bill-icon"></span>
                 <b>Make Bill</b>
@@ -147,9 +192,13 @@
                 <span class="quick-icon rate-icon"></span>
                 <b>Rate List</b>
               </button>
-              <button class="quick-action nav-jump" data-view="sites" type="button">
-                <span class="quick-icon site-icon"></span>
-                <b>Sites</b>
+              <button class="quick-action nav-jump" data-view="tools" type="button">
+                <span class="quick-icon tools-icon"></span>
+                <b>Tools</b>
+              </button>
+              <button class="quick-action nav-jump" data-view="settings" type="button">
+                <span class="quick-icon settings-icon"></span>
+                <b>Settings</b>
               </button>
             </div>
           </section>
@@ -369,6 +418,10 @@
               <label>Bill no.<input name="billNo" required placeholder="HB-001"></label>
               <label>Site<select name="siteId" required></select></label>
               <label>Client<input name="client" placeholder="Client name"></label>
+              <label class="full">Client address<textarea name="clientAddress" placeholder="Client office / site address"></textarea></label>
+              <label>Client PAN<input name="clientPan" placeholder="Client PAN"></label>
+              <label>Client GST No.<input name="clientGst" placeholder="Client GSTIN"></label>
+              <label>Client email<input name="clientEmail" type="email" placeholder="client@email.com"></label>
               <label>Work / item<input name="work" required placeholder="Plaster work, tiles, extra work"></label>
               <label>Unit<input name="unit" required placeholder="sq ft, day, item"></label>
               <label>Quantity<input name="quantity" type="number" min="0" step="0.01" value="1" required></label>
@@ -388,7 +441,7 @@
           </section>
           <section class="panel">
             <div class="panel-header"><h3>Customer Bills</h3></div>
-            <div class="table-wrap"><table><thead><tr><th>Date</th><th>Bill</th><th>Site</th><th>Client</th><th>Work</th><th>Qty</th><th>Rate</th><th>Total</th><th>Status</th><th></th></tr></thead><tbody id="customerBillRows"></tbody></table></div>
+            <div class="table-wrap"><table><thead><tr><th>Date</th><th>Bill</th><th>Site</th><th>Client</th><th>Work</th><th>Qty</th><th>Rate</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead><tbody id="customerBillRows"></tbody></table></div>
           </section>
         </section>
 
@@ -659,17 +712,403 @@
           </section>
         </section>
 
+        <section class="view" id="tools">
+          <section class="panel">
+            <div class="panel-header"><h3>Construction Calculators</h3></div>
+            <div class="tool-grid">
+              <article class="tool-card calc-card" data-calculator="brick">
+                <h4>Brick Calculator</h4>
+                <div class="tool-fields">
+                  <label>Wall length ft<input data-calc="wallLength" type="number" min="0" step="0.01"></label>
+                  <label>Height ft<input data-calc="wallHeight" type="number" min="0" step="0.01"></label>
+                  <label>Thickness inch<input data-calc="wallThickness" type="number" min="0" step="0.01" value="4.5"></label>
+                </div>
+                <output id="brickResult">Enter wall size.</output>
+              </article>
+              <article class="tool-card calc-card" data-calculator="plaster">
+                <h4>Plaster Calculator</h4>
+                <div class="tool-fields">
+                  <label>Wall area sqft<input data-calc="plasterArea" type="number" min="0" step="0.01"></label>
+                  <label>Thickness mm<input data-calc="plasterThickness" type="number" min="0" step="0.01" value="12"></label>
+                </div>
+                <output id="plasterResult">Enter plaster area.</output>
+              </article>
+              <article class="tool-card calc-card" data-calculator="pop">
+                <h4>POP Calculator</h4>
+                <div class="tool-fields">
+                  <label>Area sqft<input data-calc="popArea" type="number" min="0" step="0.01"></label>
+                  <label>Labour / sqft<input data-calc="popLabour" type="number" min="0" step="0.01"></label>
+                  <label>Material / sqft<input data-calc="popMaterial" type="number" min="0" step="0.01"></label>
+                </div>
+                <output id="popResult">Enter POP area and rates.</output>
+              </article>
+              <article class="tool-card calc-card" data-calculator="tile">
+                <h4>Tile Calculator</h4>
+                <div class="tool-fields">
+                  <label>Area sqft<input data-calc="tileArea" type="number" min="0" step="0.01"></label>
+                  <label>Tile size<select data-calc="tileSize"><option value="1">1x1</option><option value="4">2x2</option><option value="8">4x2</option></select></label>
+                  <label>Wastage %<input data-calc="tileWastage" type="number" min="0" step="0.01" value="10"></label>
+                </div>
+                <output id="tileResult">Enter tile area.</output>
+              </article>
+              <article class="tool-card calc-card" data-calculator="paint">
+                <h4>Paint Calculator</h4>
+                <div class="tool-fields">
+                  <label>Wall area sqft<input data-calc="paintArea" type="number" min="0" step="0.01"></label>
+                </div>
+                <output id="paintResult">Enter wall area.</output>
+              </article>
+              <article class="tool-card calc-card" data-calculator="rcc">
+                <h4>RCC Calculator</h4>
+                <div class="tool-fields">
+                  <label>Slab area sqft<input data-calc="rccArea" type="number" min="0" step="0.01"></label>
+                  <label>Thickness inch<input data-calc="rccThickness" type="number" min="0" step="0.01" value="5"></label>
+                </div>
+                <output id="rccResult">Enter slab details.</output>
+              </article>
+              <article class="tool-card calc-card" data-calculator="waterproofing">
+                <h4>Waterproofing Calculator</h4>
+                <div class="tool-fields">
+                  <label>Terrace area sqft<input data-calc="waterproofArea" type="number" min="0" step="0.01"></label>
+                  <label>Brick bat thickness inch<input data-calc="waterproofThickness" type="number" min="0" step="0.01" value="3"></label>
+                  <label>Slope %<input data-calc="waterproofSlope" type="number" min="0" step="0.01" value="1"></label>
+                </div>
+                <output id="waterproofResult">Enter terrace area.</output>
+              </article>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header"><h3>Electrical Tools</h3></div>
+            <div class="tool-grid">
+              <article class="tool-card calc-card" data-calculator="points">
+                <h4>Point Calculator</h4>
+                <div class="tool-fields">
+                  <label>Light points<input data-calc="lightPoints" type="number" min="0" step="1"></label>
+                  <label>Fan points<input data-calc="fanPoints" type="number" min="0" step="1"></label>
+                  <label>Power points<input data-calc="powerPoints" type="number" min="0" step="1"></label>
+                  <label>Rate / point<input data-calc="pointRate" type="number" min="0" step="1" value="650"></label>
+                </div>
+                <output id="pointsResult">Enter electrical points.</output>
+              </article>
+              <article class="tool-card calc-card" data-calculator="wire">
+                <h4>Wire Calculator</h4>
+                <div class="tool-fields">
+                  <label>House area sqft<input data-calc="houseArea" type="number" min="0" step="0.01"></label>
+                  <label>Number of points<input data-calc="wirePoints" type="number" min="0" step="1"></label>
+                </div>
+                <output id="wireResult">Enter house area and points.</output>
+              </article>
+              <article class="tool-card calc-card" data-calculator="load">
+                <h4>Load Calculator</h4>
+                <div class="tool-fields">
+                  <label>Total load watts<input data-calc="connectedLoad" type="number" min="0" step="1"></label>
+                </div>
+                <output id="loadResult">Enter connected load.</output>
+              </article>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header"><h3>Rate, Profit & Transport</h3></div>
+            <div class="tool-grid">
+              <article class="tool-card calc-card" data-calculator="rateAnalysis">
+                <h4>Rate Analysis</h4>
+                <div class="tool-fields">
+                  <label>Labour rate<input data-calc="analysisLabour" type="number" min="0" step="0.01"></label>
+                  <label>Material rate<input data-calc="analysisMaterial" type="number" min="0" step="0.01"></label>
+                  <label>Quantity<input data-calc="analysisQty" type="number" min="0" step="0.01" value="1"></label>
+                  <label>Profit %<input data-calc="analysisProfit" type="number" min="0" step="0.01" value="20"></label>
+                </div>
+                <output id="rateAnalysisResult">Enter rates.</output>
+              </article>
+              <article class="tool-card calc-card" data-calculator="profit">
+                <h4>Profit Calculator</h4>
+                <div class="tool-fields">
+                  <label>Area / quantity<input data-calc="profitQty" type="number" min="0" step="0.01"></label>
+                  <label>Labour / unit<input data-calc="profitLabour" type="number" min="0" step="0.01"></label>
+                  <label>Material / unit<input data-calc="profitMaterial" type="number" min="0" step="0.01"></label>
+                  <label>Quoted / unit<input data-calc="profitQuoted" type="number" min="0" step="0.01"></label>
+                </div>
+                <output id="profitResult">Enter work quantity and rates.</output>
+              </article>
+              <article class="tool-card calc-card" data-calculator="transport">
+                <h4>Material Transport</h4>
+                <div class="tool-fields">
+                  <label>Material type<input data-calc="transportMaterial" placeholder="Cement, sand"></label>
+                  <label>Distance km<input data-calc="transportDistance" type="number" min="0" step="0.01"></label>
+                  <label>Vehicle charge / km<input data-calc="vehicleRate" type="number" min="0" step="1" value="45"></label>
+                  <label>Unloading charges<input data-calc="unloadingCharges" type="number" min="0" step="1"></label>
+                  <label>Labour required<input data-calc="transportLabour" type="number" min="0" step="1"></label>
+                </div>
+                <output id="transportResult">Enter transport details.</output>
+              </article>
+            </div>
+          </section>
+
+          <section class="form-panel">
+            <h3>Labour Wage Calendar</h3>
+            <form id="wageCalendarForm" class="entry-form">
+              <label>Month<input name="month" type="month" required></label>
+              <label>Site<select name="siteId"></select></label>
+              <label>Labour name<input name="name" required placeholder="Worker name"></label>
+              <label>Daily wage<input name="dailyWage" type="number" min="0" step="1" required></label>
+              <label class="full">Attendance codes<textarea name="attendance" required placeholder="P,P,H,A,PP,P..."></textarea></label>
+              <button class="primary-btn" type="submit">Save Wage Month</button>
+            </form>
+          </section>
+          <section class="panel">
+            <div class="panel-header"><h3>Wage Calendar Records</h3></div>
+            <div class="table-wrap"><table><thead><tr><th>Month</th><th>Site</th><th>Name</th><th>P</th><th>H</th><th>PP</th><th>A</th><th>Total Wage</th><th></th></tr></thead><tbody id="wageCalendarRows"></tbody></table></div>
+          </section>
+
+          <section class="form-panel">
+            <h3>Site Measurement Tool</h3>
+            <form id="siteMeasurementToolForm" class="entry-form wide">
+              <label>Date<input name="date" type="date" required></label>
+              <label>Site<select name="siteId"></select></label>
+              <label>Work area<input name="area" placeholder="Kitchen, terrace, room"></label>
+              <label>Length<input name="length" type="number" min="0" step="0.01"></label>
+              <label>Width<input name="width" type="number" min="0" step="0.01"></label>
+              <label>Height<input name="height" type="number" min="0" step="0.01"></label>
+              <label class="full">Photo<input name="photo" type="file" accept="image/*"></label>
+              <label class="full">Notes<textarea name="notes" placeholder="Dimension notes"></textarea></label>
+              <button class="primary-btn" type="submit">Save Measurement</button>
+            </form>
+          </section>
+          <section class="panel">
+            <div class="panel-header"><h3>Measurement Records</h3></div>
+            <div class="activity-list full-list" id="siteMeasurementToolRows"></div>
+          </section>
+
+          <section class="form-panel">
+            <h3>Equipment / Tools Management</h3>
+            <form id="equipmentForm" class="entry-form wide">
+              <label>Tool name<input name="toolName" required placeholder="Laser meter, drill machine"></label>
+              <label>Quantity<input name="quantity" type="number" min="0" step="1" required></label>
+              <label>Purchase date<input name="purchaseDate" type="date"></label>
+              <label>Cost<input name="cost" type="number" min="0" step="1"></label>
+              <label>Assigned to<input name="assignedTo" placeholder="Person name"></label>
+              <label>Current site<select name="siteId"></select></label>
+              <label>Status<select name="status"><option>Available</option><option>In Use</option><option>Under Repair</option><option>Lost</option></select></label>
+              <button class="primary-btn" type="submit">Save Tool</button>
+            </form>
+          </section>
+          <section class="panel">
+            <div class="panel-header"><h3>Tool Register</h3></div>
+            <div class="table-wrap"><table><thead><tr><th>Tool</th><th>Qty</th><th>Purchase</th><th>Cost</th><th>Assigned</th><th>Site</th><th>Status</th><th></th></tr></thead><tbody id="equipmentRows"></tbody></table></div>
+          </section>
+
+          <section class="form-panel">
+            <h3>Quotation Generator</h3>
+            <form id="quotationForm" class="entry-form wide">
+              <label>Date<input name="date" type="date" required></label>
+              <label>Quotation no.<input name="quoteNo" required placeholder="QT-001"></label>
+              <label>Client<input name="client" required placeholder="Client name"></label>
+              <label>Work type<input name="workType" required placeholder="POP, waterproofing, tile"></label>
+              <label>Area / quantity<input name="area" type="number" min="0" step="0.01" required></label>
+              <label>Unit<input name="unit" placeholder="sqft, RFT, Nos" value="sqft"></label>
+              <label>Labour rate<input name="labourRate" type="number" min="0" step="0.01" required></label>
+              <label>Material rate<input name="materialRate" type="number" min="0" step="0.01" required></label>
+              <label>Profit %<input name="profitPercent" type="number" min="0" step="0.01" value="20"></label>
+              <label>GST %<input name="gstPercent" type="number" min="0" step="0.01" value="18"></label>
+              <label class="full">Terms<textarea name="terms" placeholder="Payment terms, exclusions, validity"></textarea></label>
+              <button class="primary-btn" type="submit">Save Quotation</button>
+            </form>
+          </section>
+          <section class="panel">
+            <div class="panel-header"><h3>Quotations</h3></div>
+            <div class="table-wrap"><table><thead><tr><th>Date</th><th>Quote</th><th>Client</th><th>Work</th><th>Area</th><th>Total</th><th>Actions</th></tr></thead><tbody id="quotationRows"></tbody></table></div>
+          </section>
+        </section>
+
         <section class="view" id="settings">
           <section class="form-panel">
-            <h3>Company & Report Settings</h3>
+            <h3>App Settings</h3>
             <form id="settingsForm" class="entry-form wide">
+              <div class="settings-section full-row">
+                <h4>Company Settings</h4>
+              </div>
               <label>Company name<input name="companyName" placeholder="H&H SPACES"></label>
-              <label>GST number<input name="gstNumber" placeholder="GSTIN"></label>
-              <label>Phone<input name="phone" placeholder="Company phone"></label>
               <label>Logo upload<input name="logo" type="file" accept="image/*"></label>
+              <label>GST number<input name="gstNumber" placeholder="GSTIN"></label>
+              <label>PAN number<input name="panNumber" placeholder="Company PAN"></label>
               <label class="full">Address<textarea name="address" placeholder="Company address"></textarea></label>
+              <label>Phone number<input name="phone" placeholder="Company phone"></label>
+              <label>Email<input name="email" type="email" placeholder="company@email.com"></label>
+              <label class="full">Bank details<textarea name="bankDetails" placeholder="Bank name, account number, IFSC, branch"></textarea></label>
+              <label>UPI ID<input name="upiId" placeholder="name@upi"></label>
+
+              <div class="settings-section full-row">
+                <h4>Labour Settings</h4>
+              </div>
+              <label>Default mason rate<input name="defaultMasonRate" type="number" min="0" step="1" placeholder="0"></label>
+              <label>Default helper rate<input name="defaultHelperRate" type="number" min="0" step="1" placeholder="0"></label>
+              <label>Default electrician rate<input name="defaultElectricianRate" type="number" min="0" step="1" placeholder="0"></label>
+              <label>Default painter rate<input name="defaultPainterRate" type="number" min="0" step="1" placeholder="0"></label>
+              <label>Default POP rate<input name="defaultPopRate" type="number" min="0" step="1" placeholder="0"></label>
+              <label>OT rate calculation<input name="otRateCalculation" placeholder="Example: daily rate / 8 x OT hours"></label>
+              <label class="full">Half-day rules<textarea name="halfDayRules" placeholder="Example: half day = 50% wage, less than 4 hours"></textarea></label>
+
+              <div class="settings-section full-row">
+                <h4>Material Settings</h4>
+              </div>
+              <label class="full">Default material categories<textarea name="materialCategories" placeholder="Cement, Sand, Steel, Tiles, Paint"></textarea></label>
+              <label class="full">Units<textarea name="materialUnits" placeholder="Bag, Kg, Ton, Sqft, RFT, Nos"></textarea></label>
+              <label>Low stock alert quantity<input name="lowStockAlertQuantity" type="number" min="0" step="1" placeholder="10"></label>
+              <label class="full">Preferred suppliers<textarea name="preferredSuppliers" placeholder="Supplier name, phone, material"></textarea></label>
+
+              <div class="settings-section full-row">
+                <h4>Billing Settings</h4>
+              </div>
+              <label>Invoice prefix<input name="invoicePrefix" placeholder="HE/2026/001"></label>
+              <label>GST %<input name="billingGstPercent" type="number" min="0" step="0.01" placeholder="18"></label>
+              <label>TDS %<input name="billingTdsPercent" type="number" min="0" step="0.01" placeholder="1"></label>
+              <label>Payment terms<input name="paymentTerms" placeholder="Due in 7 days"></label>
+              <label>Auto invoice numbering
+                <select name="autoInvoiceNumbering">
+                  <option value="">Select</option>
+                  <option>On</option>
+                  <option>Off</option>
+                </select>
+              </label>
+
+              <div class="settings-section full-row">
+                <h4>Measurement Settings</h4>
+              </div>
+              <label>Sqft default<input name="sqftDefault" placeholder="Sqft"></label>
+              <label>RFT default<input name="rftDefault" placeholder="RFT"></label>
+              <label class="full">Tile box calculation formula<textarea name="tileBoxFormula" placeholder="Example: total sqft / sqft per box"></textarea></label>
+              <label class="full">Cement consumption formula<textarea name="cementFormula" placeholder="Example: plaster sqft / coverage per bag"></textarea></label>
+              <label class="full">POP consumption formula<textarea name="popFormula" placeholder="Example: POP sqft / coverage per bag"></textarea></label>
+
+              <div class="settings-section full-row">
+                <h4>Notification Settings</h4>
+              </div>
+              <label>Labour payment reminders
+                <select name="labourPaymentReminders">
+                  <option value="">Select</option>
+                  <option>On</option>
+                  <option>Off</option>
+                </select>
+              </label>
+              <label>Client payment due alerts
+                <select name="clientPaymentDueAlerts">
+                  <option value="">Select</option>
+                  <option>On</option>
+                  <option>Off</option>
+                </select>
+              </label>
+              <label>Material reorder alerts
+                <select name="materialReorderAlerts">
+                  <option value="">Select</option>
+                  <option>On</option>
+                  <option>Off</option>
+                </select>
+              </label>
+              <label>Daily site report reminder<input name="dailySiteReportReminder" type="time"></label>
+
+              <div class="settings-section full-row">
+                <h4>User Management & Permissions</h4>
+              </div>
+              <label>Admin<input name="adminUser" placeholder="Admin name"></label>
+              <label>Site engineer<input name="siteEngineerUser" placeholder="Engineer name"></label>
+              <label>Supervisor<input name="supervisorUser" placeholder="Supervisor name"></label>
+              <label>Accountant<input name="accountantUser" placeholder="Accountant name"></label>
+              <label>Labour contractor<input name="labourContractorUser" placeholder="Contractor name"></label>
+              <label class="full">Permissions<textarea name="permissions" placeholder="View Only, Add Entries, Edit Entries, Delete Entries"></textarea></label>
+
+              <div class="settings-section full-row">
+                <h4>Backup & Sync</h4>
+              </div>
+              <label>Google Drive backup
+                <select name="googleDriveBackup">
+                  <option value="">Select</option>
+                  <option>Manual export to Drive</option>
+                  <option>Not using</option>
+                </select>
+              </label>
+              <label>Auto daily backup
+                <select name="autoDailyBackup">
+                  <option value="">Select</option>
+                  <option>On</option>
+                  <option>Off</option>
+                </select>
+              </label>
+              <div class="settings-actions full-row">
+                <button class="secondary-light-btn" id="oneClickBackup" type="button">One-click Daily Backup</button>
+                <button class="secondary-light-btn" id="openSupabaseFromSettings" type="button">Supabase Sync</button>
+                <button class="secondary-light-btn" id="exportDatabase" type="button">Export Database</button>
+                <label class="restore-label">Restore Database<input id="restoreDatabaseFile" type="file" accept="application/json,.json"></label>
+              </div>
+
+              <div class="settings-section full-row">
+                <h4>Report Settings</h4>
+              </div>
+              <label>Company logo on PDF
+                <select name="companyLogoOnPdf">
+                  <option value="">Select</option>
+                  <option>Show</option>
+                  <option>Hide</option>
+                </select>
+              </label>
+              <label>Signature upload<input name="signature" type="file" accept="image/*"></label>
+              <label>Watermark<input name="watermark" placeholder="H&H SPACES"></label>
               <label>PDF header<input name="pdfHeader" placeholder="Report header text"></label>
               <label>PDF footer<input name="pdfFooter" placeholder="Report footer text"></label>
+              <label>Report format
+                <select name="reportFormat">
+                  <option value="">Select</option>
+                  <option>Professional</option>
+                  <option>Compact</option>
+                  <option>Detailed</option>
+                </select>
+              </label>
+
+              <div class="settings-section full-row">
+                <h4>Theme Settings</h4>
+              </div>
+              <label>Theme mode
+                <select name="themeMode">
+                  <option value="">Select</option>
+                  <option>Light Mode</option>
+                  <option>Dark Mode</option>
+                  <option>System Theme</option>
+                </select>
+              </label>
+              <label>Accent color<input name="accentColor" type="color" value="#4f46e5"></label>
+
+              <div class="settings-section full-row">
+                <h4>Quick Entry Settings</h4>
+              </div>
+              <label class="full">Frequently used materials<textarea name="frequentMaterials" placeholder="Cement, sand, steel, tiles"></textarea></label>
+              <label class="full">Frequently used labour types<textarea name="frequentLabourTypes" placeholder="Mason, helper, electrician, painter"></textarea></label>
+              <label class="full">Favourite suppliers<textarea name="favouriteSuppliers" placeholder="Supplier names and phone numbers"></textarea></label>
+              <label class="full">Favourite clients<textarea name="favouriteClients" placeholder="Client names and phone numbers"></textarea></label>
+
+              <div class="settings-section full-row">
+                <h4>Vehicle & Fuel Settings</h4>
+              </div>
+              <label>Vehicle name<input name="vehicleName" placeholder="Vehicle name / number"></label>
+              <label class="full">Fuel entries<textarea name="fuelEntries" placeholder="Date, liters, amount, vehicle"></textarea></label>
+              <label>Mileage tracking<input name="mileageTracking" placeholder="Example: km/liter"></label>
+              <label>Service reminders<input name="serviceReminders" placeholder="Next service date or km"></label>
+              <label class="full">Driver details<textarea name="driverDetails" placeholder="Driver name, phone, license"></textarea></label>
+
+              <div class="settings-section full-row">
+                <h4>WhatsApp Settings</h4>
+              </div>
+              <label>Client WhatsApp number<input name="clientWhatsapp" placeholder="+91..."></label>
+              <label>Supplier WhatsApp number<input name="supplierWhatsapp" placeholder="+91..."></label>
+              <label>Labour contractor number<input name="labourContractorWhatsapp" placeholder="+91..."></label>
+              <label>One-click report sharing
+                <select name="whatsappReportSharing">
+                  <option value="">Select</option>
+                  <option>On</option>
+                  <option>Off</option>
+                </select>
+              </label>
+
               <button class="primary-btn" type="submit">Save Settings</button>
             </form>
           </section>

@@ -39,12 +39,14 @@ const views = {
   schedule: "Schedule & Targets",
   progress: "Work Progress",
   diary: "Site Diary",
+  tools: "Tools",
   settings: "Settings",
   updates: "Daily Updates"
 };
 
 document.addEventListener("DOMContentLoaded", () => {
   applyTheme();
+  applySettingsPreferences();
   document.querySelectorAll('input[type="date"]').forEach((input) => {
     input.value = today;
   });
@@ -55,6 +57,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindNavigation();
   bindSearch();
   bindForms();
+  bindToolCalculators();
   bindActions();
   bindCloudSync();
   initSupabaseClient();
@@ -142,6 +145,12 @@ function loadState() {
     schedule: [],
     progress: [],
     diary: [],
+    tools: {
+      wageCalendar: [],
+      measurements: [],
+      equipment: [],
+      quotations: []
+    },
     settings: {},
     updates: []
   });
@@ -164,8 +173,18 @@ function normalizeState(data) {
     schedule: Array.isArray(data.schedule) ? data.schedule : [],
     progress: Array.isArray(data.progress) ? data.progress : [],
     diary: Array.isArray(data.diary) ? data.diary : [],
+    tools: normalizeTools(data.tools),
     settings: typeof data.settings === "object" && data.settings ? data.settings : {},
     updates: Array.isArray(data.updates) ? data.updates : []
+  };
+}
+
+function normalizeTools(tools) {
+  return {
+    wageCalendar: Array.isArray(tools?.wageCalendar) ? tools.wageCalendar : [],
+    measurements: Array.isArray(tools?.measurements) ? tools.measurements : [],
+    equipment: Array.isArray(tools?.equipment) ? tools.equipment : [],
+    quotations: Array.isArray(tools?.quotations) ? tools.quotations : []
   };
 }
 
@@ -363,6 +382,10 @@ function bindForms() {
       billNo: data.billNo,
       siteId: data.siteId,
       client: data.client || site.client || "",
+      clientAddress: data.clientAddress,
+      clientPan: data.clientPan,
+      clientGst: data.clientGst,
+      clientEmail: data.clientEmail,
       work: data.work,
       unit: data.unit,
       quantity,
@@ -544,15 +567,16 @@ function bindForms() {
 
   bindForm("settingsForm", async (data, form) => {
     const logoFile = form.elements.logo?.files?.[0];
-    state.settings = {
-      companyName: data.companyName,
-      gstNumber: data.gstNumber,
-      phone: data.phone,
-      address: data.address,
-      pdfHeader: data.pdfHeader,
-      pdfFooter: data.pdfFooter,
-      logo: logoFile ? await fileToDataUrl(logoFile) : state.settings.logo || ""
-    };
+    const signatureFile = form.elements.signature?.files?.[0];
+    const nextSettings = { ...(state.settings || {}) };
+    Array.from(form.elements).forEach((element) => {
+      if (!element.name || element.type === "file" || element.type === "submit") return;
+      nextSettings[element.name] = element.value;
+    });
+    nextSettings.logo = logoFile ? await fileToDataUrl(logoFile) : state.settings.logo || "";
+    nextSettings.signature = signatureFile ? await fileToDataUrl(signatureFile) : state.settings.signature || "";
+    state.settings = nextSettings;
+    applySettingsPreferences();
   });
 
   bindForm("updateForm", async (data, form) => {
@@ -568,13 +592,90 @@ function bindForms() {
       photos: await filesToDataUrls(photoFiles)
     });
   });
+
+  bindForm("wageCalendarForm", (data) => {
+    const summary = wageCalendarSummary(data.attendance, number(data.dailyWage));
+    state.tools.wageCalendar.push({
+      id: makeId(),
+      month: data.month,
+      siteId: data.siteId,
+      name: data.name,
+      dailyWage: number(data.dailyWage),
+      attendance: data.attendance,
+      ...summary
+    });
+  });
+
+  bindForm("siteMeasurementToolForm", async (data, form) => {
+    const photoFile = form.elements.photo?.files?.[0];
+    const length = number(data.length);
+    const width = number(data.width);
+    const height = number(data.height);
+    state.tools.measurements.push({
+      id: makeId(),
+      date: data.date,
+      siteId: data.siteId,
+      area: data.area,
+      length,
+      width,
+      height,
+      sqft: length && width ? length * width : 0,
+      cft: length && width && height ? length * width * height : 0,
+      notes: data.notes,
+      photo: photoFile ? await fileToDataUrl(photoFile) : ""
+    });
+  });
+
+  bindForm("equipmentForm", (data) => {
+    state.tools.equipment.push({
+      id: makeId(),
+      toolName: data.toolName,
+      quantity: number(data.quantity),
+      purchaseDate: data.purchaseDate,
+      cost: number(data.cost),
+      assignedTo: data.assignedTo,
+      siteId: data.siteId,
+      status: data.status
+    });
+  });
+
+  bindForm("quotationForm", (data) => {
+    const area = number(data.area);
+    const labourRate = number(data.labourRate);
+    const materialRate = number(data.materialRate);
+    const profitPercent = number(data.profitPercent);
+    const gstPercent = number(data.gstPercent);
+    const baseCost = area * (labourRate + materialRate);
+    const profit = baseCost * (profitPercent / 100);
+    const beforeGst = baseCost + profit;
+    const gst = beforeGst * (gstPercent / 100);
+    state.tools.quotations.push({
+      id: makeId(),
+      date: data.date,
+      quoteNo: data.quoteNo,
+      client: data.client,
+      workType: data.workType,
+      area,
+      unit: data.unit,
+      labourRate,
+      materialRate,
+      profitPercent,
+      gstPercent,
+      baseCost,
+      profit,
+      gst,
+      total: beforeGst + gst,
+      terms: data.terms
+    });
+  });
 }
 
 function bindForm(formId, onSubmit) {
   const form = document.getElementById(formId);
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (!state.sites.length && !["siteForm", "capitalForm", "rateListForm", "settingsForm"].includes(formId)) {
+    const siteOptionalForms = ["siteForm", "capitalForm", "rateListForm", "settingsForm", "wageCalendarForm", "siteMeasurementToolForm", "equipmentForm", "quotationForm"];
+    if (!state.sites.length && !siteOptionalForms.includes(formId)) {
       alert("Add at least one site first.");
       return;
     }
@@ -590,6 +691,78 @@ function bindForm(formId, onSubmit) {
     if (days) days.value = 1;
     render();
   });
+}
+
+function bindToolCalculators() {
+  document.querySelectorAll("[data-calculator] input, [data-calculator] select").forEach((input) => {
+    input.addEventListener("input", renderToolCalculators);
+    input.addEventListener("change", renderToolCalculators);
+  });
+  renderToolCalculators();
+}
+
+function renderToolCalculators() {
+  const v = (key) => number(document.querySelector(`[data-calc="${key}"]`)?.value);
+  const text = (key) => document.querySelector(`[data-calc="${key}"]`)?.value || "";
+  const set = (id, value) => {
+    const output = document.getElementById(id);
+    if (output) output.innerHTML = value;
+  };
+
+  const wallLength = v("wallLength");
+  const wallHeight = v("wallHeight");
+  const wallThickness = v("wallThickness");
+  const brickVolume = wallLength * wallHeight * (wallThickness / 12);
+  const brickQty = Math.ceil(brickVolume * 13.5);
+  set("brickResult", brickVolume ? `Bricks: <b>${brickQty}</b><br>Cement: <b>${round(brickQty / 500, 2)} bags</b><br>Sand: <b>${round(brickVolume * 0.35, 2)} cft</b>` : "Enter wall size.");
+
+  const plasterArea = v("plasterArea");
+  const plasterThickness = v("plasterThickness");
+  const plasterVolume = plasterArea * (plasterThickness / 304.8);
+  set("plasterResult", plasterArea ? `Cement: <b>${round(plasterVolume * 0.18, 2)} bags</b><br>Sand: <b>${round(plasterVolume * 1.2, 2)} cft</b>` : "Enter plaster area.");
+
+  const popArea = v("popArea");
+  set("popResult", popArea ? `POP bags: <b>${Math.ceil(popArea / 45)}</b><br>Labour: <b>${formatMoney(popArea * v("popLabour"))}</b><br>Material: <b>${formatMoney(popArea * v("popMaterial"))}</b>` : "Enter POP area and rates.");
+
+  const tileArea = v("tileArea");
+  const tileSize = v("tileSize") || 1;
+  const tileAreaWithWaste = tileArea * (1 + v("tileWastage") / 100);
+  set("tileResult", tileArea ? `Tiles: <b>${Math.ceil(tileAreaWithWaste / tileSize)}</b><br>Boxes: <b>${Math.ceil(tileAreaWithWaste / (tileSize * 4))}</b><br>Area with wastage: <b>${round(tileAreaWithWaste, 2)} sqft</b>` : "Enter tile area.");
+
+  const paintArea = v("paintArea");
+  set("paintResult", paintArea ? `Primer: <b>${round(paintArea / 100, 2)} L</b><br>Putty: <b>${round(paintArea / 18, 2)} kg</b><br>Paint: <b>${round((paintArea * 2) / 120, 2)} L</b>` : "Enter wall area.");
+
+  const rccArea = v("rccArea");
+  const rccVolume = rccArea * (v("rccThickness") / 12);
+  set("rccResult", rccArea ? `Concrete: <b>${round(rccVolume, 2)} cft</b><br>Cement: <b>${round(rccVolume / 5.5, 2)} bags</b><br>Sand: <b>${round(rccVolume * 0.42, 2)} cft</b><br>Aggregate: <b>${round(rccVolume * 0.84, 2)} cft</b>` : "Enter slab details.");
+
+  const waterproofArea = v("waterproofArea");
+  const waterproofVolume = waterproofArea * (v("waterproofThickness") / 12);
+  set("waterproofResult", waterproofArea ? `Brick bat: <b>${Math.ceil(waterproofVolume * 13.5)} bricks</b><br>Cement: <b>${round(waterproofArea / 90, 2)} bags</b><br>Chemical: <b>${round(waterproofArea / 100, 2)} L</b><br>Slope: <b>${round(v("waterproofSlope"), 2)}%</b>` : "Enter terrace area.");
+
+  const pointTotal = v("lightPoints") + v("fanPoints") + v("powerPoints");
+  set("pointsResult", pointTotal ? `Total points: <b>${pointTotal}</b><br>Quotation: <b>${formatMoney(pointTotal * v("pointRate"))}</b>` : "Enter electrical points.");
+
+  const wireLength = (v("houseArea") * 1.8) + (v("wirePoints") * 18);
+  set("wireResult", wireLength ? `Approx wire length: <b>${Math.ceil(wireLength)} meter</b>` : "Enter house area and points.");
+
+  const loadKw = v("connectedLoad") / 1000;
+  const mcb = loadKw <= 2 ? "16A" : loadKw <= 4 ? "25A" : loadKw <= 7 ? "32A" : "63A";
+  const cable = loadKw <= 2 ? "2.5 sqmm" : loadKw <= 4 ? "4 sqmm" : loadKw <= 7 ? "6 sqmm" : "10 sqmm";
+  set("loadResult", loadKw ? `Load: <b>${round(loadKw, 2)} kW</b><br>Recommended MCB: <b>${mcb}</b><br>Cable size: <b>${cable}</b>` : "Enter connected load.");
+
+  const analysisQty = v("analysisQty") || 1;
+  const analysisCost = (v("analysisLabour") + v("analysisMaterial")) * analysisQty;
+  const quotationRate = analysisQty ? (analysisCost * (1 + v("analysisProfit") / 100)) / analysisQty : 0;
+  set("rateAnalysisResult", analysisCost ? `Cost/unit: <b>${formatMoney(analysisCost / analysisQty)}</b><br>Profit margin: <b>${round(v("analysisProfit"), 2)}%</b><br>Quotation rate: <b>${formatMoney(quotationRate)}</b>` : "Enter rates.");
+
+  const profitQty = v("profitQty");
+  const totalCost = profitQty * (v("profitLabour") + v("profitMaterial"));
+  const totalRevenue = profitQty * v("profitQuoted");
+  set("profitResult", profitQty ? `Total cost: <b>${formatMoney(totalCost)}</b><br>Total revenue: <b>${formatMoney(totalRevenue)}</b><br>Net profit: <b>${formatMoney(totalRevenue - totalCost)}</b>` : "Enter work quantity and rates.");
+
+  const transportCost = (v("transportDistance") * v("vehicleRate")) + v("unloadingCharges");
+  set("transportResult", transportCost ? `Material: <b>${escapeHtml(text("transportMaterial") || "-")}</b><br>Transport cost: <b>${formatMoney(transportCost)}</b><br>Labour required: <b>${v("transportLabour")}</b>` : "Enter transport details.");
 }
 
 function bindActions() {
@@ -613,14 +786,42 @@ function bindActions() {
     }
   });
 
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-print-bill]");
+    if (!button) return;
+    openCustomerBillPreview(button.dataset.printBill);
+  });
+
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-delete-tool]");
+    if (!button) return;
+    const [collection, id] = button.dataset.deleteTool.split(":");
+    state.tools[collection] = state.tools[collection].filter((item) => item.id !== id);
+    saveState();
+    render();
+  });
+
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-print-quote]");
+    if (!button) return;
+    openQuotationPreview(button.dataset.printQuote);
+  });
+
   document.getElementById("resetDemo").addEventListener("click", () => {
     if (!confirm("Clear all saved data from this browser?")) return;
     Object.keys(state).forEach((key) => {
-      state[key] = [];
+      if (key === "settings") state[key] = {};
+      else if (key === "tools") state[key] = normalizeTools({});
+      else state[key] = [];
     });
     saveState();
     render();
   });
+
+  document.getElementById("oneClickBackup")?.addEventListener("click", () => exportDatabase("daily-backup"));
+  document.getElementById("exportDatabase")?.addEventListener("click", () => exportDatabase("database"));
+  document.getElementById("openSupabaseFromSettings")?.addEventListener("click", openCloudModal);
+  document.getElementById("restoreDatabaseFile")?.addEventListener("change", restoreDatabase);
 
   document.getElementById("exportCsv").addEventListener("click", exportCsv);
   document.getElementById("exportWord").addEventListener("click", exportWordReport);
@@ -631,11 +832,62 @@ function bindActions() {
   document.getElementById("themeToggle").addEventListener("click", toggleTheme);
 }
 
+function exportDatabase(type = "database") {
+  const dateStamp = new Date().toISOString().slice(0, 10);
+  const payload = {
+    app: "H&H SPACES",
+    exportedAt: new Date().toISOString(),
+    data: state
+  };
+  downloadFile(JSON.stringify(payload, null, 2), `hh-spaces-${type}-${dateStamp}.json`, "application/json");
+}
+
+function restoreDatabase(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+      const restored = normalizeState(parsed.data || parsed);
+      Object.keys(restored).forEach((key) => {
+        state[key] = restored[key];
+      });
+      saveState();
+      render();
+      alert("Database restored successfully.");
+    } catch (error) {
+      alert("Restore failed. Please choose a valid H&H SPACES JSON backup file.");
+    } finally {
+      event.target.value = "";
+    }
+  };
+  reader.readAsText(file);
+}
+
 function applyTheme() {
   const theme = localStorage.getItem(THEME_KEY) || "light";
   document.body.classList.toggle("dark-mode", theme === "dark");
   const button = document.getElementById("themeToggle");
   if (button) button.textContent = theme === "dark" ? "Light Mode" : "Dark Mode";
+}
+
+function applySettingsPreferences() {
+  const settings = state.settings || {};
+  if (settings.themeMode === "Light Mode") {
+    localStorage.setItem(THEME_KEY, "light");
+  } else if (settings.themeMode === "Dark Mode") {
+    localStorage.setItem(THEME_KEY, "dark");
+  } else if (settings.themeMode === "System Theme") {
+    const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches;
+    localStorage.setItem(THEME_KEY, prefersDark ? "dark" : "light");
+  }
+
+  if (settings.accentColor) {
+    document.documentElement.style.setProperty("--primary", settings.accentColor);
+  }
+
+  applyTheme();
 }
 
 function toggleTheme() {
@@ -664,6 +916,7 @@ function render() {
   renderSchedule();
   renderProgress();
   renderDiary();
+  renderTools();
   renderSettings();
   renderUpdates();
 }
@@ -681,7 +934,7 @@ function renderSearchResults() {
   }
 
   const results = buildSearchRecords()
-    .filter((record) => record.searchText.includes(query))
+    .filter((record) => searchMatches(record.searchText, query))
     .slice(0, 40);
 
   panel.classList.remove("is-hidden");
@@ -691,8 +944,14 @@ function renderSearchResults() {
     : `<div class="activity-card"><p>No matching records found.</p></div>`;
 }
 
+function searchMatches(searchText, query) {
+  if (searchText.includes(query)) return true;
+  const words = query.split(/\s+/).filter(Boolean);
+  return words.length > 1 && words.every((word) => searchText.includes(word));
+}
+
 function buildSearchRecords() {
-  const records = [];
+  const records = [...buildModuleSearchRecords()];
   state.sites.forEach((site) => {
     records.push(makeSearchRecord("Sites & Clients", "sites", site.name, site.client, site, [
       ["Phone", site.phone],
@@ -822,7 +1081,82 @@ function buildSearchRecords() {
       ["Photos", Array.isArray(item.photos) ? item.photos.length : 0]
     ]));
   });
+  state.tools.wageCalendar.forEach((item) => {
+    records.push(makeSearchRecord("Labour Wage Calendar", "tools", item.name, item.month, item, [
+      ["Site", plainSiteName(item.siteId)],
+      ["Total", formatMoney(item.totalWage)],
+      ["Attendance", item.attendance]
+    ]));
+  });
+  state.tools.equipment.forEach((item) => {
+    records.push(makeSearchRecord("Equipment Tools", "tools", item.toolName, item.status, item, [
+      ["Assigned", item.assignedTo],
+      ["Site", plainSiteName(item.siteId)],
+      ["Cost", formatMoney(item.cost)]
+    ]));
+  });
+  state.tools.measurements.forEach((item) => {
+    records.push(makeSearchRecord("Site Measurement Tool", "tools", item.area, plainSiteName(item.siteId), item, [
+      ["Date", dateText(item.date)],
+      ["Sqft", item.sqft],
+      ["Notes", item.notes]
+    ]));
+  });
+  state.tools.quotations.forEach((item) => {
+    records.push(makeSearchRecord("Quotation Generator", "tools", item.quoteNo || item.workType, item.client, item, [
+      ["Date", dateText(item.date)],
+      ["Area", formatQuantity(item.area, item.unit)],
+      ["Total", formatMoney(item.total)]
+    ]));
+  });
   return records;
+}
+
+function buildModuleSearchRecords() {
+  return [
+    moduleSearchRecord("Dashboard", "dashboard", "Dashboard", "Open summary, totals, progress charts and all modules", ["home", "main screen", "summary", "profit loss", "total expense"]),
+    moduleSearchRecord("Company Capital", "capital", "Company Capital", "Add or check company capital, cash in hand and payment used", ["capital entry", "cash", "company money", "payment used"]),
+    moduleSearchRecord("Sites & Clients", "sites", "Sites & Clients", "Create, edit and check construction sites and client details", ["site management", "client", "address", "contract value"]),
+    moduleSearchRecord("Rate List", "rateList", "Rate List", "Save work rates and material rates for future billing", ["work rate", "remember rate", "price list", "labour rate"]),
+    moduleSearchRecord("Customer Bills", "customerBills", "Make Customer Bill", "Create client bill, print bill and save as PDF", ["bill section", "billing", "invoice", "make bill", "customer bill", "print bill", "client bill"]),
+    moduleSearchRecord("Extra Works", "extraWorks", "Extra Site Works", "Add approved extra work and increase site amount", ["extra work", "increase amount", "additional work"]),
+    moduleSearchRecord("Labour Wages", "wages", "Labour Wages", "Daily labour attendance, wages, worker photo and payment records", ["labour wedges", "labour wages", "worker", "attendance", "daily wage", "payment"]),
+    moduleSearchRecord("Material Expenses", "materials", "Material Expenses", "Material purchase, used stock, balance stock and suppliers", ["material", "stock", "cement", "sand", "supplier", "low stock"]),
+    moduleSearchRecord("Expense Tracker", "expenses", "Expense Tracker", "Labour, material, transport, equipment and misc expenses", ["expense", "transport", "equipment expense", "misc"]),
+    moduleSearchRecord("Client Payments", "payments", "Client Payments", "Add received payment and check client receivables", ["payment received", "client payment", "receivable"]),
+    moduleSearchRecord("Pending Bills", "bills", "Pending Payment Bills", "Track unpaid supplier, labour, transport or site bills", ["pending payment", "unpaid bill", "supplier bill"]),
+    moduleSearchRecord("Measurement Book", "measurements", "Measurement Book", "Save plaster, POP, tile, waterproofing, painting and RFT measurements", ["mb", "measurement", "plaster sqft", "pop sqft", "tile sqft", "rft"]),
+    moduleSearchRecord("BOQ Management", "boq", "BOQ Management", "Estimated quantity, actual quantity, estimated cost and variance", ["boq", "estimate", "variance", "quantity"]),
+    moduleSearchRecord("Schedule & Targets", "schedule", "Schedule & Targets", "Plan work schedule, targets, assigned person and status", ["target", "schedule", "work plan", "task"]),
+    moduleSearchRecord("Work Progress", "progress", "Work Progress", "Daily progress percentage, stages and notes", ["progress", "percentage", "stage", "timeline"]),
+    moduleSearchRecord("Site Diary", "diary", "Site Diary", "Daily notes, weather, labour issues, material issues and client instructions", ["diary", "daily notes", "weather", "site issue"]),
+    moduleSearchRecord("Daily Updates", "updates", "Site Updates With Photos", "Daily update, photos, labour count, work done and tomorrow plan", ["site update", "photo", "photos", "history", "daily report"]),
+    moduleSearchRecord("Settings", "settings", "Settings", "Company, GST, logo, bank, labour, billing, backup, theme and WhatsApp settings", ["company settings", "logo", "gst", "pan", "bank", "upi", "backup", "theme"]),
+    moduleSearchRecord("Tools", "tools", "Brick Calculator", "Wall length, height, thickness, brick quantity, cement and sand estimate", ["brick", "brick calculator", "wall calculator", "cement sand"]),
+    moduleSearchRecord("Tools", "tools", "Plaster Calculator", "Wall area, thickness, cement required and sand required", ["plaster", "plaster calculator", "cement required", "sand required"]),
+    moduleSearchRecord("Tools", "tools", "POP Calculator", "Area, POP bags, labour cost and material cost", ["pop", "pop calculator", "false ceiling", "pop bags"]),
+    moduleSearchRecord("Tools", "tools", "Tile Calculator", "Area, tile size, boxes required and wastage percentage", ["tile", "tiles", "tile calculator", "box", "wastage"]),
+    moduleSearchRecord("Tools", "tools", "Paint Calculator", "Wall area, primer, putty and paint quantity", ["paint", "primer", "putty", "paint quantity"]),
+    moduleSearchRecord("Tools", "tools", "RCC Calculator", "Slab area, thickness, concrete, cement, sand and aggregate", ["rcc", "slab", "concrete", "aggregate"]),
+    moduleSearchRecord("Tools", "tools", "Electrical Point Calculator", "Light points, fan points, power points and auto quotation", ["electrical", "point calculator", "light point", "fan point", "power point"]),
+    moduleSearchRecord("Tools", "tools", "Wire Calculator", "House area, number of points and approximate wire length", ["wire", "wire length", "house wiring"]),
+    moduleSearchRecord("Tools", "tools", "Load Calculator", "Connected load, recommended MCB and cable size", ["load", "mcb", "cable size", "connected load"]),
+    moduleSearchRecord("Tools", "tools", "Rate Analysis Tool", "Labour rate, material rate, quantity, cost per sqft and quotation rate", ["rate analysis", "cost sqft", "quotation rate", "profit margin"]),
+    moduleSearchRecord("Tools", "tools", "Profit Calculator", "Calculate total cost, revenue and net profit for any work", ["profit", "net profit", "revenue", "quoted rate"]),
+    moduleSearchRecord("Tools", "tools", "Waterproofing Calculator", "Terrace area, brick bat, slope, cement and waterproof chemical", ["waterproof", "waterproofing", "terrace", "brick bat", "chemical"]),
+    moduleSearchRecord("Tools", "tools", "Material Transport Calculator", "Material type, distance, vehicle charge, labour and unloading charges", ["transport", "vehicle", "unloading", "fuel"]),
+    moduleSearchRecord("Tools", "tools", "Labour Wage Calendar", "Monthly P, H, PP and A attendance with automatic wage calculation", ["wage calendar", "pp", "double wage", "half day", "absent"]),
+    moduleSearchRecord("Tools", "tools", "Site Measurement Tool", "Take photo, store dimensions, notes and measurement record", ["measurement photo", "dimensions", "site measurement"]),
+    moduleSearchRecord("Tools", "tools", "Equipment / Tools Management", "Track laser meter, drill, cutter, mixer, grinder, ladders and status", ["equipment", "tools management", "laser meter", "drill", "cutter", "mixer", "grinder", "ladder"]),
+    moduleSearchRecord("Tools", "tools", "Quotation Generator", "Generate professional PDF quotation with GST and company logo", ["quotation", "quote", "pdf quotation", "gst quotation", "company logo"])
+  ];
+}
+
+function moduleSearchRecord(section, view, title, subtitle, keywords = []) {
+  return makeSearchRecord(section, view, title, subtitle, { type: "module", keywords: keywords.join(" ") }, [
+    ["Shortcut", "Open section"],
+    ["Use", subtitle]
+  ]);
 }
 
 function makeSearchRecord(section, view, title, subtitle, item, details) {
@@ -1043,7 +1377,10 @@ function renderCustomerBills() {
     <td class="amount">${formatMoney(bill.rate)}</td>
     <td class="amount">${formatMoney(bill.total)}</td>
     <td><span class="status-pill ${bill.status === "Paid" ? "success-pill" : bill.status === "Part Paid" ? "warning-pill" : "danger-pill"}">${escapeHtml(bill.status || "Unpaid")}</span></td>
-    <td><button class="delete-btn" data-delete="customerBills:${bill.id}" type="button">Delete</button></td>
+    <td class="action-stack">
+      <button class="paid-btn" data-print-bill="${bill.id}" type="button">Print Bill</button>
+      <button class="delete-btn" data-delete="customerBills:${bill.id}" type="button">Delete</button>
+    </td>
   </tr>`).join("");
   document.getElementById("customerBillRows").innerHTML = rows || emptyRow(10);
 }
@@ -1247,12 +1584,85 @@ function renderDiary() {
   document.getElementById("diaryRows").innerHTML = rows || emptyCard("No diary entries yet.");
 }
 
+function renderTools() {
+  renderWageCalendar();
+  renderSiteMeasurementTools();
+  renderEquipment();
+  renderQuotations();
+}
+
+function renderWageCalendar() {
+  const rows = state.tools.wageCalendar.sort(byMonthDesc).map((item) => `<tr>
+    <td>${escapeHtml(item.month || "-")}</td>
+    <td>${siteNameOptional(item.siteId)}</td>
+    <td><strong>${escapeHtml(item.name)}</strong><br><span>${escapeHtml(item.attendance || "")}</span></td>
+    <td>${item.presentCount || 0}</td>
+    <td>${item.halfCount || 0}</td>
+    <td>${item.doubleCount || 0}</td>
+    <td>${item.absentCount || 0}</td>
+    <td class="amount">${formatMoney(item.totalWage)}</td>
+    <td><button class="delete-btn" data-delete-tool="wageCalendar:${item.id}" type="button">Delete</button></td>
+  </tr>`).join("");
+  document.getElementById("wageCalendarRows").innerHTML = rows || emptyRow(9);
+}
+
+function renderSiteMeasurementTools() {
+  const rows = state.tools.measurements.sort(byDateDesc).map((item) => {
+    const photo = item.photo ? `<div class="site-photo-grid"><img src="${item.photo}" alt="Measurement photo"></div>` : "";
+    return `<article class="activity-card">
+      <header>
+        <div>
+          <h4>${escapeHtml(item.area || "Measurement")} | ${siteNameOptional(item.siteId)}</h4>
+          <time>${dateText(item.date)} | ${formatDimension(item.length)} x ${formatDimension(item.width)} x ${formatDimension(item.height)}</time>
+        </div>
+        <button class="delete-btn" data-delete-tool="measurements:${item.id}" type="button">Delete</button>
+      </header>
+      <p><strong>Sqft:</strong> ${round(item.sqft, 2)} | <strong>Cft:</strong> ${round(item.cft, 2)}</p>
+      <p>${escapeHtml(item.notes || "-")}</p>
+      ${photo}
+    </article>`;
+  }).join("");
+  document.getElementById("siteMeasurementToolRows").innerHTML = rows || emptyCard("No measurement records yet.");
+}
+
+function renderEquipment() {
+  const rows = state.tools.equipment.map((item) => `<tr>
+    <td><strong>${escapeHtml(item.toolName)}</strong></td>
+    <td>${item.quantity || 0}</td>
+    <td>${item.purchaseDate ? dateText(item.purchaseDate) : "-"}</td>
+    <td class="amount">${formatMoney(item.cost)}</td>
+    <td>${escapeHtml(item.assignedTo || "-")}</td>
+    <td>${siteNameOptional(item.siteId)}</td>
+    <td><span class="status-pill ${toolStatusClass(item.status)}">${escapeHtml(item.status || "Available")}</span></td>
+    <td><button class="delete-btn" data-delete-tool="equipment:${item.id}" type="button">Delete</button></td>
+  </tr>`).join("");
+  document.getElementById("equipmentRows").innerHTML = rows || emptyRow(8);
+}
+
+function renderQuotations() {
+  const rows = state.tools.quotations.sort(byDateDesc).map((item) => `<tr>
+    <td>${dateText(item.date)}</td>
+    <td>${escapeHtml(item.quoteNo || "-")}</td>
+    <td>${escapeHtml(item.client || "-")}</td>
+    <td><strong>${escapeHtml(item.workType)}</strong></td>
+    <td>${formatQuantity(item.area, item.unit)}</td>
+    <td class="amount">${formatMoney(item.total)}</td>
+    <td class="action-stack">
+      <button class="paid-btn" data-print-quote="${item.id}" type="button">Print Quote</button>
+      <button class="delete-btn" data-delete-tool="quotations:${item.id}" type="button">Delete</button>
+    </td>
+  </tr>`).join("");
+  document.getElementById("quotationRows").innerHTML = rows || emptyRow(7);
+}
+
 function renderSettings() {
   const form = document.getElementById("settingsForm");
   if (!form) return;
   Object.entries(state.settings || {}).forEach(([key, value]) => {
-    if (key === "logo") return;
-    if (form.elements[key]) form.elements[key].value = value || "";
+    const element = form.elements[key];
+    if (!element || element.type === "file") return;
+    if (element.type === "color" && !value) return;
+    element.value = value || "";
   });
 }
 
@@ -1317,7 +1727,11 @@ function exportCsv() {
     ["schedule_targets", state.schedule],
     ["progress", state.progress],
     ["site_diary", state.diary],
-    ["daily_updates", state.updates.map(({ photos, ...row }) => ({ ...row, photos: Array.isArray(photos) && photos.length ? `${photos.length} saved in app` : "" }))]
+    ["daily_updates", state.updates.map(({ photos, ...row }) => ({ ...row, photos: Array.isArray(photos) && photos.length ? `${photos.length} saved in app` : "" }))],
+    ["tool_wage_calendar", state.tools.wageCalendar],
+    ["tool_measurements", state.tools.measurements.map(({ photo, ...row }) => ({ ...row, photo: photo ? "Saved in app" : "" }))],
+    ["tool_equipment", state.tools.equipment],
+    ["tool_quotations", state.tools.quotations]
   ];
 
   const csv = sections.map(([name, rows]) => {
@@ -1350,6 +1764,26 @@ function exportPdfReport() {
   document.getElementById("reportModal").classList.remove("is-hidden");
 }
 
+function openCustomerBillPreview(billId) {
+  const bill = state.customerBills.find((item) => item.id === billId);
+  if (!bill) return;
+  const frame = document.getElementById("reportFrame");
+  frame.srcdoc = customerBillDocumentHtml(bill);
+  document.querySelector("#reportModal strong").textContent = `Bill ${bill.billNo || ""}`.trim();
+  document.querySelector("#reportModal span").textContent = "Print or save customer bill as PDF";
+  document.getElementById("reportModal").classList.remove("is-hidden");
+}
+
+function openQuotationPreview(quoteId) {
+  const quote = state.tools.quotations.find((item) => item.id === quoteId);
+  if (!quote) return;
+  const frame = document.getElementById("reportFrame");
+  frame.srcdoc = quotationDocumentHtml(quote);
+  document.querySelector("#reportModal strong").textContent = `Quotation ${quote.quoteNo || ""}`.trim();
+  document.querySelector("#reportModal span").textContent = "Print or save quotation as PDF";
+  document.getElementById("reportModal").classList.remove("is-hidden");
+}
+
 function printReportPreview() {
   const frame = document.getElementById("reportFrame");
   if (!frame.srcdoc) {
@@ -1361,6 +1795,202 @@ function printReportPreview() {
 
 function closeReportPreview() {
   document.getElementById("reportModal").classList.add("is-hidden");
+  document.querySelector("#reportModal strong").textContent = "Report Preview";
+  document.querySelector("#reportModal span").textContent = "Print or save as PDF";
+}
+
+function customerBillDocumentHtml(bill) {
+  const settings = state.settings || {};
+  const site = findSite(bill.siteId);
+  const companyName = (settings.companyName || "H&H SPACES").toUpperCase();
+  const companySubtitle = settings.pdfHeader || "SPECIALIST IN ALL TYPES OF INTERIOR WORK | RESIDENTIAL | COMMERCIAL & CIVIL";
+  const clientName = bill.client || site.client || "Client";
+  const clientAddress = bill.clientAddress || site.location || "";
+  const subtotal = number(bill.amount || (number(bill.quantity) * number(bill.rate)));
+  const discount = number(bill.discount);
+  const tax = number(bill.tax);
+  const total = number(bill.total || Math.max(subtotal - discount + tax, 0));
+  const logo = settings.logo && settings.companyLogoOnPdf !== "Hide"
+    ? `<img class="invoice-logo" src="${settings.logo}" alt="Company logo">`
+    : "";
+  const signature = settings.signature
+    ? `<img class="signature-img" src="${settings.signature}" alt="Signature">`
+    : `<div class="signature-line"></div>`;
+
+  return `<!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <title>${escapeHtml(companyName)} Bill ${escapeHtml(bill.billNo || "")}</title>
+        <style>${customerBillCss()}</style>
+      </head>
+      <body>
+        <main class="invoice-page">
+          <header class="invoice-header">
+            ${logo}
+            <h1>${escapeHtml(companyName)}</h1>
+            <p>${escapeHtml(companySubtitle)}</p>
+            ${settings.phone ? `<p>Mob: ${escapeHtml(settings.phone)}</p>` : ""}
+            ${settings.email ? `<p>Email: ${escapeHtml(settings.email)}</p>` : ""}
+            ${settings.address ? `<p>${linesToHtml(settings.address)}</p>` : ""}
+          </header>
+
+          <h2>BILL</h2>
+
+          <section class="bill-meta">
+            <div>
+              <h3>BILL TO:</h3>
+              <strong>${escapeHtml(clientName)}</strong>
+              ${clientAddress ? `<p>${linesToHtml(clientAddress)}</p>` : ""}
+              <dl>
+                <div><dt>PAN:</dt><dd>${escapeHtml(bill.clientPan || "-")}</dd></div>
+                <div><dt>GST NO:</dt><dd>${escapeHtml(bill.clientGst || "-")}</dd></div>
+                <div><dt>Email:</dt><dd>${escapeHtml(bill.clientEmail || "-")}</dd></div>
+              </dl>
+            </div>
+            <div class="bill-date">
+              <dl>
+                <div><dt>Bill No:</dt><dd>${escapeHtml(bill.billNo || "-")}</dd></div>
+                <div><dt>Date:</dt><dd>${dateText(bill.date)}</dd></div>
+                <div><dt>Site:</dt><dd>${escapeHtml(site.name || "-")}</dd></div>
+              </dl>
+            </div>
+          </section>
+
+          <table class="invoice-table">
+            <thead>
+              <tr>
+                <th>S.NO</th>
+                <th>DESCRIPTION</th>
+                <th>QUANTITY / DETAILS</th>
+                <th>AMOUNT (Rs.)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td>
+                  <strong>${escapeHtml(bill.work)}</strong>
+                  ${bill.note ? `<small>${linesToHtml(bill.note)}</small>` : ""}
+                </td>
+                <td>${escapeHtml(formatQuantity(bill.quantity, bill.unit))}</td>
+                <td>${formatInvoiceAmount(subtotal)}</td>
+              </tr>
+              ${discount ? `<tr class="adjustment"><td></td><td colspan="2">Discount</td><td>- ${formatInvoiceAmount(discount)}</td></tr>` : ""}
+              ${tax ? `<tr class="adjustment"><td></td><td colspan="2">GST / Tax</td><td>${formatInvoiceAmount(tax)}</td></tr>` : ""}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="3">Total:</td>
+                <td>${formatInvoiceAmount(total)}</td>
+              </tr>
+            </tfoot>
+          </table>
+
+          <footer class="invoice-footer">
+            <div>
+              <strong>${escapeHtml(companyName)}</strong>
+              ${settings.gstNumber ? `<p>GST NO: ${escapeHtml(settings.gstNumber)}</p>` : ""}
+              ${settings.panNumber ? `<p>PAN: ${escapeHtml(settings.panNumber)}</p>` : ""}
+              ${settings.bankDetails ? `<p>${linesToHtml(settings.bankDetails)}</p>` : ""}
+              ${settings.upiId ? `<p>UPI: ${escapeHtml(settings.upiId)}</p>` : ""}
+            </div>
+            <div class="signature">
+              <p>For ${escapeHtml(toTitleCase(companyName))}</p>
+              ${signature}
+              <strong>Authorized Signatory</strong>
+            </div>
+          </footer>
+        </main>
+      </body>
+    </html>`;
+}
+
+function quotationDocumentHtml(quote) {
+  const settings = state.settings || {};
+  const companyName = (settings.companyName || "H&H SPACES").toUpperCase();
+  const subtotal = number(quote.baseCost) + number(quote.profit);
+  const gst = number(quote.gst);
+  const total = number(quote.total);
+  const logo = settings.logo && settings.companyLogoOnPdf !== "Hide"
+    ? `<img class="invoice-logo" src="${settings.logo}" alt="Company logo">`
+    : "";
+
+  return `<!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <title>${escapeHtml(companyName)} Quotation ${escapeHtml(quote.quoteNo || "")}</title>
+        <style>${customerBillCss()}</style>
+      </head>
+      <body>
+        <main class="invoice-page">
+          <header class="invoice-header">
+            ${logo}
+            <h1>${escapeHtml(companyName)}</h1>
+            <p>${escapeHtml(settings.pdfHeader || "SPECIALIST IN ALL TYPES OF INTERIOR WORK | RESIDENTIAL | COMMERCIAL & CIVIL")}</p>
+            ${settings.phone ? `<p>Mob: ${escapeHtml(settings.phone)}</p>` : ""}
+            ${settings.email ? `<p>Email: ${escapeHtml(settings.email)}</p>` : ""}
+            ${settings.address ? `<p>${linesToHtml(settings.address)}</p>` : ""}
+          </header>
+
+          <h2>QUOTATION</h2>
+
+          <section class="bill-meta">
+            <div>
+              <h3>QUOTATION TO:</h3>
+              <strong>${escapeHtml(quote.client || "Client")}</strong>
+              <dl>
+                <div><dt>Work:</dt><dd>${escapeHtml(quote.workType || "-")}</dd></div>
+                <div><dt>Area:</dt><dd>${escapeHtml(formatQuantity(quote.area, quote.unit))}</dd></div>
+              </dl>
+            </div>
+            <div class="bill-date">
+              <dl>
+                <div><dt>Quote No:</dt><dd>${escapeHtml(quote.quoteNo || "-")}</dd></div>
+                <div><dt>Date:</dt><dd>${dateText(quote.date)}</dd></div>
+                <div><dt>GST:</dt><dd>${round(quote.gstPercent, 2)}%</dd></div>
+              </dl>
+            </div>
+          </section>
+
+          <table class="invoice-table">
+            <thead>
+              <tr>
+                <th>S.NO</th>
+                <th>DESCRIPTION</th>
+                <th>QUANTITY / DETAILS</th>
+                <th>AMOUNT (Rs.)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>1</td><td>Labour Cost @ ${formatInvoiceAmount(quote.labourRate)} / ${escapeHtml(quote.unit || "unit")}</td><td>${escapeHtml(formatQuantity(quote.area, quote.unit))}</td><td>${formatInvoiceAmount(number(quote.area) * number(quote.labourRate))}</td></tr>
+              <tr><td>2</td><td>Material Cost @ ${formatInvoiceAmount(quote.materialRate)} / ${escapeHtml(quote.unit || "unit")}</td><td>${escapeHtml(formatQuantity(quote.area, quote.unit))}</td><td>${formatInvoiceAmount(number(quote.area) * number(quote.materialRate))}</td></tr>
+              <tr class="adjustment"><td></td><td colspan="2">Profit / overhead ${round(quote.profitPercent, 2)}%</td><td>${formatInvoiceAmount(quote.profit)}</td></tr>
+              <tr class="adjustment"><td></td><td colspan="2">GST ${round(quote.gstPercent, 2)}%</td><td>${formatInvoiceAmount(gst)}</td></tr>
+            </tbody>
+            <tfoot>
+              <tr><td colspan="3">Total Quotation:</td><td>${formatInvoiceAmount(total)}</td></tr>
+            </tfoot>
+          </table>
+
+          ${quote.terms ? `<section class="quotation-terms"><h3>Terms</h3><p>${linesToHtml(quote.terms)}</p></section>` : ""}
+
+          <footer class="invoice-footer">
+            <div>
+              <strong>${escapeHtml(companyName)}</strong>
+              ${settings.gstNumber ? `<p>GST NO: ${escapeHtml(settings.gstNumber)}</p>` : ""}
+              ${settings.upiId ? `<p>UPI: ${escapeHtml(settings.upiId)}</p>` : ""}
+            </div>
+            <div class="signature">
+              <p>For ${escapeHtml(toTitleCase(companyName))}</p>
+              <div class="signature-line"></div>
+              <strong>Authorized Signatory</strong>
+            </div>
+          </footer>
+        </main>
+      </body>
+    </html>`;
 }
 
 function reportDocumentHtml() {
@@ -1391,6 +2021,8 @@ function reportDocumentHtml() {
         ${reportSection("Work Progress", report.progress)}
         ${reportSection("Site Diary", report.diary)}
         ${reportSection("Daily Updates", report.updates)}
+        ${reportSection("Tool Equipment", report.equipment)}
+        ${reportSection("Tool Quotations", report.quotations)}
       </body>
     </html>`;
 }
@@ -1418,6 +2050,8 @@ function reportWorkbookHtml() {
         ${excelTable("Work Progress", report.progress)}
         ${excelTable("Site Diary", report.diary)}
         ${excelTable("Daily Updates", report.updates)}
+        ${excelTable("Tool Equipment", report.equipment)}
+        ${excelTable("Tool Quotations", report.quotations)}
       </body>
     </html>`;
 }
@@ -1606,6 +2240,27 @@ function buildReportData() {
       WorkDone: item.workDone,
       NextPlan: item.nextPlan || "",
       Photos: Array.isArray(item.photos) ? item.photos.length : 0
+    })),
+    equipment: state.tools.equipment.map((item) => ({
+      Tool: item.toolName,
+      Quantity: item.quantity || 0,
+      Purchase: item.purchaseDate ? dateText(item.purchaseDate) : "",
+      Cost: formatMoney(item.cost),
+      Assigned: item.assignedTo || "",
+      Site: plainSiteName(item.siteId),
+      Status: item.status || ""
+    })),
+    quotations: state.tools.quotations.map((item) => ({
+      Date: dateText(item.date),
+      Quote: item.quoteNo || "",
+      Client: item.client || "",
+      Work: item.workType,
+      Area: formatQuantity(item.area, item.unit),
+      "Labour Rate": formatMoney(item.labourRate),
+      "Material Rate": formatMoney(item.materialRate),
+      Profit: formatMoney(item.profit),
+      GST: formatMoney(item.gst),
+      Total: formatMoney(item.total)
     }))
   };
 }
@@ -1628,6 +2283,28 @@ function reportCss() {
   return `body{font-family:Arial,sans-serif;color:#17152f;margin:28px}h1{color:#4f46e5}h2{margin-top:26px;color:#312e81}.muted{color:#6f7285}.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}.summary div{border:1px solid #e6e3f4;border-radius:10px;padding:12px}.summary span{display:block;color:#6f7285;font-size:12px}.summary strong{display:block;margin-top:6px;font-size:18px}table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}th,td{border:1px solid #ddd;padding:8px;text-align:left;vertical-align:top}th{background:#f8f7ff;color:#312e81}@media print{body{margin:16px}.summary{grid-template-columns:repeat(2,1fr)}}`;
 }
 
+function customerBillCss() {
+  return `@page{size:A4;margin:18mm}*{box-sizing:border-box}body{margin:0;background:#f3f4f6;color:#111827;font-family:Arial,Helvetica,sans-serif}.invoice-page{width:210mm;min-height:297mm;margin:0 auto;background:#fff;padding:20mm 18mm;border:1px solid #e5e7eb}.invoice-header{text-align:center;border-bottom:2px solid #111827;padding-bottom:12px}.invoice-logo{max-width:92px;max-height:70px;object-fit:contain;margin-bottom:8px}.invoice-header h1{margin:0;color:#111827;font-size:28px;font-weight:900;letter-spacing:.5px}.invoice-header p{margin:5px 0 0;font-size:12px;font-weight:700}.invoice-page h2{text-align:center;margin:18px 0 16px;font-size:22px;text-decoration:underline;letter-spacing:1px}.bill-meta{display:grid;grid-template-columns:1fr 210px;gap:24px;margin-bottom:18px}.bill-meta h3{margin:0 0 8px;font-size:14px}.bill-meta strong{display:block;margin-bottom:5px;font-size:15px}.bill-meta p{margin:4px 0;font-size:12px;line-height:1.45}dl{margin:10px 0 0}dl div{display:grid;grid-template-columns:74px 1fr;gap:8px;margin-top:6px;font-size:12px}dt{font-weight:900}dd{margin:0}.bill-date{border:1px solid #111827;padding:10px 12px;align-self:start}.bill-date dl{margin:0}.invoice-table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}.invoice-table th,.invoice-table td{border:1px solid #111827;padding:10px;text-align:left;vertical-align:top}.invoice-table th{background:#f3f4f6;text-align:center;font-weight:900}.invoice-table th:first-child,.invoice-table td:first-child{width:48px;text-align:center}.invoice-table th:nth-child(3),.invoice-table td:nth-child(3){width:150px;text-align:center}.invoice-table th:last-child,.invoice-table td:last-child{width:140px;text-align:right}.invoice-table small{display:block;margin-top:6px;color:#4b5563;line-height:1.45}.invoice-table .adjustment td{font-weight:700}.invoice-table tfoot td{font-size:14px;font-weight:900}.invoice-table tfoot td:first-child{text-align:right}.quotation-terms{margin-top:22px;border:1px solid #111827;padding:12px}.quotation-terms h3{margin:0 0 8px;font-size:14px}.quotation-terms p{margin:0;font-size:12px;line-height:1.5}.invoice-footer{display:grid;grid-template-columns:1fr 220px;gap:24px;margin-top:34px;align-items:end}.invoice-footer p{margin:6px 0 0;font-size:12px;line-height:1.45}.signature{text-align:center}.signature p{font-weight:700}.signature-img{max-width:150px;max-height:70px;margin:18px auto 8px;object-fit:contain}.signature-line{height:52px;border-bottom:1px solid #111827;margin:12px 22px 8px}@media print{body{background:#fff}.invoice-page{width:auto;min-height:auto;margin:0;padding:0;border:0}}`;
+}
+
+function formatInvoiceAmount(value) {
+  return number(value).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatQuantity(quantity, unit) {
+  const qty = number(quantity);
+  const formatted = Number.isInteger(qty) ? String(qty) : qty.toLocaleString("en-IN", { maximumFractionDigits: 2 });
+  return `${formatted} ${unit || ""}`.trim();
+}
+
+function linesToHtml(value) {
+  return escapeHtml(value || "").replace(/\n/g, "<br>");
+}
+
+function toTitleCase(value) {
+  return String(value || "").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 function downloadFile(content, filename, type) {
   const blob = new Blob([content], { type });
   const url = URL.createObjectURL(blob);
@@ -1645,6 +2322,10 @@ function csvCell(value) {
 
 function siteName(siteId) {
   return escapeHtml(findSite(siteId).name || "Unknown site");
+}
+
+function siteNameOptional(siteId) {
+  return siteId ? siteName(siteId) : "All sites";
 }
 
 function plainSiteName(siteId) {
@@ -1698,6 +2379,11 @@ function number(value) {
   return Number(value) || 0;
 }
 
+function round(value, precision = 2) {
+  const factor = 10 ** precision;
+  return Math.round(number(value) * factor) / factor;
+}
+
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
@@ -1710,8 +2396,41 @@ function byDateDesc(a, b) {
   return String(b.date || "").localeCompare(String(a.date || ""));
 }
 
+function byMonthDesc(a, b) {
+  return String(b.month || "").localeCompare(String(a.month || ""));
+}
+
 function byTargetDateAsc(a, b) {
   return String(a.targetDate || a.date || "").localeCompare(String(b.targetDate || b.date || ""));
+}
+
+function wageCalendarSummary(attendance, dailyWage) {
+  const codes = String(attendance || "")
+    .split(/[\s,]+/)
+    .map((code) => code.trim().toUpperCase())
+    .filter(Boolean);
+  const presentCount = codes.filter((code) => code === "P").length;
+  const halfCount = codes.filter((code) => code === "H").length;
+  const doubleCount = codes.filter((code) => code === "PP").length;
+  const absentCount = codes.filter((code) => code === "A").length;
+  return {
+    presentCount,
+    halfCount,
+    doubleCount,
+    absentCount,
+    totalWage: (presentCount * dailyWage) + (halfCount * dailyWage * 0.5) + (doubleCount * dailyWage * 2)
+  };
+}
+
+function toolStatusClass(status) {
+  if (status === "Available") return "success-pill";
+  if (status === "In Use") return "warning-pill";
+  if (status === "Under Repair") return "neutral-pill";
+  return "danger-pill";
+}
+
+function formatDimension(value) {
+  return number(value) ? round(value, 2) : "-";
 }
 
 function formatMoney(value) {
