@@ -5,8 +5,14 @@ A simple browser-based construction site tracker for:
 - Labour wages
 - Material expenses
 - Client payments
+- Customer bills
+- Rate list
 - Company capital
+- Expense tracker
+- Measurement book
+- BOQ management
 - Work progress
+- Site diary
 - Pending payment bills
 - Daily updates
 - Multiple sites and clients
@@ -27,6 +33,12 @@ The dashboard shows:
 - Client balance
 
 Use the search box at the top of the app to find any saved site, client, labour, phone number, bill number, material, payment, amount, work target, progress note, or daily update.
+
+Use `Rate List` to save standard work/material rates. Use `Customer Bills` to make client bills using quantity, unit, rate, discount, tax/GST, and total amount.
+
+The app also includes Expense Tracker, Measurement Book, BOQ variance, Site Diary, stock/payment notifications, dark/light mode, exports, reports, offline local storage, and Supabase cloud sync.
+
+After a successful login, the app remembers that browser/device. Use `Lock App` to log out and remove the remembered login from that device.
 
 ## Use on Phone With GitHub Pages
 

@@ -40,14 +40,21 @@
           <button class="nav-item active" data-view="dashboard" type="button">Dashboard</button>
           <button class="nav-item" data-view="capital" type="button">Company Capital</button>
           <button class="nav-item" data-view="sites" type="button">Sites & Clients</button>
+          <button class="nav-item" data-view="rateList" type="button">Rate List</button>
+          <button class="nav-item" data-view="customerBills" type="button">Customer Bills</button>
           <button class="nav-item" data-view="extraWorks" type="button">Extra Works</button>
           <button class="nav-item" data-view="wages" type="button">Labour Wages</button>
           <button class="nav-item" data-view="materials" type="button">Material Expenses</button>
+          <button class="nav-item" data-view="expenses" type="button">Expense Tracker</button>
           <button class="nav-item" data-view="payments" type="button">Client Payments</button>
           <button class="nav-item" data-view="bills" type="button">Pending Bills</button>
+          <button class="nav-item" data-view="measurements" type="button">Measurement Book</button>
+          <button class="nav-item" data-view="boq" type="button">BOQ</button>
           <button class="nav-item" data-view="schedule" type="button">Schedule & Targets</button>
           <button class="nav-item" data-view="progress" type="button">Work Progress</button>
+          <button class="nav-item" data-view="diary" type="button">Site Diary</button>
           <button class="nav-item" data-view="updates" type="button">Daily Updates</button>
+          <button class="nav-item" data-view="settings" type="button">Settings</button>
         </nav>
 
         <div class="sidebar-actions">
@@ -56,6 +63,7 @@
           <button class="secondary-btn" id="exportExcel" type="button">Excel Report</button>
           <button class="secondary-btn" id="exportPdf" type="button">PDF Report</button>
           <button class="secondary-btn" id="cloudSync" type="button">Cloud Sync</button>
+          <button class="secondary-btn" id="themeToggle" type="button">Dark Mode</button>
           <button class="secondary-btn" id="lockApp" type="button">Lock App</button>
           <button class="danger-btn" id="resetDemo" type="button">Clear Data</button>
         </div>
@@ -131,6 +139,14 @@
                 <span class="quick-icon bill-icon"></span>
                 <b>Bills</b>
               </button>
+              <button class="quick-action nav-jump" data-view="customerBills" type="button">
+                <span class="quick-icon customer-bill-icon"></span>
+                <b>Make Bill</b>
+              </button>
+              <button class="quick-action nav-jump" data-view="rateList" type="button">
+                <span class="quick-icon rate-icon"></span>
+                <b>Rate List</b>
+              </button>
               <button class="quick-action nav-jump" data-view="sites" type="button">
                 <span class="quick-icon site-icon"></span>
                 <b>Sites</b>
@@ -161,6 +177,16 @@
               <small>Capital + received - used</small>
             </article>
             <article class="metric">
+              <span>Total Sites</span>
+              <strong id="metricTotalSites">0</strong>
+              <small>Selected site filter</small>
+            </article>
+            <article class="metric">
+              <span>Profit / Loss</span>
+              <strong id="metricProfitLoss">0</strong>
+              <small>Contract minus spending</small>
+            </article>
+            <article class="metric">
               <span>Company Capital</span>
               <strong id="metricCapital">0</strong>
               <small>Added minus withdrawn</small>
@@ -171,6 +197,11 @@
               <small>Received from clients</small>
             </article>
             <article class="metric">
+              <span>Customer Bills</span>
+              <strong id="metricCustomerBills">0</strong>
+              <small>Total billed to clients</small>
+            </article>
+            <article class="metric">
               <span>Extra Site Works</span>
               <strong id="metricExtraWorks">0</strong>
               <small>Added to site amount</small>
@@ -179,6 +210,11 @@
               <span>Payment Used</span>
               <strong id="metricUsed">0</strong>
               <small>Wages + material + paid bills</small>
+            </article>
+            <article class="metric">
+              <span>Other Expenses</span>
+              <strong id="metricExpenses">0</strong>
+              <small>Transport, equipment, misc.</small>
             </article>
             <article class="metric urgent">
               <span>Pending Payment</span>
@@ -240,6 +276,13 @@
               </div>
               <div class="activity-list" id="latestUpdates"></div>
             </section>
+
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Notifications</h3>
+              </div>
+              <div class="activity-list" id="notificationRows"></div>
+            </section>
           </div>
         </section>
 
@@ -288,6 +331,64 @@
           <section class="panel">
             <div class="panel-header"><h3>All Sites</h3></div>
             <div class="table-wrap"><table><thead><tr><th>Site</th><th>Client</th><th>Phone</th><th>Contract</th><th>Extra Work</th><th>Total Amount</th><th>Status</th><th></th></tr></thead><tbody id="siteRows"></tbody></table></div>
+          </section>
+        </section>
+
+        <section class="view" id="rateList">
+          <section class="form-panel">
+            <h3>Add Work Rate</h3>
+            <form id="rateListForm" class="entry-form">
+              <label>Date<input name="date" type="date" required></label>
+              <label>Category
+                <select name="category">
+                  <option>Labour Work</option>
+                  <option>Material</option>
+                  <option>Contract Work</option>
+                  <option>Extra Work</option>
+                  <option>Other</option>
+                </select>
+              </label>
+              <label>Work / item<input name="work" required placeholder="Brickwork, plaster, cement"></label>
+              <label>Unit<input name="unit" required placeholder="sq ft, day, bag, item"></label>
+              <label>Rate<input name="rate" type="number" min="0" step="1" required></label>
+              <label class="full">Note<textarea name="note" placeholder="Rate condition, supplier, quality, location"></textarea></label>
+              <button class="primary-btn" type="submit">Save Rate</button>
+            </form>
+          </section>
+          <section class="panel">
+            <div class="panel-header"><h3>Saved Rate List</h3></div>
+            <div class="table-wrap"><table><thead><tr><th>Date</th><th>Category</th><th>Work / Item</th><th>Unit</th><th>Rate</th><th>Note</th><th></th></tr></thead><tbody id="rateListRows"></tbody></table></div>
+          </section>
+        </section>
+
+        <section class="view" id="customerBills">
+          <section class="form-panel">
+            <h3>Make Customer Bill</h3>
+            <form id="customerBillForm" class="entry-form">
+              <label>Date<input name="date" type="date" required></label>
+              <label>Bill no.<input name="billNo" required placeholder="HB-001"></label>
+              <label>Site<select name="siteId" required></select></label>
+              <label>Client<input name="client" placeholder="Client name"></label>
+              <label>Work / item<input name="work" required placeholder="Plaster work, tiles, extra work"></label>
+              <label>Unit<input name="unit" required placeholder="sq ft, day, item"></label>
+              <label>Quantity<input name="quantity" type="number" min="0" step="0.01" value="1" required></label>
+              <label>Rate<input name="rate" type="number" min="0" step="1" required></label>
+              <label>Discount<input name="discount" type="number" min="0" step="1" placeholder="0"></label>
+              <label>Tax / GST<input name="tax" type="number" min="0" step="1" placeholder="0"></label>
+              <label>Status
+                <select name="status">
+                  <option>Unpaid</option>
+                  <option>Part Paid</option>
+                  <option>Paid</option>
+                </select>
+              </label>
+              <label class="full">Note<textarea name="note" placeholder="Bill details or payment terms"></textarea></label>
+              <button class="primary-btn" type="submit">Save Customer Bill</button>
+            </form>
+          </section>
+          <section class="panel">
+            <div class="panel-header"><h3>Customer Bills</h3></div>
+            <div class="table-wrap"><table><thead><tr><th>Date</th><th>Bill</th><th>Site</th><th>Client</th><th>Work</th><th>Qty</th><th>Rate</th><th>Total</th><th>Status</th><th></th></tr></thead><tbody id="customerBillRows"></tbody></table></div>
           </section>
         </section>
 
@@ -345,6 +446,10 @@
               <label>Date<input name="date" type="date" required></label>
               <label>Site<select name="siteId" required></select></label>
               <label>Material<input name="item" required placeholder="Cement, steel, sand"></label>
+              <label>Category<input name="category" placeholder="Civil, electrical, plumbing"></label>
+              <label>Unit<input name="unit" placeholder="bag, kg, sqft"></label>
+              <label>Qty received<input name="quantityReceived" type="number" min="0" step="0.01" placeholder="0"></label>
+              <label>Qty used<input name="quantityUsed" type="number" min="0" step="0.01" placeholder="0"></label>
               <label>Supplier<input name="supplier" placeholder="Supplier name"></label>
               <label>Bill no.<input name="billNo" placeholder="Invoice number"></label>
               <label>Amount<input name="amount" type="number" min="0" step="1" required></label>
@@ -353,7 +458,35 @@
           </section>
           <section class="panel">
             <div class="panel-header"><h3>Material Expenses</h3></div>
-            <div class="table-wrap"><table><thead><tr><th>Date</th><th>Site</th><th>Material</th><th>Supplier</th><th>Bill</th><th>Amount</th><th></th></tr></thead><tbody id="materialRows"></tbody></table></div>
+            <div class="table-wrap"><table><thead><tr><th>Date</th><th>Site</th><th>Material</th><th>Category</th><th>Stock</th><th>Supplier</th><th>Bill</th><th>Amount</th><th></th></tr></thead><tbody id="materialRows"></tbody></table></div>
+          </section>
+        </section>
+
+        <section class="view" id="expenses">
+          <section class="form-panel">
+            <h3>Add Expense</h3>
+            <form id="expenseForm" class="entry-form">
+              <label>Date<input name="date" type="date" required></label>
+              <label>Site<select name="siteId" required></select></label>
+              <label>Type
+                <select name="type">
+                  <option>Labour Expense</option>
+                  <option>Material Expense</option>
+                  <option>Transport Expense</option>
+                  <option>Equipment Expense</option>
+                  <option>Miscellaneous Expense</option>
+                </select>
+              </label>
+              <label>Title<input name="title" required placeholder="Transport, tools, diesel"></label>
+              <label>Paid to<input name="paidTo" placeholder="Vendor / person"></label>
+              <label>Amount<input name="amount" type="number" min="0" step="1" required></label>
+              <label class="full">Notes<textarea name="notes" placeholder="Expense details"></textarea></label>
+              <button class="primary-btn" type="submit">Add Expense</button>
+            </form>
+          </section>
+          <section class="panel">
+            <div class="panel-header"><h3>Expense Tracker</h3></div>
+            <div class="table-wrap"><table><thead><tr><th>Date</th><th>Site</th><th>Type</th><th>Title</th><th>Paid To</th><th>Amount</th><th></th></tr></thead><tbody id="expenseRows"></tbody></table></div>
           </section>
         </section>
 
@@ -392,6 +525,51 @@
           <section class="panel">
             <div class="panel-header"><h3>Pending Bills</h3></div>
             <div class="table-wrap"><table><thead><tr><th>Date</th><th>Due</th><th>Site</th><th>Party</th><th>Detail</th><th>Amount</th><th></th></tr></thead><tbody id="billRows"></tbody></table></div>
+          </section>
+        </section>
+
+        <section class="view" id="measurements">
+          <section class="form-panel">
+            <h3>Add Measurement Book Entry</h3>
+            <form id="measurementForm" class="entry-form">
+              <label>Date<input name="date" type="date" required></label>
+              <label>Site<select name="siteId" required></select></label>
+              <label>Area / activity<input name="area" required placeholder="Flat 101 plaster"></label>
+              <label>Plaster sqft<input name="plasterSqft" type="number" min="0" step="0.01"></label>
+              <label>POP sqft<input name="popSqft" type="number" min="0" step="0.01"></label>
+              <label>Tile sqft<input name="tileSqft" type="number" min="0" step="0.01"></label>
+              <label>Waterproofing sqft<input name="waterproofingSqft" type="number" min="0" step="0.01"></label>
+              <label>Painting sqft<input name="paintingSqft" type="number" min="0" step="0.01"></label>
+              <label>Electrical points<input name="electricalPoints" type="number" min="0" step="1"></label>
+              <label>Running feet<input name="runningFeet" type="number" min="0" step="0.01"></label>
+              <label class="full">Notes<textarea name="notes" placeholder="Measurement notes"></textarea></label>
+              <button class="primary-btn" type="submit">Save Measurement</button>
+            </form>
+          </section>
+          <section class="panel">
+            <div class="panel-header"><h3>Measurement Book</h3></div>
+            <div class="table-wrap"><table><thead><tr><th>Date</th><th>Site</th><th>Area</th><th>Plaster</th><th>POP</th><th>Tile</th><th>Waterproof</th><th>Painting</th><th>Points</th><th>RFT</th><th>Total</th><th></th></tr></thead><tbody id="measurementRows"></tbody></table></div>
+          </section>
+        </section>
+
+        <section class="view" id="boq">
+          <section class="form-panel">
+            <h3>Add BOQ Item</h3>
+            <form id="boqForm" class="entry-form">
+              <label>Site<select name="siteId" required></select></label>
+              <label>Item<input name="item" required placeholder="Cement, plaster, tiles"></label>
+              <label>Unit<input name="unit" required placeholder="sqft, bag, kg"></label>
+              <label>Estimated quantity<input name="estimatedQuantity" type="number" min="0" step="0.01"></label>
+              <label>Estimated cost<input name="estimatedCost" type="number" min="0" step="1"></label>
+              <label>Actual quantity<input name="actualQuantity" type="number" min="0" step="0.01"></label>
+              <label>Actual cost<input name="actualCost" type="number" min="0" step="1"></label>
+              <label class="full">Notes<textarea name="notes" placeholder="BOQ notes"></textarea></label>
+              <button class="primary-btn" type="submit">Save BOQ</button>
+            </form>
+          </section>
+          <section class="panel">
+            <div class="panel-header"><h3>BOQ Variance Report</h3></div>
+            <div class="table-wrap"><table><thead><tr><th>Site</th><th>Item</th><th>Unit</th><th>Est Qty</th><th>Est Cost</th><th>Actual Qty</th><th>Actual Cost</th><th>Variance</th><th></th></tr></thead><tbody id="boqRows"></tbody></table></div>
           </section>
         </section>
 
@@ -441,6 +619,26 @@
           </section>
         </section>
 
+        <section class="view" id="diary">
+          <section class="form-panel">
+            <h3>Add Site Diary Entry</h3>
+            <form id="diaryForm" class="entry-form wide">
+              <label>Date<input name="date" type="date" required></label>
+              <label>Site<select name="siteId" required></select></label>
+              <label>Weather<input name="weather" placeholder="Clear / rain / cloudy"></label>
+              <label class="full">Daily notes<textarea name="dailyNotes" required placeholder="What happened on site today"></textarea></label>
+              <label class="full">Labour issues<textarea name="labourIssues" placeholder="Attendance, shortage, dispute"></textarea></label>
+              <label class="full">Material issues<textarea name="materialIssues" placeholder="Shortage, delivery delay, quality issue"></textarea></label>
+              <label class="full">Client instructions<textarea name="clientInstructions" placeholder="Instructions from client"></textarea></label>
+              <button class="primary-btn" type="submit">Save Diary</button>
+            </form>
+          </section>
+          <section class="panel">
+            <div class="panel-header"><h3>Site Diary</h3></div>
+            <div class="activity-list full-list" id="diaryRows"></div>
+          </section>
+        </section>
+
         <section class="view" id="updates">
           <section class="form-panel">
             <h3>Add Daily Update</h3>
@@ -460,15 +658,23 @@
             <div class="activity-list full-list" id="updateRows"></div>
           </section>
         </section>
-      </main>
 
-      <section class="voice-panel" id="voicePanel" aria-label="Voice entry">
-        <button class="voice-button" id="voiceButton" type="button" aria-label="Start voice input">🎙</button>
-        <div>
-          <strong id="voiceTitle">Voice Entry</strong>
-          <p id="voiceStatus">Tap any field, press mic, then speak. You can also say: labour name Ramesh rate 700.</p>
-        </div>
-      </section>
+        <section class="view" id="settings">
+          <section class="form-panel">
+            <h3>Company & Report Settings</h3>
+            <form id="settingsForm" class="entry-form wide">
+              <label>Company name<input name="companyName" placeholder="H&H SPACES"></label>
+              <label>GST number<input name="gstNumber" placeholder="GSTIN"></label>
+              <label>Phone<input name="phone" placeholder="Company phone"></label>
+              <label>Logo upload<input name="logo" type="file" accept="image/*"></label>
+              <label class="full">Address<textarea name="address" placeholder="Company address"></textarea></label>
+              <label>PDF header<input name="pdfHeader" placeholder="Report header text"></label>
+              <label>PDF footer<input name="pdfFooter" placeholder="Report footer text"></label>
+              <button class="primary-btn" type="submit">Save Settings</button>
+            </form>
+          </section>
+        </section>
+      </main>
 
       <nav class="bottom-nav" aria-label="Mobile navigation">
         <button class="nav-item active" data-view="dashboard" type="button"><span>Home</span></button>

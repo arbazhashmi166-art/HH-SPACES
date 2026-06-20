@@ -1,5 +1,7 @@
 const STORAGE_KEY = "site-ledger-data-v1";
 const SESSION_KEY = "site-tracker-session-v1";
+const REMEMBERED_LOGIN_KEY = "hh-spaces-remembered-login-v1";
+const THEME_KEY = "hh-spaces-theme-v1";
 const SUPABASE_CONFIG_KEY = "hh-spaces-supabase-config-v1";
 const CLOUD_TABLE = "hh_spaces_app_state";
 const CLOUD_ROW_ID = "main";
@@ -17,8 +19,6 @@ const moneyFormatter = new Intl.NumberFormat("en-IN", {
 
 const today = new Date().toISOString().slice(0, 10);
 const currentMonth = today.slice(0, 7);
-let voiceRecognition = null;
-let lastVoiceField = null;
 let supabaseClient = null;
 let cloudSaveTimer = null;
 
@@ -26,17 +26,25 @@ const views = {
   dashboard: "Dashboard",
   capital: "Company Capital",
   sites: "Sites & Clients",
+  rateList: "Rate List",
+  customerBills: "Customer Bills",
   extraWorks: "Extra Site Works",
   wages: "Labour Wages",
   materials: "Material Expenses",
+  expenses: "Expense Tracker",
   payments: "Client Payments",
   bills: "Pending Payment Bills",
+  measurements: "Measurement Book",
+  boq: "BOQ Management",
   schedule: "Schedule & Targets",
   progress: "Work Progress",
+  diary: "Site Diary",
+  settings: "Settings",
   updates: "Daily Updates"
 };
 
 document.addEventListener("DOMContentLoaded", () => {
+  applyTheme();
   document.querySelectorAll('input[type="date"]').forEach((input) => {
     input.value = today;
   });
@@ -48,7 +56,6 @@ document.addEventListener("DOMContentLoaded", () => {
   bindSearch();
   bindForms();
   bindActions();
-  bindVoice();
   bindCloudSync();
   initSupabaseClient();
   updateAuthView();
@@ -74,6 +81,7 @@ function handleAuthSubmit(event) {
   const user = ALLOWED_USERS.find((item) => item.username === username && item.password === password);
   if (user) {
     sessionStorage.setItem(SESSION_KEY, user.username);
+    localStorage.setItem(REMEMBERED_LOGIN_KEY, user.username);
     clearAuthForm();
     updateAuthView();
     return;
@@ -83,9 +91,14 @@ function handleAuthSubmit(event) {
 }
 
 function updateAuthView() {
-  const unlocked = Boolean(sessionStorage.getItem(SESSION_KEY));
+  const rememberedUser = localStorage.getItem(REMEMBERED_LOGIN_KEY);
+  const sessionUser = sessionStorage.getItem(SESSION_KEY);
+  const unlocked = Boolean(sessionUser || rememberedUser);
+  if (!sessionUser && rememberedUser) {
+    sessionStorage.setItem(SESSION_KEY, rememberedUser);
+  }
   document.body.classList.toggle("app-locked", !unlocked);
-  document.getElementById("authModeText").textContent = "Login to continue";
+  document.getElementById("authModeText").textContent = "Login once on this device";
   document.getElementById("authSubmit").textContent = "Login";
   document.getElementById("confirmPassWrap")?.classList.add("is-hidden");
   document.getElementById("authPass").setAttribute("autocomplete", "current-password");
@@ -93,6 +106,7 @@ function updateAuthView() {
 
 function lockApp() {
   sessionStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem(REMEMBERED_LOGIN_KEY);
   clearAuthForm();
   updateAuthView();
 }
@@ -106,224 +120,6 @@ function showAuthMessage(message) {
   document.getElementById("authMessage").textContent = message;
 }
 
-function bindVoice() {
-  document.addEventListener("focusin", (event) => {
-    if (isVoiceField(event.target)) {
-      lastVoiceField = event.target;
-    }
-  });
-
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const voiceButton = document.getElementById("voiceButton");
-  if (!SpeechRecognition) {
-    voiceButton.disabled = true;
-    setVoiceStatus("Voice recognition is not supported in this browser. Use Chrome or Edge.");
-    return;
-  }
-
-  voiceRecognition = new SpeechRecognition();
-  voiceRecognition.lang = "en-IN";
-  voiceRecognition.interimResults = false;
-  voiceRecognition.maxAlternatives = 1;
-
-  voiceButton.addEventListener("click", () => {
-    try {
-      setVoiceStatus("Listening...");
-      voiceButton.classList.add("is-listening");
-      voiceRecognition.start();
-    } catch (error) {
-      setVoiceStatus("Mic is already listening. Speak now.");
-    }
-  });
-
-  voiceRecognition.addEventListener("result", (event) => {
-    const transcript = event.results[0][0].transcript.trim();
-    handleVoiceText(transcript);
-  });
-
-  voiceRecognition.addEventListener("end", () => {
-    voiceButton.classList.remove("is-listening");
-  });
-
-  voiceRecognition.addEventListener("error", (event) => {
-    voiceButton.classList.remove("is-listening");
-    setVoiceStatus(event.error === "not-allowed" ? "Allow microphone permission, then try again." : "Could not hear clearly. Try again.");
-  });
-}
-
-function handleVoiceText(transcript) {
-  const lower = transcript.toLowerCase();
-  const targetView = voiceTargetView(lower);
-  if (targetView) {
-    activateView(targetView);
-  }
-
-  const activeForm = document.querySelector(".view.active form.entry-form");
-  const filled = activeForm ? fillFormFromVoice(activeForm, lower) : 0;
-  if (filled) {
-    setVoiceStatus(`Heard: "${transcript}". Filled ${filled} detail${filled === 1 ? "" : "s"}.`);
-    return;
-  }
-
-  if (isVoiceField(lastVoiceField)) {
-    setFieldValue(lastVoiceField, transcript);
-    setVoiceStatus(`Heard: "${transcript}". Filled selected field.`);
-    return;
-  }
-
-  setVoiceStatus(`Heard: "${transcript}". Tap a field first or speak details like "amount 5000".`);
-}
-
-function voiceTargetView(text) {
-  const targets = [
-    { view: "wages", words: ["labour", "labor", "worker", "wage", "attendance"] },
-    { view: "materials", words: ["material", "cement", "steel", "sand", "supplier"] },
-    { view: "payments", words: ["payment", "client payment", "received"] },
-    { view: "bills", words: ["bill", "pending"] },
-    { view: "extraWorks", words: ["extra work", "extra site", "additional work"] },
-    { view: "sites", words: ["site name", "client name", "contract"] },
-    { view: "capital", words: ["capital"] },
-    { view: "schedule", words: ["schedule", "target", "assigned"] },
-    { view: "progress", words: ["progress", "completion", "stage"] },
-    { view: "updates", words: ["daily update", "today work", "tomorrow plan", "weather"] }
-  ];
-  return targets.find((target) => target.words.some((word) => text.includes(word)))?.view || "";
-}
-
-function fillFormFromVoice(form, text) {
-  const fieldMap = {
-    capitalForm: [
-      ["source", ["source", "note", "from"]],
-      ["amount", ["amount", "rupees", "rs"]]
-    ],
-    siteForm: [
-      ["name", ["site name", "site"]],
-      ["client", ["client name", "client"]],
-      ["phone", ["phone", "mobile", "number"]],
-      ["location", ["location", "place", "area"]],
-      ["contract", ["contract amount", "contract", "amount"]],
-      ["status", ["status"]]
-    ],
-    extraWorkForm: [
-      ["work", ["work name", "extra work", "work"]],
-      ["approvedBy", ["approved by", "approved", "client"]],
-      ["amount", ["amount", "rupees", "rs"]],
-      ["note", ["note", "details", "detail"]]
-    ],
-    wageForm: [
-      ["worker", ["labour name", "labor name", "worker name", "name"]],
-      ["phone", ["mobile number", "mobile", "phone", "number"]],
-      ["workType", ["work type", "work"]],
-      ["attendance", ["attendance"]],
-      ["days", ["days", "day"]],
-      ["rate", ["rate", "wage", "payment"]],
-      ["siteId", ["site name", "site"]]
-    ],
-    materialForm: [
-      ["item", ["material", "item"]],
-      ["supplier", ["supplier"]],
-      ["billNo", ["bill number", "bill no", "bill"]],
-      ["amount", ["amount", "rupees", "rs"]],
-      ["siteId", ["site name", "site"]]
-    ],
-    paymentForm: [
-      ["client", ["client"]],
-      ["mode", ["mode", "payment mode"]],
-      ["reference", ["reference", "receipt"]],
-      ["amount", ["amount", "rupees", "rs"]],
-      ["siteId", ["site name", "site"]]
-    ],
-    billForm: [
-      ["party", ["party", "supplier", "contractor"]],
-      ["detail", ["detail", "bill detail", "pending for"]],
-      ["amount", ["amount", "rupees", "rs"]],
-      ["siteId", ["site name", "site"]]
-    ],
-    progressForm: [
-      ["stage", ["stage", "work"]],
-      ["percent", ["completion", "percent", "percentage"]],
-      ["notes", ["notes", "note"]],
-      ["siteId", ["site name", "site"]]
-    ],
-    scheduleForm: [
-      ["task", ["task", "work", "schedule"]],
-      ["targetPercent", ["target percent", "target percentage", "target"]],
-      ["assignedTo", ["assigned to", "assigned"]],
-      ["status", ["status"]],
-      ["notes", ["notes", "note"]],
-      ["siteId", ["site name", "site"]]
-    ],
-    updateForm: [
-      ["labourCount", ["labour count", "labor count", "workers"]],
-      ["weather", ["weather"]],
-      ["workDone", ["today work", "work done", "done"]],
-      ["nextPlan", ["tomorrow plan", "next plan", "plan"]],
-      ["siteId", ["site name", "site"]]
-    ]
-  };
-
-  const fields = fieldMap[form.id] || [];
-  let filled = 0;
-  fields.forEach(([name, aliases], index) => {
-    const nextAliases = fields.slice(index + 1).flatMap((field) => field[1]);
-    const value = voiceValueAfter(text, aliases, nextAliases);
-    const field = form.elements[name];
-    if (value && field && setFieldValue(field, value)) {
-      filled += 1;
-    }
-  });
-  return filled;
-}
-
-function voiceValueAfter(text, aliases, nextAliases) {
-  const starts = aliases
-    .map((alias) => ({ alias, index: text.indexOf(alias) }))
-    .filter((item) => item.index >= 0)
-    .sort((a, b) => a.index - b.index);
-  if (!starts.length) return "";
-
-  const start = starts[0].index + starts[0].alias.length;
-  const next = nextAliases
-    .map((alias) => text.indexOf(alias, start + 1))
-    .filter((index) => index > start)
-    .sort((a, b) => a - b)[0];
-  return cleanVoiceValue(text.slice(start, next || undefined));
-}
-
-function cleanVoiceValue(value) {
-  return value
-    .replace(/\b(is|as|equals|equal to|rupees|rs|please|and)\b/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function setFieldValue(field, value) {
-  if (!field || field.type === "file" || field.type === "date" || field.type === "month") return false;
-  if (field.tagName === "SELECT") {
-    const match = Array.from(field.options).find((option) => option.textContent.toLowerCase().includes(value.toLowerCase()) || option.value.toLowerCase() === value.toLowerCase());
-    if (!match) return false;
-    field.value = match.value;
-  } else if (field.type === "number") {
-    const numeric = value.match(/\d+(\.\d+)?/);
-    if (!numeric) return false;
-    field.value = numeric[0];
-  } else {
-    field.value = value;
-  }
-  field.dispatchEvent(new Event("input", { bubbles: true }));
-  field.dispatchEvent(new Event("change", { bubbles: true }));
-  return true;
-}
-
-function isVoiceField(element) {
-  return element && ["INPUT", "TEXTAREA", "SELECT"].includes(element.tagName) && element.type !== "file";
-}
-
-function setVoiceStatus(message) {
-  const status = document.getElementById("voiceStatus");
-  if (status) status.textContent = message;
-}
-
 function loadState() {
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) {
@@ -333,13 +129,20 @@ function loadState() {
   return normalizeState({
     capital: [],
     sites: [],
+    rateList: [],
+    customerBills: [],
     extraWorks: [],
     wages: [],
     materials: [],
+    expenses: [],
     payments: [],
     bills: [],
+    measurements: [],
+    boq: [],
     schedule: [],
     progress: [],
+    diary: [],
+    settings: {},
     updates: []
   });
 }
@@ -348,13 +151,20 @@ function normalizeState(data) {
   return {
     capital: Array.isArray(data.capital) ? data.capital : [],
     sites: Array.isArray(data.sites) ? data.sites : [],
+    rateList: Array.isArray(data.rateList) ? data.rateList : [],
+    customerBills: Array.isArray(data.customerBills) ? data.customerBills : [],
     extraWorks: Array.isArray(data.extraWorks) ? data.extraWorks : [],
     wages: Array.isArray(data.wages) ? data.wages : [],
     materials: Array.isArray(data.materials) ? data.materials : [],
+    expenses: Array.isArray(data.expenses) ? data.expenses : [],
     payments: Array.isArray(data.payments) ? data.payments : [],
     bills: Array.isArray(data.bills) ? data.bills : [],
+    measurements: Array.isArray(data.measurements) ? data.measurements : [],
+    boq: Array.isArray(data.boq) ? data.boq : [],
     schedule: Array.isArray(data.schedule) ? data.schedule : [],
     progress: Array.isArray(data.progress) ? data.progress : [],
+    diary: Array.isArray(data.diary) ? data.diary : [],
+    settings: typeof data.settings === "object" && data.settings ? data.settings : {},
     updates: Array.isArray(data.updates) ? data.updates : []
   };
 }
@@ -411,7 +221,7 @@ function initSupabaseClient() {
 }
 
 function queueCloudSave() {
-  if (!supabaseClient || sessionStorage.getItem(SESSION_KEY) === null) return;
+  if (!supabaseClient || (!sessionStorage.getItem(SESSION_KEY) && !localStorage.getItem(REMEMBERED_LOGIN_KEY))) return;
   clearTimeout(cloudSaveTimer);
   cloudSaveTimer = setTimeout(() => pushCloudState(false), 1200);
 }
@@ -527,6 +337,45 @@ function bindForms() {
     });
   });
 
+  bindForm("rateListForm", (data) => {
+    state.rateList.push({
+      id: makeId(),
+      date: data.date,
+      category: data.category,
+      work: data.work,
+      unit: data.unit,
+      rate: number(data.rate),
+      note: data.note
+    });
+  });
+
+  bindForm("customerBillForm", (data) => {
+    const site = findSite(data.siteId);
+    const quantity = number(data.quantity || 1);
+    const rate = number(data.rate);
+    const amount = quantity * rate;
+    const discount = number(data.discount);
+    const tax = number(data.tax);
+    const total = Math.max(amount - discount + tax, 0);
+    state.customerBills.push({
+      id: makeId(),
+      date: data.date,
+      billNo: data.billNo,
+      siteId: data.siteId,
+      client: data.client || site.client || "",
+      work: data.work,
+      unit: data.unit,
+      quantity,
+      rate,
+      amount,
+      discount,
+      tax,
+      total,
+      status: data.status,
+      note: data.note
+    });
+  });
+
   bindForm("extraWorkForm", (data) => {
     state.extraWorks.push({
       id: makeId(),
@@ -564,9 +413,26 @@ function bindForms() {
       date: data.date,
       siteId: data.siteId,
       item: data.item,
+      category: data.category,
+      unit: data.unit,
+      quantityReceived: number(data.quantityReceived),
+      quantityUsed: number(data.quantityUsed),
       supplier: data.supplier,
       billNo: data.billNo,
       amount: number(data.amount)
+    });
+  });
+
+  bindForm("expenseForm", (data) => {
+    state.expenses.push({
+      id: makeId(),
+      date: data.date,
+      siteId: data.siteId,
+      type: data.type,
+      title: data.title,
+      paidTo: data.paidTo,
+      amount: number(data.amount),
+      notes: data.notes
     });
   });
 
@@ -596,6 +462,48 @@ function bindForms() {
     });
   });
 
+  bindForm("measurementForm", (data) => {
+    const plaster = number(data.plasterSqft);
+    const pop = number(data.popSqft);
+    const tile = number(data.tileSqft);
+    const waterproofing = number(data.waterproofingSqft);
+    const painting = number(data.paintingSqft);
+    const electrical = number(data.electricalPoints);
+    const runningFeet = number(data.runningFeet);
+    state.measurements.push({
+      id: makeId(),
+      date: data.date,
+      siteId: data.siteId,
+      area: data.area,
+      plasterSqft: plaster,
+      popSqft: pop,
+      tileSqft: tile,
+      waterproofingSqft: waterproofing,
+      paintingSqft: painting,
+      electricalPoints: electrical,
+      runningFeet,
+      total: plaster + pop + tile + waterproofing + painting + electrical + runningFeet,
+      notes: data.notes
+    });
+  });
+
+  bindForm("boqForm", (data) => {
+    const estimatedCost = number(data.estimatedCost);
+    const actualCost = number(data.actualCost);
+    state.boq.push({
+      id: makeId(),
+      siteId: data.siteId,
+      item: data.item,
+      unit: data.unit,
+      estimatedQuantity: number(data.estimatedQuantity),
+      estimatedCost,
+      actualQuantity: number(data.actualQuantity),
+      actualCost,
+      variance: actualCost - estimatedCost,
+      notes: data.notes
+    });
+  });
+
   bindForm("scheduleForm", (data) => {
     state.schedule.push({
       id: makeId(),
@@ -621,6 +529,32 @@ function bindForms() {
     });
   });
 
+  bindForm("diaryForm", (data) => {
+    state.diary.push({
+      id: makeId(),
+      date: data.date,
+      siteId: data.siteId,
+      weather: data.weather,
+      dailyNotes: data.dailyNotes,
+      labourIssues: data.labourIssues,
+      materialIssues: data.materialIssues,
+      clientInstructions: data.clientInstructions
+    });
+  });
+
+  bindForm("settingsForm", async (data, form) => {
+    const logoFile = form.elements.logo?.files?.[0];
+    state.settings = {
+      companyName: data.companyName,
+      gstNumber: data.gstNumber,
+      phone: data.phone,
+      address: data.address,
+      pdfHeader: data.pdfHeader,
+      pdfFooter: data.pdfFooter,
+      logo: logoFile ? await fileToDataUrl(logoFile) : state.settings.logo || ""
+    };
+  });
+
   bindForm("updateForm", async (data, form) => {
     const photoFiles = Array.from(form.elements.photos?.files || []);
     state.updates.push({
@@ -640,7 +574,7 @@ function bindForm(formId, onSubmit) {
   const form = document.getElementById(formId);
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (!state.sites.length && formId !== "siteForm" && formId !== "capitalForm") {
+    if (!state.sites.length && !["siteForm", "capitalForm", "rateListForm", "settingsForm"].includes(formId)) {
       alert("Add at least one site first.");
       return;
     }
@@ -694,6 +628,20 @@ function bindActions() {
   document.getElementById("exportPdf").addEventListener("click", exportPdfReport);
   document.getElementById("printReport").addEventListener("click", printReportPreview);
   document.getElementById("closeReport").addEventListener("click", closeReportPreview);
+  document.getElementById("themeToggle").addEventListener("click", toggleTheme);
+}
+
+function applyTheme() {
+  const theme = localStorage.getItem(THEME_KEY) || "light";
+  document.body.classList.toggle("dark-mode", theme === "dark");
+  const button = document.getElementById("themeToggle");
+  if (button) button.textContent = theme === "dark" ? "Light Mode" : "Dark Mode";
+}
+
+function toggleTheme() {
+  const next = document.body.classList.contains("dark-mode") ? "light" : "dark";
+  localStorage.setItem(THEME_KEY, next);
+  applyTheme();
 }
 
 function render() {
@@ -703,13 +651,20 @@ function render() {
   renderDashboard();
   renderCapital();
   renderSites();
+  renderRateList();
+  renderCustomerBills();
   renderExtraWorks();
   renderWages();
   renderMaterials();
+  renderExpenses();
   renderPayments();
   renderBills();
+  renderMeasurements();
+  renderBoq();
   renderSchedule();
   renderProgress();
+  renderDiary();
+  renderSettings();
   renderUpdates();
 }
 
@@ -752,6 +707,24 @@ function buildSearchRecords() {
       ["Amount", formatMoney(item.amount)]
     ]));
   });
+  state.rateList.forEach((item) => {
+    records.push(makeSearchRecord("Rate List", "rateList", item.work, item.category, item, [
+      ["Date", dateText(item.date)],
+      ["Unit", item.unit],
+      ["Rate", formatMoney(item.rate)],
+      ["Note", item.note]
+    ]));
+  });
+  state.customerBills.forEach((item) => {
+    records.push(makeSearchRecord("Customer Bills", "customerBills", item.billNo || item.work, item.client || plainSiteName(item.siteId), item, [
+      ["Date", dateText(item.date)],
+      ["Site", plainSiteName(item.siteId)],
+      ["Work", item.work],
+      ["Quantity", `${item.quantity} ${item.unit || ""}`],
+      ["Total", formatMoney(item.total)],
+      ["Status", item.status]
+    ]));
+  });
   state.extraWorks.forEach((item) => {
     records.push(makeSearchRecord("Extra Works", "extraWorks", item.work, plainSiteName(item.siteId), item, [
       ["Date", dateText(item.date)],
@@ -771,8 +744,18 @@ function buildSearchRecords() {
   state.materials.forEach((item) => {
     records.push(makeSearchRecord("Material Expenses", "materials", item.item, plainSiteName(item.siteId), item, [
       ["Date", dateText(item.date)],
+      ["Category", item.category],
+      ["Stock", `${number(item.quantityReceived) - number(item.quantityUsed)} ${item.unit || ""}`],
       ["Supplier", item.supplier],
       ["Bill", item.billNo],
+      ["Amount", formatMoney(item.amount)]
+    ]));
+  });
+  state.expenses.forEach((item) => {
+    records.push(makeSearchRecord("Expense Tracker", "expenses", item.title, item.type, item, [
+      ["Date", dateText(item.date)],
+      ["Site", plainSiteName(item.siteId)],
+      ["Paid To", item.paidTo],
       ["Amount", formatMoney(item.amount)]
     ]));
   });
@@ -793,6 +776,21 @@ function buildSearchRecords() {
       ["Status", item.status]
     ]));
   });
+  state.measurements.forEach((item) => {
+    records.push(makeSearchRecord("Measurement Book", "measurements", item.area, plainSiteName(item.siteId), item, [
+      ["Date", dateText(item.date)],
+      ["Total", item.total],
+      ["Notes", item.notes]
+    ]));
+  });
+  state.boq.forEach((item) => {
+    records.push(makeSearchRecord("BOQ Management", "boq", item.item, plainSiteName(item.siteId), item, [
+      ["Unit", item.unit],
+      ["Estimated", formatMoney(item.estimatedCost)],
+      ["Actual", formatMoney(item.actualCost)],
+      ["Variance", formatMoney(item.variance)]
+    ]));
+  });
   state.schedule.forEach((item) => {
     records.push(makeSearchRecord("Schedule & Targets", "schedule", item.task, plainSiteName(item.siteId), item, [
       ["Target", dateText(item.targetDate)],
@@ -806,6 +804,13 @@ function buildSearchRecords() {
       ["Date", dateText(item.date)],
       ["Progress", `${item.percent}%`],
       ["Notes", item.notes]
+    ]));
+  });
+  state.diary.forEach((item) => {
+    records.push(makeSearchRecord("Site Diary", "diary", item.dailyNotes, plainSiteName(item.siteId), item, [
+      ["Date", dateText(item.date)],
+      ["Weather", item.weather],
+      ["Client", item.clientInstructions]
     ]));
   });
   state.updates.forEach((item) => {
@@ -879,14 +884,18 @@ function renderDashboard() {
   const capital = filtered(state.capital);
   const wages = filtered(state.wages);
   const materials = filtered(state.materials);
+  const expenses = filtered(state.expenses);
   const extraWorks = filtered(state.extraWorks);
+  const customerBills = filtered(state.customerBills);
   const payments = filtered(state.payments);
   const bills = filtered(state.bills).filter((bill) => bill.status !== "Paid");
   const paidBills = filtered(state.bills).filter((bill) => bill.status === "Paid");
   const capitalAdded = sum(capital.filter((item) => item.type === "add"), "amount");
   const capitalWithdrawn = sum(capital.filter((item) => item.type === "withdraw"), "amount");
   const companyCapital = capitalAdded - capitalWithdrawn;
-  const usedPayment = sum(wages, "amount") + sum(materials, "amount") + sum(paidBills, "amount");
+  const usedPayment = sum(wages, "amount") + sum(materials, "amount") + sum(expenses, "amount") + sum(paidBills, "amount");
+  const totalContract = visibleSites().reduce((total, site) => total + siteTotalAmount(site.id), 0);
+  const profitLoss = totalContract - usedPayment;
   const clientPending = visibleSites().reduce((total, site) => {
     const contract = siteTotalAmount(site.id);
     const paid = sum(state.payments.filter((item) => item.siteId === site.id), "amount");
@@ -906,14 +915,19 @@ function renderDashboard() {
   document.getElementById("metricTodayMaterials").textContent = formatMoney(sum(todayMaterials, "amount"));
   document.getElementById("metricTodayItems").textContent = `${todayMaterials.length} items`;
   document.getElementById("metricCash").textContent = formatMoney(cashInHand);
+  document.getElementById("metricTotalSites").textContent = visibleSites().length;
+  document.getElementById("metricProfitLoss").textContent = formatMoney(profitLoss);
   document.getElementById("metricCapital").textContent = formatMoney(companyCapital);
   document.getElementById("metricWages").textContent = formatMoney(sum(wages, "amount"));
   document.getElementById("metricMaterials").textContent = formatMoney(sum(materials, "amount"));
   document.getElementById("metricPayments").textContent = formatMoney(sum(payments, "amount"));
+  document.getElementById("metricCustomerBills").textContent = formatMoney(sum(customerBills, "total"));
   document.getElementById("metricExtraWorks").textContent = formatMoney(sum(extraWorks, "amount"));
   document.getElementById("metricUsed").textContent = formatMoney(usedPayment);
+  document.getElementById("metricExpenses").textContent = formatMoney(sum(expenses, "amount"));
   document.getElementById("metricBills").textContent = formatMoney(sum(bills, "amount"));
   document.getElementById("metricClientPending").textContent = formatMoney(clientPending);
+  renderNotifications();
   document.getElementById("todayEmptyCard").classList.toggle("is-hidden", Boolean(todayWages.length || todayMaterials.length));
 
   const rows = visibleSites().map((site) => {
@@ -944,6 +958,30 @@ function renderDashboard() {
     .map(targetCard)
     .join("");
   document.getElementById("targetRows").innerHTML = targets || emptyCard("No upcoming targets yet.");
+}
+
+function renderNotifications() {
+  const materialAlerts = state.materials
+    .map((item) => {
+      const received = number(item.quantityReceived);
+      const used = number(item.quantityUsed);
+      const balance = received - used;
+      return { ...item, balance };
+    })
+    .filter((item) => number(item.quantityReceived) > 0 && item.balance <= Math.max(number(item.quantityReceived) * 0.15, 1))
+    .map((item) => `<article class="activity-card"><h4>Low stock: ${escapeHtml(item.item)}</h4><p>${siteName(item.siteId)} | Balance approx. ${item.balance}</p></article>`);
+
+  const labourAlerts = state.wages
+    .filter((item) => number(item.amount) > 0 && item.attendance !== "Absent")
+    .slice(0, 3)
+    .map((item) => `<article class="activity-card"><h4>Labour payment reminder</h4><p>${escapeHtml(item.worker)} | ${siteName(item.siteId)} | ${formatMoney(item.amount)}</p></article>`);
+
+  const billAlerts = state.customerBills
+    .filter((item) => item.status !== "Paid")
+    .map((item) => `<article class="activity-card"><h4>Client bill due</h4><p>${escapeHtml(item.billNo || item.work)} | ${escapeHtml(item.client || "-")} | ${formatMoney(item.total)}</p></article>`);
+
+  const alerts = [...materialAlerts, ...labourAlerts, ...billAlerts].slice(0, 6).join("");
+  document.getElementById("notificationRows").innerHTML = alerts || emptyCard("No alerts right now.");
 }
 
 function selectedSiteName() {
@@ -979,6 +1017,35 @@ function renderSites() {
     <td><button class="delete-btn" data-delete="sites:${site.id}" type="button">Delete</button></td>
   </tr>`).join("");
   document.getElementById("siteRows").innerHTML = rows || emptyRow(8);
+}
+
+function renderRateList() {
+  const rows = state.rateList.sort(byDateDesc).map((item) => `<tr>
+    <td>${dateText(item.date)}</td>
+    <td>${escapeHtml(item.category || "-")}</td>
+    <td><strong>${escapeHtml(item.work)}</strong></td>
+    <td>${escapeHtml(item.unit || "-")}</td>
+    <td class="amount">${formatMoney(item.rate)}</td>
+    <td>${escapeHtml(item.note || "-")}</td>
+    <td><button class="delete-btn" data-delete="rateList:${item.id}" type="button">Delete</button></td>
+  </tr>`).join("");
+  document.getElementById("rateListRows").innerHTML = rows || emptyRow(7);
+}
+
+function renderCustomerBills() {
+  const rows = filtered(state.customerBills).sort(byDateDesc).map((bill) => `<tr>
+    <td>${dateText(bill.date)}</td>
+    <td>${escapeHtml(bill.billNo || "-")}</td>
+    <td>${siteName(bill.siteId)}</td>
+    <td>${escapeHtml(bill.client || "-")}</td>
+    <td><strong>${escapeHtml(bill.work)}</strong><br><span>${escapeHtml(bill.note || "")}</span></td>
+    <td>${bill.quantity} ${escapeHtml(bill.unit || "")}</td>
+    <td class="amount">${formatMoney(bill.rate)}</td>
+    <td class="amount">${formatMoney(bill.total)}</td>
+    <td><span class="status-pill ${bill.status === "Paid" ? "success-pill" : bill.status === "Part Paid" ? "warning-pill" : "danger-pill"}">${escapeHtml(bill.status || "Unpaid")}</span></td>
+    <td><button class="delete-btn" data-delete="customerBills:${bill.id}" type="button">Delete</button></td>
+  </tr>`).join("");
+  document.getElementById("customerBillRows").innerHTML = rows || emptyRow(10);
 }
 
 function renderExtraWorks() {
@@ -1026,12 +1093,27 @@ function renderMaterials() {
     <td>${dateText(item.date)}</td>
     <td>${siteName(item.siteId)}</td>
     <td>${escapeHtml(item.item)}</td>
+    <td>${escapeHtml(item.category || "-")}</td>
+    <td>${number(item.quantityReceived) - number(item.quantityUsed)} ${escapeHtml(item.unit || "")}</td>
     <td>${escapeHtml(item.supplier || "-")}</td>
     <td>${escapeHtml(item.billNo || "-")}</td>
     <td class="amount">${formatMoney(item.amount)}</td>
     <td><button class="delete-btn" data-delete="materials:${item.id}" type="button">Delete</button></td>
   </tr>`).join("");
-  document.getElementById("materialRows").innerHTML = rows || emptyRow(7);
+  document.getElementById("materialRows").innerHTML = rows || emptyRow(9);
+}
+
+function renderExpenses() {
+  const rows = filtered(state.expenses).sort(byDateDesc).map((item) => `<tr>
+    <td>${dateText(item.date)}</td>
+    <td>${siteName(item.siteId)}</td>
+    <td>${escapeHtml(item.type)}</td>
+    <td><strong>${escapeHtml(item.title)}</strong><br><span>${escapeHtml(item.notes || "")}</span></td>
+    <td>${escapeHtml(item.paidTo || "-")}</td>
+    <td class="amount">${formatMoney(item.amount)}</td>
+    <td><button class="delete-btn" data-delete="expenses:${item.id}" type="button">Delete</button></td>
+  </tr>`).join("");
+  document.getElementById("expenseRows").innerHTML = rows || emptyRow(7);
 }
 
 function renderPayments() {
@@ -1061,6 +1143,39 @@ function renderBills() {
     </td>
   </tr>`).join("");
   document.getElementById("billRows").innerHTML = rows || emptyRow(7);
+}
+
+function renderMeasurements() {
+  const rows = filtered(state.measurements).sort(byDateDesc).map((item) => `<tr>
+    <td>${dateText(item.date)}</td>
+    <td>${siteName(item.siteId)}</td>
+    <td>${escapeHtml(item.area || "-")}</td>
+    <td>${item.plasterSqft}</td>
+    <td>${item.popSqft}</td>
+    <td>${item.tileSqft}</td>
+    <td>${item.waterproofingSqft}</td>
+    <td>${item.paintingSqft}</td>
+    <td>${item.electricalPoints}</td>
+    <td>${item.runningFeet}</td>
+    <td><strong>${item.total}</strong></td>
+    <td><button class="delete-btn" data-delete="measurements:${item.id}" type="button">Delete</button></td>
+  </tr>`).join("");
+  document.getElementById("measurementRows").innerHTML = rows || emptyRow(12);
+}
+
+function renderBoq() {
+  const rows = filtered(state.boq).map((item) => `<tr>
+    <td>${siteName(item.siteId)}</td>
+    <td><strong>${escapeHtml(item.item)}</strong><br><span>${escapeHtml(item.notes || "")}</span></td>
+    <td>${escapeHtml(item.unit || "-")}</td>
+    <td>${item.estimatedQuantity}</td>
+    <td class="amount">${formatMoney(item.estimatedCost)}</td>
+    <td>${item.actualQuantity}</td>
+    <td class="amount">${formatMoney(item.actualCost)}</td>
+    <td class="amount">${formatMoney(item.variance)}</td>
+    <td><button class="delete-btn" data-delete="boq:${item.id}" type="button">Delete</button></td>
+  </tr>`).join("");
+  document.getElementById("boqRows").innerHTML = rows || emptyRow(9);
 }
 
 function renderSchedule() {
@@ -1115,6 +1230,32 @@ function renderUpdates() {
   document.getElementById("updateRows").innerHTML = rows || emptyCard("No daily updates yet.");
 }
 
+function renderDiary() {
+  const rows = filtered(state.diary).sort(byDateDesc).map((item) => `<article class="activity-card">
+    <header>
+      <div>
+        <h4>${siteName(item.siteId)}</h4>
+        <time>${dateText(item.date)} | ${escapeHtml(item.weather || "Weather not set")}</time>
+      </div>
+      <button class="delete-btn" data-delete="diary:${item.id}" type="button">Delete</button>
+    </header>
+    <p><strong>Notes:</strong> ${escapeHtml(item.dailyNotes || "-")}</p>
+    <p><strong>Labour:</strong> ${escapeHtml(item.labourIssues || "-")}</p>
+    <p><strong>Material:</strong> ${escapeHtml(item.materialIssues || "-")}</p>
+    <p><strong>Client:</strong> ${escapeHtml(item.clientInstructions || "-")}</p>
+  </article>`).join("");
+  document.getElementById("diaryRows").innerHTML = rows || emptyCard("No diary entries yet.");
+}
+
+function renderSettings() {
+  const form = document.getElementById("settingsForm");
+  if (!form) return;
+  Object.entries(state.settings || {}).forEach(([key, value]) => {
+    if (key === "logo") return;
+    if (form.elements[key]) form.elements[key].value = value || "";
+  });
+}
+
 function updateCard(update) {
   const photos = Array.isArray(update.photos) ? update.photos : [];
   const gallery = photos.length
@@ -1163,13 +1304,19 @@ function exportCsv() {
   const sections = [
     ["capital", state.capital],
     ["sites", state.sites],
+    ["rate_list", state.rateList],
+    ["customer_bills", state.customerBills],
     ["extra_works", state.extraWorks],
     ["wages", state.wages.map(({ photo, ...row }) => ({ ...row, photo: photo ? "Saved in app" : "" }))],
     ["materials", state.materials],
+    ["expenses", state.expenses],
     ["payments", state.payments],
     ["pending_bills", state.bills],
+    ["measurement_book", state.measurements],
+    ["boq", state.boq],
     ["schedule_targets", state.schedule],
     ["progress", state.progress],
+    ["site_diary", state.diary],
     ["daily_updates", state.updates.map(({ photos, ...row }) => ({ ...row, photos: Array.isArray(photos) && photos.length ? `${photos.length} saved in app` : "" }))]
   ];
 
@@ -1230,13 +1377,19 @@ function reportDocumentHtml() {
         <p class="muted">Generated on ${longDate(today)} | ${escapeHtml(selectedSiteName())}</p>
         <section class="summary">${report.summary.map((item) => `<div><span>${item.label}</span><strong>${item.value}</strong></div>`).join("")}</section>
         ${reportSection("Site Summary", report.sites)}
+        ${reportSection("Rate List", report.rateList)}
+        ${reportSection("Customer Bills", report.customerBills)}
         ${reportSection("Extra Site Works", report.extraWorks)}
         ${reportSection("Labour Wages", report.wages)}
         ${reportSection("Material Expenses", report.materials)}
+        ${reportSection("Expenses", report.expenses)}
         ${reportSection("Client Payments", report.payments)}
         ${reportSection("Pending Bills", report.bills)}
+        ${reportSection("Measurement Book", report.measurements)}
+        ${reportSection("BOQ", report.boq)}
         ${reportSection("Schedule & Targets", report.schedule)}
         ${reportSection("Work Progress", report.progress)}
+        ${reportSection("Site Diary", report.diary)}
         ${reportSection("Daily Updates", report.updates)}
       </body>
     </html>`;
@@ -1251,13 +1404,19 @@ function reportWorkbookHtml() {
         <h1>H&amp;H SPACES Report</h1>
         ${excelTable("Summary", report.summary.map((item) => ({ Particular: item.label, Amount: item.value })))}
         ${excelTable("Site Summary", report.sites)}
+        ${excelTable("Rate List", report.rateList)}
+        ${excelTable("Customer Bills", report.customerBills)}
         ${excelTable("Extra Site Works", report.extraWorks)}
         ${excelTable("Labour Wages", report.wages)}
         ${excelTable("Material Expenses", report.materials)}
+        ${excelTable("Expenses", report.expenses)}
         ${excelTable("Client Payments", report.payments)}
         ${excelTable("Pending Bills", report.bills)}
+        ${excelTable("Measurement Book", report.measurements)}
+        ${excelTable("BOQ", report.boq)}
         ${excelTable("Schedule Targets", report.schedule)}
         ${excelTable("Work Progress", report.progress)}
+        ${excelTable("Site Diary", report.diary)}
         ${excelTable("Daily Updates", report.updates)}
       </body>
     </html>`;
@@ -1266,13 +1425,15 @@ function reportWorkbookHtml() {
 function buildReportData() {
   const wages = filtered(state.wages);
   const materials = filtered(state.materials);
+  const expenses = filtered(state.expenses);
   const extraWorks = filtered(state.extraWorks);
+  const customerBills = filtered(state.customerBills);
   const payments = filtered(state.payments);
   const pendingBills = filtered(state.bills).filter((bill) => bill.status !== "Paid");
   const paidBills = filtered(state.bills).filter((bill) => bill.status === "Paid");
   const capital = filtered(state.capital);
   const capitalTotal = sum(capital.filter((item) => item.type === "add"), "amount") - sum(capital.filter((item) => item.type === "withdraw"), "amount");
-  const used = sum(wages, "amount") + sum(materials, "amount") + sum(paidBills, "amount");
+  const used = sum(wages, "amount") + sum(materials, "amount") + sum(expenses, "amount") + sum(paidBills, "amount");
   const received = sum(payments, "amount");
   const cash = capitalTotal + received - used;
 
@@ -1281,11 +1442,13 @@ function buildReportData() {
       { label: "Cash In Hand", value: formatMoney(cash) },
       { label: "Company Capital", value: formatMoney(capitalTotal) },
       { label: "Client Payments", value: formatMoney(received) },
+      { label: "Customer Bills", value: formatMoney(sum(customerBills, "total")) },
       { label: "Extra Site Works", value: formatMoney(sum(extraWorks, "amount")) },
       { label: "Payment Used", value: formatMoney(used) },
       { label: "Pending Bills", value: formatMoney(sum(pendingBills, "amount")) },
       { label: "Labour Wages", value: formatMoney(sum(wages, "amount")) },
-      { label: "Material Expenses", value: formatMoney(sum(materials, "amount")) }
+      { label: "Material Expenses", value: formatMoney(sum(materials, "amount")) },
+      { label: "Other Expenses", value: formatMoney(sum(expenses, "amount")) }
     ],
     sites: visibleSites().map((site) => {
       const paid = sum(state.payments.filter((item) => item.siteId === site.id), "amount");
@@ -1304,6 +1467,29 @@ function buildReportData() {
         Status: site.status
       };
     }),
+    rateList: state.rateList.map((item) => ({
+      Date: dateText(item.date),
+      Category: item.category || "",
+      Work: item.work,
+      Unit: item.unit || "",
+      Rate: formatMoney(item.rate),
+      Note: item.note || ""
+    })),
+    customerBills: customerBills.map((item) => ({
+      Date: dateText(item.date),
+      Bill: item.billNo || "",
+      Site: plainSiteName(item.siteId),
+      Client: item.client || "",
+      Work: item.work,
+      Quantity: item.quantity,
+      Unit: item.unit || "",
+      Rate: formatMoney(item.rate),
+      Amount: formatMoney(item.amount),
+      Discount: formatMoney(item.discount),
+      Tax: formatMoney(item.tax),
+      Total: formatMoney(item.total),
+      Status: item.status || "Unpaid"
+    })),
     extraWorks: extraWorks.map((item) => ({
       Date: dateText(item.date),
       Site: plainSiteName(item.siteId),
@@ -1327,9 +1513,23 @@ function buildReportData() {
       Date: dateText(item.date),
       Site: plainSiteName(item.siteId),
       Material: item.item,
+      Category: item.category || "",
+      Unit: item.unit || "",
+      Received: item.quantityReceived || 0,
+      Used: item.quantityUsed || 0,
+      Balance: number(item.quantityReceived) - number(item.quantityUsed),
       Supplier: item.supplier || "",
       Bill: item.billNo || "",
       Amount: formatMoney(item.amount)
+    })),
+    expenses: expenses.map((item) => ({
+      Date: dateText(item.date),
+      Site: plainSiteName(item.siteId),
+      Type: item.type,
+      Title: item.title,
+      "Paid To": item.paidTo || "",
+      Amount: formatMoney(item.amount),
+      Notes: item.notes || ""
     })),
     payments: payments.map((item) => ({
       Date: dateText(item.date),
@@ -1347,6 +1547,31 @@ function buildReportData() {
       Detail: item.detail || "",
       Amount: formatMoney(item.amount)
     })),
+    measurements: filtered(state.measurements).map((item) => ({
+      Date: dateText(item.date),
+      Site: plainSiteName(item.siteId),
+      Area: item.area || "",
+      Plaster: item.plasterSqft,
+      POP: item.popSqft,
+      Tile: item.tileSqft,
+      Waterproofing: item.waterproofingSqft,
+      Painting: item.paintingSqft,
+      Points: item.electricalPoints,
+      RFT: item.runningFeet,
+      Total: item.total,
+      Notes: item.notes || ""
+    })),
+    boq: filtered(state.boq).map((item) => ({
+      Site: plainSiteName(item.siteId),
+      Item: item.item,
+      Unit: item.unit,
+      "Estimated Qty": item.estimatedQuantity,
+      "Estimated Cost": formatMoney(item.estimatedCost),
+      "Actual Qty": item.actualQuantity,
+      "Actual Cost": formatMoney(item.actualCost),
+      Variance: formatMoney(item.variance),
+      Notes: item.notes || ""
+    })),
     schedule: filtered(state.schedule).map((item) => ({
       Plan: dateText(item.date),
       Target: dateText(item.targetDate),
@@ -1363,6 +1588,15 @@ function buildReportData() {
       Stage: item.stage,
       Progress: `${item.percent}%`,
       Notes: item.notes || ""
+    })),
+    diary: filtered(state.diary).map((item) => ({
+      Date: dateText(item.date),
+      Site: plainSiteName(item.siteId),
+      Weather: item.weather || "",
+      Notes: item.dailyNotes || "",
+      LabourIssues: item.labourIssues || "",
+      MaterialIssues: item.materialIssues || "",
+      ClientInstructions: item.clientInstructions || ""
     })),
     updates: filtered(state.updates).map((item) => ({
       Date: dateText(item.date),
