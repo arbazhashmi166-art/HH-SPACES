@@ -7,6 +7,10 @@ const AI_CHAT_KEY = "hh-spaces-ai-chat-v1";
 const OPENAI_KEY = "hh-spaces-openai-key-v1";
 const CLOUD_TABLE = "hh_spaces_app_state";
 const CLOUD_ROW_ID = "main";
+const DEFAULT_SUPABASE_CONFIG = {
+  url: "https://yvocwptxawxmloacpdrt.supabase.co",
+  anonKey: "sb_publishable_L5569z24IpKtZwC-HkVI0g_C9ol2fmj"
+};
 const ALLOWED_USERS = [
   { username: "SAHIL123", password: "DAVID9529", name: "Sahil" },
   { username: "ARBAZ123", password: "BUCKY1081", name: "Arbaz" }
@@ -214,7 +218,7 @@ function openCloudModal() {
   document.getElementById("supabaseUrl").value = config.url || "";
   document.getElementById("supabaseAnonKey").value = config.anonKey || "";
   document.getElementById("cloudModal").classList.remove("is-hidden");
-  updateCloudStatus(supabaseClient ? "Connected. You can load or save cloud data." : "Not connected. Paste Supabase details.");
+  updateCloudStatus(supabaseClient ? "Connected. You can load or save cloud data." : "Not connected. Paste SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY.");
 }
 
 function closeCloudModal() {
@@ -223,14 +227,14 @@ function closeCloudModal() {
 
 function getSupabaseConfig() {
   const saved = localStorage.getItem(SUPABASE_CONFIG_KEY);
-  return saved ? JSON.parse(saved) : {};
+  return saved ? { ...DEFAULT_SUPABASE_CONFIG, ...JSON.parse(saved) } : DEFAULT_SUPABASE_CONFIG;
 }
 
 function saveCloudConfig() {
   const url = document.getElementById("supabaseUrl").value.trim();
   const anonKey = document.getElementById("supabaseAnonKey").value.trim();
   if (!url || !anonKey) {
-    updateCloudStatus("Enter Project URL and anon public key.");
+    updateCloudStatus("Enter SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY. Do not use the secret key.");
     return;
   }
   localStorage.setItem(SUPABASE_CONFIG_KEY, JSON.stringify({ url, anonKey }));
@@ -255,7 +259,7 @@ function queueCloudSave() {
 
 async function pushCloudState(showResult) {
   if (!supabaseClient) {
-    if (showResult) updateCloudStatus("Not connected. Save Supabase URL and anon key first.");
+    if (showResult) updateCloudStatus("Not connected. Save Supabase URL and publishable key first.");
     return;
   }
   const payload = JSON.parse(JSON.stringify(state));
@@ -272,7 +276,7 @@ async function pushCloudState(showResult) {
 
 async function pullCloudState() {
   if (!supabaseClient) {
-    updateCloudStatus("Not connected. Save Supabase URL and anon key first.");
+    updateCloudStatus("Not connected. Save Supabase URL and publishable key first.");
     return;
   }
   const { data, error } = await supabaseClient

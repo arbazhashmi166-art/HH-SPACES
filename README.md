@@ -65,17 +65,19 @@ After a successful login, the app remembers that browser/device. Use `Lock App` 
 1. Create a Supabase project.
 2. Open Supabase SQL Editor.
 3. Paste and run the SQL from `supabase-schema.sql`.
-4. In Supabase, go to `Project Settings` > `Data API`.
-5. Copy:
-   - Project URL
-   - anon public key
+4. This app is already pre-filled with the current project:
+   - `https://yvocwptxawxmloacpdrt.supabase.co`
+   - publishable key ending with `2fmj`
+5. If you use a different Supabase project later, go to `Project Settings` > `Data API` and copy:
+   - `SUPABASE_URL`
+   - `SUPABASE_PUBLISHABLE_KEY`
+   - Do not use `SUPABASE_SECRET_KEY` in this browser app.
 6. Open the H&H SPACES app.
 7. Login.
 8. Click `Cloud Sync`.
-9. Paste the Project URL and anon public key.
-10. Click `Save Connection`.
-11. Click `Save To Cloud` once from the device that already has your data.
-12. On another phone/computer, use the same Cloud Sync details and click `Load From Cloud`.
+9. Click `Save Connection`.
+10. Click `Save To Cloud` once from the device that already has your data.
+11. On another phone/computer, open Cloud Sync and click `Load From Cloud`.
 
 ## Notes
 

@@ -1191,13 +1191,13 @@
         </div>
         <div class="cloud-form">
           <label>Project URL<input id="supabaseUrl" placeholder="https://your-project.supabase.co"></label>
-          <label>Anon public key<input id="supabaseAnonKey" placeholder="Paste anon public key"></label>
+          <label>Publishable key<input id="supabaseAnonKey" placeholder="Paste SUPABASE_PUBLISHABLE_KEY only"></label>
           <div class="cloud-actions">
             <button class="primary-btn" id="saveCloudConfig" type="button">Save Connection</button>
             <button class="secondary-light-btn" id="pullCloud" type="button">Load From Cloud</button>
             <button class="secondary-light-btn" id="pushCloud" type="button">Save To Cloud</button>
           </div>
-          <p>First create the Supabase table using <strong>supabase-schema.sql</strong>, then paste your Project URL and anon public key here.</p>
+          <p>This app is pre-filled with your Supabase URL and publishable key. First run <strong>supabase-schema.sql</strong> in Supabase SQL Editor, then tap <strong>Save To Cloud</strong>. Never paste the secret key.</p>
         </div>
       </div>
     </section>
