@@ -20,13 +20,27 @@
   box-sizing: border-box;
 }
 
+html {
+  max-width: 100%;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
+  max-width: 100%;
+  overflow-x: hidden;
   background: radial-gradient(circle at 50% -10%, rgba(124, 58, 237, 0.16), transparent 26rem), var(--bg);
   color: var(--ink);
   font-family: Inter, Arial, Helvetica, sans-serif;
   letter-spacing: 0;
+}
+
+body.modal-open {
+  overflow: hidden;
+  touch-action: none;
 }
 
 body.dark-mode {
@@ -71,10 +85,13 @@ input,
 select,
 textarea {
   font: inherit;
+  font-size: 16px;
 }
 
 button {
   cursor: pointer;
+  min-height: 44px;
+  touch-action: manipulation;
 }
 
 .auth-screen {
@@ -84,6 +101,7 @@ button {
   display: none;
   place-items: center;
   padding: 22px;
+  overflow-y: auto;
   background:
     radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.28), transparent 22rem),
     linear-gradient(180deg, #f8f7ff, #eeebff);
@@ -98,7 +116,8 @@ button {
 }
 
 .auth-card {
-  width: min(420px, 100%);
+  width: 100%;
+  max-width: 420px;
   padding: 24px;
   background: rgba(255, 255, 255, 0.96);
   border: 1px solid rgba(230, 227, 244, 0.95);
@@ -449,6 +468,7 @@ select,
 textarea {
   width: 100%;
   min-height: 44px;
+  max-width: 100%;
   border: 1px solid var(--line);
   border-radius: 15px;
   padding: 11px 12px;
@@ -820,6 +840,8 @@ textarea {
   z-index: 80;
   display: grid;
   grid-template-rows: auto 1fr;
+  height: 100dvh;
+  overflow: hidden;
   background: #f7f8ff;
 }
 
@@ -860,6 +882,7 @@ textarea {
 .report-modal iframe {
   width: 100%;
   height: 100%;
+  min-height: 0;
   border: 0;
   background: #ffffff;
 }
@@ -944,6 +967,8 @@ textarea {
   z-index: 90;
   display: grid;
   place-items: center;
+  height: 100dvh;
+  overflow: hidden;
   padding: 18px;
   background: rgba(23, 21, 47, 0.48);
   backdrop-filter: blur(10px);
@@ -951,11 +976,18 @@ textarea {
 
 .cloud-card {
   width: min(620px, 100%);
+  max-height: calc(100dvh - 36px);
   overflow: hidden;
   background: #ffffff;
   border: 1px solid var(--line);
   border-radius: 26px;
   box-shadow: 0 28px 80px rgba(23, 21, 47, 0.24);
+}
+
+.cloud-form {
+  max-height: calc(100dvh - 130px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .cloud-card__header {
@@ -1115,6 +1147,38 @@ textarea {
   flex-wrap: wrap;
   gap: 10px;
   align-items: center;
+}
+
+.bill-items {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #f8f7ff;
+}
+
+.bill-items h4 {
+  margin: 0;
+  color: #23213f;
+  font-size: 14px;
+  font-weight: 950;
+}
+
+.bill-item-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.6fr) minmax(90px, 0.8fr) minmax(80px, 0.7fr) minmax(90px, 0.8fr) auto;
+  gap: 10px;
+  align-items: end;
+  padding: 10px;
+  border: 1px solid #e5e0ff;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.add-bill-row-btn,
+.bill-row-remove {
+  min-height: 44px;
 }
 
 .restore-label {
@@ -1426,12 +1490,14 @@ body.dark-mode .tool-card h4 {
   z-index: 60;
   display: grid;
   align-items: end;
+  height: 100dvh;
+  overflow: hidden;
   background: rgba(15, 23, 42, 0.42);
 }
 
 .ai-panel {
   width: min(560px, 100vw);
-  max-height: min(88vh, 820px);
+  max-height: min(88dvh, 820px);
   margin: 0 auto;
   display: grid;
   grid-template-rows: auto auto auto minmax(220px, 1fr) auto auto;
@@ -1467,16 +1533,15 @@ body.dark-mode .tool-card h4 {
 .ai-quick-actions,
 .ai-suggestions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 10px 14px 0;
-  overflow-x: auto;
-  scrollbar-width: none;
 }
 
 .ai-quick-actions button,
 .ai-suggestions button {
   min-height: 44px;
-  flex: 0 0 auto;
+  flex: 1 1 132px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: #f8f7ff;
@@ -1495,11 +1560,12 @@ body.dark-mode .tool-card h4 {
 }
 
 .ai-message {
-  max-width: 86%;
+  max-width: 92%;
   border-radius: 18px;
   padding: 11px 13px;
   font-size: 15px;
   line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .ai-message p {
@@ -1556,6 +1622,7 @@ body.dark-mode .tool-card h4 {
   padding: 10px;
   font-size: 12px;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .ai-preview div {
@@ -1572,9 +1639,11 @@ body.dark-mode .tool-card h4 {
   border-top: 1px solid var(--line);
 }
 
-.ai-composer input {
+.ai-composer textarea {
   min-height: 46px;
+  max-height: 116px;
   border-radius: 15px;
+  resize: none;
 }
 
 @media (max-width: 1180px) {
@@ -1612,6 +1681,16 @@ body.dark-mode .tool-card h4 {
 }
 
 @media (max-width: 720px) {
+  .app-locked .auth-card {
+    position: fixed;
+    left: 22px;
+    right: 22px;
+    top: 50%;
+    width: auto !important;
+    max-width: none;
+    transform: translateY(-50%);
+  }
+
   .app-shell {
     display: block;
     max-width: 520px;
@@ -1625,7 +1704,7 @@ body.dark-mode .tool-card h4 {
   }
 
   .main {
-    padding: 0 14px 92px;
+    padding: 0 14px calc(108px + env(safe-area-inset-bottom));
   }
 
   .topbar {
@@ -1722,6 +1801,14 @@ body.dark-mode .tool-card h4 {
     width: 100%;
   }
 
+  .bill-item-row {
+    grid-template-columns: 1fr;
+  }
+
+  .bill-row-remove {
+    width: 100%;
+  }
+
   .quick-action-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 10px;
@@ -1814,6 +1901,10 @@ body.dark-mode .tool-card h4 {
     overflow: hidden;
   }
 
+  body.dark-mode tr {
+    background: #111827;
+  }
+
   td {
     min-height: 44px;
     padding: 10px 14px;
@@ -1834,7 +1925,7 @@ body.dark-mode .tool-card h4 {
     grid-template-columns: repeat(5, minmax(0, 1fr));
     width: min(520px, 100vw);
     transform: translateX(-50%);
-    padding: 8px 8px 10px;
+    padding: 8px 8px calc(10px + env(safe-area-inset-bottom));
     background: rgba(255, 255, 255, 0.95);
     border-top: 1px solid #e7e3f5;
     box-shadow: 0 -12px 28px rgba(79, 70, 229, 0.12);
@@ -1884,7 +1975,7 @@ body.dark-mode .tool-card h4 {
   }
 
   .ai-panel {
-    max-height: 92vh;
+    max-height: 100dvh;
   }
 
   .ai-composer {
@@ -1901,7 +1992,21 @@ body.dark-mode .tool-card h4 {
   }
 }
 
+@media (max-width: 480px) {
+  .auth-card {
+    width: 86vw;
+    max-width: 360px;
+    padding: 20px;
+  }
+}
+
 @media (max-width: 390px) {
+  .auth-card {
+    width: 86vw;
+    max-width: 326px;
+    padding: 20px;
+  }
+
   .quick-action-grid,
   .today-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1914,13 +2019,16 @@ body.dark-mode .tool-card h4 {
 
 @media (max-width: 560px) {
   .report-modal__bar {
+    position: sticky;
+    top: 0;
+    z-index: 2;
     align-items: stretch;
     flex-direction: column;
   }
 
   .report-modal__actions {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
   }
 
   .cloud-card__header {

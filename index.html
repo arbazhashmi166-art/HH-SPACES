@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>H&amp;H SPACES</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=20260622-qa">
   </head>
   <body class="app-locked">
     <section class="auth-screen" id="authScreen">
@@ -416,16 +416,17 @@
             <form id="customerBillForm" class="entry-form">
               <label>Date<input name="date" type="date" required></label>
               <label>Bill no.<input name="billNo" required placeholder="HB-001"></label>
-              <label>Site<select name="siteId" required></select></label>
+              <label>Site<select name="siteId"></select></label>
               <label>Client<input name="client" placeholder="Client name"></label>
               <label class="full">Client address<textarea name="clientAddress" placeholder="Client office / site address"></textarea></label>
               <label>Client PAN<input name="clientPan" placeholder="Client PAN"></label>
               <label>Client GST No.<input name="clientGst" placeholder="Client GSTIN"></label>
               <label>Client email<input name="clientEmail" type="email" placeholder="client@email.com"></label>
-              <label>Work / item<input name="work" required placeholder="Plaster work, tiles, extra work"></label>
-              <label>Unit<input name="unit" required placeholder="sq ft, day, item"></label>
-              <label>Quantity<input name="quantity" type="number" min="0" step="0.01" value="1" required></label>
-              <label>Rate<input name="rate" type="number" min="0" step="1" required></label>
+              <div class="bill-items full-row">
+                <h4>Bill Items</h4>
+                <div id="billItemsList"></div>
+                <button class="secondary-light-btn add-bill-row-btn" id="addBillItemRow" type="button">+ Add Item Row</button>
+              </div>
               <label>Discount<input name="discount" type="number" min="0" step="1" placeholder="0"></label>
               <label>Tax / GST<input name="tax" type="number" min="0" step="1" placeholder="0"></label>
               <label>Status
@@ -450,7 +451,7 @@
             <h3>Add Extra Site Work</h3>
             <form id="extraWorkForm" class="entry-form">
               <label>Date<input name="date" type="date" required></label>
-              <label>Site<select name="siteId" required></select></label>
+              <label>Site<select name="siteId"></select></label>
               <label>Work name<input name="work" required placeholder="Extra slab, boundary, waterproofing"></label>
               <label>Approved by<input name="approvedBy" placeholder="Client / owner name"></label>
               <label>Amount<input name="amount" type="number" min="0" step="1" required></label>
@@ -469,7 +470,7 @@
             <h3>Daily Labour Attendance & Wages</h3>
             <form id="wageForm" class="entry-form">
               <label>Date<input name="date" type="date" required></label>
-              <label>Site<select name="siteId" required></select></label>
+              <label>Site<select name="siteId"></select></label>
               <label>Labour photo<input name="photo" type="file" accept="image/*"></label>
               <label>Labour name<input name="worker" required placeholder="Labour name"></label>
               <label>Mobile number<input name="phone" inputmode="tel" placeholder="Phone number"></label>
@@ -497,7 +498,7 @@
             <h3>Add Material Expense</h3>
             <form id="materialForm" class="entry-form">
               <label>Date<input name="date" type="date" required></label>
-              <label>Site<select name="siteId" required></select></label>
+              <label>Site<select name="siteId"></select></label>
               <label>Material<input name="item" required placeholder="Cement, steel, sand"></label>
               <label>Category<input name="category" placeholder="Civil, electrical, plumbing"></label>
               <label>Unit<input name="unit" placeholder="bag, kg, sqft"></label>
@@ -520,7 +521,7 @@
             <h3>Add Expense</h3>
             <form id="expenseForm" class="entry-form">
               <label>Date<input name="date" type="date" required></label>
-              <label>Site<select name="siteId" required></select></label>
+              <label>Site<select name="siteId"></select></label>
               <label>Type
                 <select name="type">
                   <option>Labour Expense</option>
@@ -548,7 +549,7 @@
             <h3>Add Client Payment</h3>
             <form id="paymentForm" class="entry-form">
               <label>Date<input name="date" type="date" required></label>
-              <label>Site<select name="siteId" required></select></label>
+              <label>Site<select name="siteId"></select></label>
               <label>Client<input name="client" placeholder="Client name"></label>
               <label>Mode<select name="mode"><option>Cash</option><option>Bank transfer</option><option>Cheque</option><option>UPI</option></select></label>
               <label>Reference<input name="reference" placeholder="Receipt / reference"></label>
@@ -568,7 +569,7 @@
             <form id="billForm" class="entry-form">
               <label>Date<input name="date" type="date" required></label>
               <label>Due date<input name="dueDate" type="date"></label>
-              <label>Site<select name="siteId" required></select></label>
+              <label>Site<select name="siteId"></select></label>
               <label>Party<input name="party" required placeholder="Supplier / labour / contractor"></label>
               <label>Bill detail<input name="detail" placeholder="What payment is pending"></label>
               <label>Amount<input name="amount" type="number" min="0" step="1" required></label>
@@ -586,7 +587,7 @@
             <h3>Add Measurement Book Entry</h3>
             <form id="measurementForm" class="entry-form">
               <label>Date<input name="date" type="date" required></label>
-              <label>Site<select name="siteId" required></select></label>
+              <label>Site<select name="siteId"></select></label>
               <label>Area / activity<input name="area" required placeholder="Flat 101 plaster"></label>
               <label>Plaster sqft<input name="plasterSqft" type="number" min="0" step="0.01"></label>
               <label>POP sqft<input name="popSqft" type="number" min="0" step="0.01"></label>
@@ -609,7 +610,7 @@
           <section class="form-panel">
             <h3>Add BOQ Item</h3>
             <form id="boqForm" class="entry-form">
-              <label>Site<select name="siteId" required></select></label>
+              <label>Site<select name="siteId"></select></label>
               <label>Item<input name="item" required placeholder="Cement, plaster, tiles"></label>
               <label>Unit<input name="unit" required placeholder="sqft, bag, kg"></label>
               <label>Estimated quantity<input name="estimatedQuantity" type="number" min="0" step="0.01"></label>
@@ -631,7 +632,7 @@
             <h3>Add Work Progress</h3>
             <form id="progressForm" class="entry-form">
               <label>Date<input name="date" type="date" required></label>
-              <label>Site<select name="siteId" required></select></label>
+              <label>Site<select name="siteId"></select></label>
               <label>Stage<input name="stage" required placeholder="Foundation, slab, plaster"></label>
               <label>Completion %<input name="percent" type="number" min="0" max="100" step="1" required></label>
               <label>Notes<input name="notes" placeholder="Work notes"></label>
@@ -650,7 +651,7 @@
             <form id="scheduleForm" class="entry-form">
               <label>Plan date<input name="date" type="date" required></label>
               <label>Target date<input name="targetDate" type="date" required></label>
-              <label>Site<select name="siteId" required></select></label>
+              <label>Site<select name="siteId"></select></label>
               <label>Work / task<input name="task" required placeholder="Slab, plaster, plumbing"></label>
               <label>Target %<input name="targetPercent" type="number" min="0" max="100" step="1" placeholder="100"></label>
               <label>Assigned to<input name="assignedTo" placeholder="Team or person"></label>
@@ -677,7 +678,7 @@
             <h3>Add Site Diary Entry</h3>
             <form id="diaryForm" class="entry-form wide">
               <label>Date<input name="date" type="date" required></label>
-              <label>Site<select name="siteId" required></select></label>
+              <label>Site<select name="siteId"></select></label>
               <label>Weather<input name="weather" placeholder="Clear / rain / cloudy"></label>
               <label class="full">Daily notes<textarea name="dailyNotes" required placeholder="What happened on site today"></textarea></label>
               <label class="full">Labour issues<textarea name="labourIssues" placeholder="Attendance, shortage, dispute"></textarea></label>
@@ -697,7 +698,7 @@
             <h3>Add Daily Update</h3>
             <form id="updateForm" class="entry-form wide">
               <label>Date<input name="date" type="date" required></label>
-              <label>Site<select name="siteId" required></select></label>
+              <label>Site<select name="siteId"></select></label>
               <label>Labour count<input name="labourCount" type="number" min="0" step="1" placeholder="0"></label>
               <label>Weather<input name="weather" placeholder="Clear / rain / delay"></label>
               <label class="full">Site photos<input name="photos" type="file" accept="image/*" multiple></label>
@@ -1159,7 +1160,7 @@
         <div class="ai-preview is-hidden" id="aiPreview"></div>
         <form class="ai-composer" id="aiForm">
           <button class="secondary-light-btn" id="aiVoiceInput" type="button">Voice</button>
-          <input id="aiInput" autocomplete="off" placeholder="Ask about payments, profit, stock, or say an entry">
+          <textarea id="aiInput" autocomplete="off" rows="2" placeholder="Ask about payments, profit, stock, or write a full instruction"></textarea>
           <button class="secondary-light-btn" id="aiSpeakLast" type="button">Speak</button>
           <button class="primary-btn" type="submit">Send</button>
         </form>
@@ -1208,6 +1209,6 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js"></script>
+    <script src="app.js?v=20260622-qa"></script>
   </body>
 </html>

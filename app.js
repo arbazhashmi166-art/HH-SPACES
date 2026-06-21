@@ -67,6 +67,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindNavigation();
   bindSearch();
   bindForms();
+  bindBillItems();
   bindToolCalculators();
   bindAiAssistant();
   setupSettingsAccordions();
@@ -217,14 +218,14 @@ async function openCloudModal() {
   const config = getSupabaseConfig();
   document.getElementById("supabaseUrl").value = config.url || "";
   document.getElementById("supabaseAnonKey").value = config.anonKey || "";
-  document.getElementById("cloudModal").classList.remove("is-hidden");
+  setOverlayOpen("cloudModal", true);
   updateCloudStatus("Checking Supabase connection...");
   await initSupabaseClient();
   updateCloudStatus(supabaseClient ? "Connected. You can load or save cloud data." : "Not connected. Check internet, upload latest files, then tap Save Connection.");
 }
 
 function closeCloudModal() {
-  document.getElementById("cloudModal").classList.add("is-hidden");
+  setOverlayOpen("cloudModal", false);
 }
 
 function getSupabaseConfig() {
@@ -432,9 +433,12 @@ function bindForms() {
 
   bindForm("customerBillForm", (data) => {
     const site = findSite(data.siteId);
-    const quantity = number(data.quantity || 1);
-    const rate = number(data.rate);
-    const amount = quantity * rate;
+    const items = collectBillItems(data);
+    if (!items.length) {
+      alert("Add at least one bill item.");
+      return false;
+    }
+    const amount = items.reduce((total, item) => total + item.amount, 0);
     const discount = number(data.discount);
     const tax = number(data.tax);
     const total = Math.max(amount - discount + tax, 0);
@@ -448,10 +452,11 @@ function bindForms() {
       clientPan: data.clientPan,
       clientGst: data.clientGst,
       clientEmail: data.clientEmail,
-      work: data.work,
-      unit: data.unit,
-      quantity,
-      rate,
+      items,
+      work: items.map((item) => item.work).join(", "),
+      unit: items[0]?.unit || "",
+      quantity: sum(items, "quantity"),
+      rate: items[0]?.rate || 0,
       amount,
       discount,
       tax,
@@ -738,14 +743,17 @@ function bindForm(formId, onSubmit) {
   const form = document.getElementById(formId);
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const siteOptionalForms = ["siteForm", "capitalForm", "rateListForm", "settingsForm", "wageCalendarForm", "siteMeasurementToolForm", "equipmentForm", "quotationForm"];
-    if (!state.sites.length && !siteOptionalForms.includes(formId)) {
-      alert("Add at least one site first.");
-      return;
-    }
 
     const data = Object.fromEntries(new FormData(form).entries());
-    await onSubmit(data, form);
+    let result;
+    try {
+      result = await onSubmit(data, form);
+    } catch (error) {
+      console.error(error);
+      alert("Could not save this entry. Please check the details and try again.");
+      return;
+    }
+    if (result === false) return;
     saveState();
     form.reset();
     form.querySelectorAll('input[type="date"]').forEach((input) => {
@@ -753,8 +761,81 @@ function bindForm(formId, onSubmit) {
     });
     const days = form.querySelector('input[name="days"]');
     if (days) days.value = 1;
+    if (formId === "customerBillForm") resetBillItems();
     render();
   });
+}
+
+function bindBillItems() {
+  document.getElementById("addBillItemRow")?.addEventListener("click", () => addBillItemRow());
+  document.getElementById("billItemsList")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-remove-bill-row]");
+    if (!button) return;
+    button.closest(".bill-item-row")?.remove();
+    renumberBillRows();
+    if (!document.querySelector("#billItemsList .bill-item-row")) addBillItemRow();
+  });
+  resetBillItems();
+}
+
+function resetBillItems() {
+  const list = document.getElementById("billItemsList");
+  if (!list) return;
+  list.innerHTML = "";
+  addBillItemRow();
+}
+
+function addBillItemRow() {
+  const list = document.getElementById("billItemsList");
+  if (!list) return;
+  const index = list.querySelectorAll(".bill-item-row").length + 1;
+  list.insertAdjacentHTML("beforeend", billItemRowHtml(index));
+}
+
+function billItemRowHtml(index) {
+  return `<div class="bill-item-row" data-bill-row>
+    <label>Item ${index}<input name="billWork[]" ${index === 1 ? "required" : ""} placeholder="Plaster work, tiles, POP"></label>
+    <label>Unit<input name="billUnit[]" placeholder="sqft, Nos, L.S."></label>
+    <label>Qty<input name="billQuantity[]" type="number" min="0" step="0.01" value="${index === 1 ? "1" : ""}"></label>
+    <label>Rate<input name="billRate[]" type="number" min="0" step="1"></label>
+    <button class="delete-btn bill-row-remove" data-remove-bill-row type="button">Remove</button>
+  </div>`;
+}
+
+function renumberBillRows() {
+  document.querySelectorAll("#billItemsList .bill-item-row").forEach((row, index) => {
+    const label = row.querySelector("label");
+    const input = row.querySelector('input[name="billWork[]"]');
+    if (label) label.firstChild.textContent = `Item ${index + 1}`;
+    if (input) input.required = index === 0;
+  });
+}
+
+function collectBillItems(data) {
+  const form = document.getElementById("customerBillForm");
+  const dynamicRows = Array.from(form?.querySelectorAll("#billItemsList .bill-item-row") || []);
+  const items = dynamicRows.map((row) => {
+    const work = row.querySelector('input[name="billWork[]"]')?.value.trim() || "";
+    const unit = row.querySelector('input[name="billUnit[]"]')?.value.trim() || "";
+    const quantity = number(row.querySelector('input[name="billQuantity[]"]')?.value || 1) || 1;
+    const rate = number(row.querySelector('input[name="billRate[]"]')?.value);
+    return work ? { work, unit, quantity, rate, amount: quantity * rate } : null;
+  }).filter(Boolean);
+  if (items.length) return items;
+  for (let index = 1; index <= 5; index += 1) {
+    const work = String(data[`work${index}`] || "").trim();
+    if (!work) continue;
+    const quantity = number(data[`quantity${index}`] || 1) || 1;
+    const rate = number(data[`rate${index}`]);
+    const unit = String(data[`unit${index}`] || "").trim();
+    items.push({ work, unit, quantity, rate, amount: quantity * rate });
+  }
+  if (!items.length && data.work) {
+    const quantity = number(data.quantity || 1) || 1;
+    const rate = number(data.rate);
+    items.push({ work: data.work, unit: data.unit || "", quantity, rate, amount: quantity * rate });
+  }
+  return items;
 }
 
 function bindToolCalculators() {
@@ -818,13 +899,13 @@ function bindAiAssistant() {
 }
 
 function openAiAssistant() {
-  document.getElementById("aiDrawer").classList.remove("is-hidden");
+  setOverlayOpen("aiDrawer", true);
   renderAiChat();
   setTimeout(() => document.getElementById("aiInput")?.focus(), 80);
 }
 
 function closeAiAssistant() {
-  document.getElementById("aiDrawer").classList.add("is-hidden");
+  setOverlayOpen("aiDrawer", false);
 }
 
 function handleAiSubmit(event) {
@@ -849,7 +930,7 @@ async function submitAiPrompt(prompt) {
 function addAiMessage(role, text) {
   const history = getAiHistory();
   history.push({ role, text, time: new Date().toISOString() });
-  localStorage.setItem(AI_CHAT_KEY, JSON.stringify(history.slice(-80)));
+  localStorage.setItem(AI_CHAT_KEY, JSON.stringify(history.slice(-200)));
   renderAiChat();
 }
 
@@ -899,8 +980,9 @@ async function generateAiResponse(prompt) {
 async function askOpenAi(prompt, fallback, key) {
   const payload = {
     model: "gpt-4o-mini",
+    max_tokens: 900,
     messages: [
-      { role: "system", content: "You are a concise construction site management assistant. Use the provided app summary. Do not invent missing records." },
+      { role: "system", content: "You are a helpful construction site management assistant for H&H SPACES. Use the provided app summary and answer clearly for an iPhone user. Do not invent missing records. If the user asks to enter data, explain the exact entry you would save and ask for confirmation when details are missing." },
       { role: "user", content: `${aiDataSummary()}\n\nQuestion: ${prompt}` }
     ]
   };
@@ -917,19 +999,134 @@ async function askOpenAi(prompt, fallback, key) {
 function localAiResponse(prompt, lower) {
   const smartEntry = detectSmartEntry(prompt, lower);
   if (smartEntry) return smartEntry;
-  if (lower.includes("focus") || lower.includes("today")) return { confident: true, message: aiTodayFocus() };
+  if (lower.includes("make bill") || lower.includes("create bill") || lower.includes("customer bill") || lower.includes("invoice")) {
+    activateView("customerBills");
+    return { confident: true, message: "I opened Customer Bills for you. You can make a bill without selecting an existing site, and you can add as many item rows as you need. Tap '+ Add Item Row' for more rows.", preview: null };
+  }
+  if (lower.includes("quote") || lower.includes("quotation")) {
+    activateView("tools");
+    return { confident: true, message: "I opened Tools for the Quotation Generator. Type like: quotation POP 1000 sqft labour 6 material 10 profit 20 gst 18, and I can prepare a save preview." };
+  }
+  const navigation = aiNavigationAction(lower);
+  if (navigation) return navigation;
+  const search = aiUniversalSearch(prompt, lower);
+  if (search) return search;
+  if (lower.includes("help") || lower.includes("what can you do") || lower.includes("how to use")) return { confident: true, message: aiDetailedHelp() };
+  if (lower.includes("summary") || lower.includes("business") || lower.includes("dashboard")) return { confident: true, message: aiBusinessSnapshot() };
   if (lower.includes("pending") || lower.includes("receivable") || lower.includes("balance due")) return { confident: true, message: aiPendingPayments() };
   if (lower.includes("profit")) return { confident: true, message: aiProfitSummary(lower.includes("month")) };
   if (lower.includes("expense")) return { confident: true, message: aiTodayExpenses() };
   if (lower.includes("labour") || lower.includes("labor") || lower.includes("present")) return { confident: true, message: aiLabourSummary() };
   if (lower.includes("low stock") || lower.includes("stock low") || lower.includes("material stock")) return { confident: true, message: aiLowStock() };
+  if (lower.includes("material") || lower.includes("cement") || lower.includes("sand") || lower.includes("stock")) return { confident: true, message: aiMaterialsSummary() };
+  if (lower.includes("focus") || lower.includes("today")) return { confident: true, message: aiTodayFocus() };
   if (lower.includes("delayed")) return { confident: true, message: aiDelayedProjects() };
   if (lower.includes("highest profit")) return { confident: true, message: aiHighestProfitSite() };
+  if (lower.includes("site")) return { confident: true, message: aiSiteSummary() };
   if (lower.includes("report")) return { confident: true, message: aiReportAction(lower) };
-  if (lower.includes("quote") || lower.includes("quotation")) return { confident: true, message: "Open Tools > Quotation Generator. Enter work type, area, labour rate, material rate, profit %, and GST %. I can also create a quotation preview if you type: quotation POP 1000 sqft labour 6 material 10." };
   const construction = aiConstructionCalc(prompt, lower);
   if (construction) return { confident: true, message: construction };
-  return { confident: false, message: `I can help with payments, profit, today's expenses, labour, low stock, delayed projects, reports, quotations and calculators. Try: "How much payment is pending?" or "Calculate plaster for wall 20x10 ft."` };
+  return {
+    confident: false,
+    message: `I did not find an exact offline action for that prompt yet. I searched the app and can still help with: payments, profit, expenses, labour, materials, sites, BOQ, measurement, bills, reports, tools, quotations, and construction calculators.\n\nFor fully open-ended ChatGPT-style answers, add your OpenAI API key in Settings > AI Assistant Settings. Then I can answer deeper prompts using your app data summary.`
+  };
+}
+
+function aiNavigationAction(lower) {
+  const query = aiCleanQuery(lower);
+  if (!query) return null;
+  const target = buildModuleSearchRecords().find((record) => {
+    const wantsOpen = /\b(open|go|show|take me|where|find|search|make|create|add)\b/.test(lower);
+    return wantsOpen && searchMatches(record.searchText, query);
+  });
+  if (!target) return null;
+  activateView(target.view);
+  document.getElementById("globalSearch").value = target.title;
+  renderSearchResults();
+  return {
+    confident: true,
+    message: `Opened ${target.section}. ${target.subtitle}`
+  };
+}
+
+function aiUniversalSearch(prompt, lower) {
+  if (!/\b(search|find|where|show|open|go|calculator|section)\b/.test(lower)) return null;
+  const query = aiCleanQuery(lower);
+  if (!query) return null;
+  const results = buildSearchRecords()
+    .filter((record) => searchMatches(record.searchText, query))
+    .slice(0, 6);
+  if (!results.length) return null;
+  const first = results[0];
+  activateView(first.view);
+  document.getElementById("globalSearch").value = prompt;
+  renderSearchResults();
+  return {
+    confident: true,
+    message: `I found ${results.length} matching place${results.length === 1 ? "" : "s"} and opened ${first.section}.\n${results.map((record, index) => `${index + 1}. ${record.title} - ${record.section}`).join("\n")}`
+  };
+}
+
+function aiCleanQuery(text) {
+  return String(text || "")
+    .replace(/\b(open|go|show|take|me|to|where|find|search|make|create|add|the|a|an|section|screen|page|option|please|want|i)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function aiDetailedHelp() {
+  return [
+    "I can help in these ways:",
+    "1. Find anything: say 'open bill section', 'find POP calculator', 'search cement', or 'where is BOQ'.",
+    "2. Business answers: pending payment, profit, expenses, labour present, low stock, delayed work, highest profit site.",
+    "3. Construction calculations: plaster, POP, tile, paint, RCC, waterproofing, wiring, electrical load, profit and quotation rate.",
+    "4. Smart entries: '10 labour present today', 'Bought 50 cement bags for 22000', 'Client paid 100000', 'Add expense diesel 2500', 'Completed 350 sqft plaster'.",
+    "5. Reports and billing: ask for daily report, labour report, material report, profit report, make bill, or generate quotation.",
+    "",
+    "For full ChatGPT-style free conversation, add an OpenAI API key in Settings. Offline mode is smarter now, but it still works from rules and your saved app data."
+  ].join("\n");
+}
+
+function aiBusinessSnapshot() {
+  const billed = sum(state.customerBills, "total") + sum(state.extraWorks, "amount");
+  const received = sum(state.payments, "amount");
+  const labour = sum(state.wages, "amount");
+  const material = sum(state.materials, "amount");
+  const expenses = sum(state.expenses, "amount");
+  const capital = sum(state.capital.filter((item) => item.type === "add"), "amount") - sum(state.capital.filter((item) => item.type === "withdraw"), "amount");
+  const used = labour + material + expenses + sum(state.bills.filter((bill) => bill.status === "Paid"), "amount");
+  return [
+    `Business snapshot for ${dateText(today)}:`,
+    `Sites: ${state.sites.length}`,
+    `Company capital: ${formatMoney(capital)}`,
+    `Client billed: ${formatMoney(billed)}`,
+    `Client received: ${formatMoney(received)}`,
+    `Pending receivable: ${formatMoney(Math.max(billed - received, 0))}`,
+    `Labour cost: ${formatMoney(labour)}`,
+    `Material cost: ${formatMoney(material)}`,
+    `Other expenses: ${formatMoney(expenses)}`,
+    `Payment used: ${formatMoney(used)}`,
+    `Profit / loss from received payments: ${formatMoney(received - labour - material - expenses)}`
+  ].join("\n");
+}
+
+function aiMaterialsSummary() {
+  const total = sum(state.materials, "amount");
+  const received = sum(state.materials, "quantityReceived");
+  const used = sum(state.materials, "quantityUsed");
+  const low = aiLowStock();
+  return `Material spend is ${formatMoney(total)}. Quantity received: ${round(received, 2)}, used: ${round(used, 2)}, balance: ${round(received - used, 2)}.\n${low}`;
+}
+
+function aiSiteSummary() {
+  if (!state.sites.length) return "No site is added yet. Open Sites & Clients to add the first site.";
+  const rows = state.sites.map((site) => {
+    const total = siteTotalAmount(site.id);
+    const paid = sum(state.payments.filter((item) => item.siteId === site.id), "amount");
+    const cost = sum(state.wages.filter((item) => item.siteId === site.id), "amount") + sum(state.materials.filter((item) => item.siteId === site.id), "amount") + sum(state.expenses.filter((item) => item.siteId === site.id), "amount");
+    return `${site.name}: total ${formatMoney(total)}, received ${formatMoney(paid)}, balance ${formatMoney(Math.max(total - paid, 0))}, cost ${formatMoney(cost)}, status ${site.status || "Active"}`;
+  });
+  return rows.slice(0, 8).join("\n");
 }
 
 
@@ -1175,6 +1372,94 @@ function detectSmartEntry(prompt, lower) {
       notes: prompt
     });
   }
+  if (lower.includes("expense") || lower.includes("paid for") || lower.includes("diesel") || lower.includes("transport")) {
+    if (!amount) return null;
+    return entryPreview("expenses", `Add expense ${formatMoney(amount)}?`, {
+      id: makeId(),
+      date: today,
+      siteId: currentSiteIdForEntry(),
+      type: lower.includes("transport") || lower.includes("diesel") ? "Transport" : "Miscellaneous",
+      title: extractEntryTitle(prompt, ["add", "expense", "paid", "for"]) || "AI expense",
+      paidTo: "",
+      amount,
+      notes: prompt
+    });
+  }
+  if (lower.includes("pending bill") || lower.includes("supplier bill") || lower.includes("bill pending")) {
+    if (!amount) return null;
+    return entryPreview("bills", `Add pending bill ${formatMoney(amount)}?`, {
+      id: makeId(),
+      date: today,
+      dueDate: "",
+      siteId: currentSiteIdForEntry(),
+      party: extractEntryTitle(prompt, ["pending", "bill", "supplier"]) || "Party",
+      detail: prompt,
+      amount,
+      status: "Pending"
+    });
+  }
+  if (lower.includes("daily update") || lower.includes("site update") || lower.includes("today work")) {
+    return entryPreview("updates", "Add this as today's site update?", {
+      id: makeId(),
+      date: today,
+      siteId: currentSiteIdForEntry(),
+      labourCount: qty || 0,
+      weather: lower.includes("rain") ? "Rain" : "",
+      workDone: prompt,
+      nextPlan: "",
+      photos: []
+    });
+  }
+  if (lower.includes("progress") || lower.includes("% complete") || lower.includes("percent complete")) {
+    const percent = Math.min(qty || 0, 100);
+    return entryPreview("progress", `Add progress ${percent}%?`, {
+      id: makeId(),
+      date: today,
+      siteId: currentSiteIdForEntry(),
+      stage: extractEntryTitle(prompt, ["progress", "complete", "percent"]) || "Site progress",
+      percent,
+      notes: prompt
+    });
+  }
+  if (lower.includes("diary") || lower.includes("client instructed") || lower.includes("labour issue") || lower.includes("material issue")) {
+    return entryPreview("diary", "Add this note to Site Diary?", {
+      id: makeId(),
+      date: today,
+      siteId: currentSiteIdForEntry(),
+      weather: lower.includes("rain") ? "Rain" : "",
+      dailyNotes: prompt,
+      labourIssues: lower.includes("labour") ? prompt : "",
+      materialIssues: lower.includes("material") ? prompt : "",
+      clientInstructions: lower.includes("client") ? prompt : ""
+    });
+  }
+  if ((lower.includes("quotation") || lower.includes("quote")) && qty) {
+    const labourRate = extractNamedNumber(lower, "labour") || 0;
+    const materialRate = extractNamedNumber(lower, "material") || 0;
+    const profitPercent = extractNamedNumber(lower, "profit") || 0;
+    const gstPercent = extractNamedNumber(lower, "gst") || number(state.settings.billingGstPercent || 0);
+    const baseCost = qty * (labourRate + materialRate);
+    const profit = baseCost * (profitPercent / 100);
+    const gst = (baseCost + profit) * (gstPercent / 100);
+    return entryPreview("tools.quotations", `Prepare quotation for ${qty} sqft?`, {
+      id: makeId(),
+      date: today,
+      quoteNo: nextInvoiceNumber("QT"),
+      client: "",
+      workType: extractEntryTitle(prompt, ["quotation", "quote", "sqft", "labour", "material", "profit", "gst"]) || "Construction work",
+      area: qty,
+      unit: "sqft",
+      labourRate,
+      materialRate,
+      profitPercent,
+      gstPercent,
+      baseCost,
+      profit,
+      gst,
+      total: baseCost + profit + gst,
+      terms: state.settings.paymentTerms || ""
+    });
+  }
   return null;
 }
 
@@ -1210,11 +1495,20 @@ function handleAiPreviewAction(event) {
   if (!event.target.closest("[data-ai-save]") || !pendingAiEntry) return;
   const { collection, item } = pendingAiEntry;
   const savedItem = { id: item.id || makeId(), ...item };
-  state[collection].push(savedItem);
+  const target = getCollectionByPath(collection);
+  if (!target) {
+    addAiMessage("assistant", "I could not save this entry because the target section was not found.");
+    return;
+  }
+  target.push(savedItem);
   saveState();
   render();
   clearAiPreview();
   addAiMessage("assistant", "Entry saved successfully.");
+}
+
+function getCollectionByPath(path) {
+  return String(path || "").split(".").reduce((target, key) => target?.[key], state);
 }
 
 function currentSiteIdForEntry() {
@@ -1224,12 +1518,33 @@ function currentSiteIdForEntry() {
 }
 
 function extractAmount(text) {
-  const match = text.replace(/,/g, "").match(/₹\s*(\d+(\.\d+)?)|rs\.?\s*(\d+(\.\d+)?)|(\d+(\.\d+)?)(?=\s*(rupees|rs|₹))/i);
+  const match = text.replace(/,/g, "").match(/\u20b9\s*(\d+(\.\d+)?)|rs\.?\s*(\d+(\.\d+)?)|(\d+(\.\d+)?)(?=\s*(rupees|rs|\u20b9))/i);
   return number(match?.[1] || match?.[3] || match?.[5] || 0);
 }
 
 function extractFirstNumber(text) {
   return number((text.match(/\d+(\.\d+)?/) || [0])[0]);
+}
+
+function extractNamedNumber(text, name) {
+  const match = String(text || "").match(new RegExp(`${name}\\s*(?:rate|rs|\\u20b9)?\\s*(\\d+(?:\\.\\d+)?)`, "i"));
+  return number(match?.[1] || 0);
+}
+
+function extractEntryTitle(text, removeWords = []) {
+  const cleaned = String(text || "")
+    .replace(/\u20b9|rs\.?/gi, "")
+    .replace(/\d+(\.\d+)?/g, "")
+    .split(/\s+/)
+    .filter((word) => word && !removeWords.includes(word.toLowerCase()))
+    .join(" ")
+    .trim();
+  return cleaned.slice(0, 70);
+}
+
+function nextInvoiceNumber(prefix = "AI") {
+  const savedPrefix = state.settings.invoicePrefix || prefix;
+  return `${savedPrefix}/${Date.now().toString().slice(-5)}`;
 }
 
 function startAiVoiceInput() {
@@ -1691,14 +2006,15 @@ function renderSiteFilter() {
 }
 
 function renderSiteSelects() {
-  const options = state.sites.length
-    ? state.sites.map((site) => `<option value="${site.id}">${escapeHtml(site.name)} - ${escapeHtml(site.client)}</option>`).join("")
-    : '<option value="">Add a site first</option>';
+  const options = '<option value="">No site / direct entry</option>' + state.sites
+    .map((site) => `<option value="${site.id}">${escapeHtml(site.name)} - ${escapeHtml(site.client)}</option>`)
+    .join("");
 
   document.querySelectorAll('select[name="siteId"]').forEach((select) => {
     const current = select.value;
+    select.required = false;
     select.innerHTML = options;
-    if (state.sites.some((site) => site.id === current)) {
+    if (!current || state.sites.some((site) => site.id === current)) {
       select.value = current;
     }
   });
@@ -1862,9 +2178,9 @@ function renderCustomerBills() {
     <td>${escapeHtml(bill.billNo || "-")}</td>
     <td>${siteName(bill.siteId)}</td>
     <td>${escapeHtml(bill.client || "-")}</td>
-    <td><strong>${escapeHtml(bill.work)}</strong><br><span>${escapeHtml(bill.note || "")}</span></td>
-    <td>${bill.quantity} ${escapeHtml(bill.unit || "")}</td>
-    <td class="amount">${formatMoney(bill.rate)}</td>
+    <td>${billItemsSummary(bill)}<br><span>${escapeHtml(bill.note || "")}</span></td>
+    <td>${billItemCount(bill)} item${billItemCount(bill) === 1 ? "" : "s"}</td>
+    <td class="amount">${formatMoney(bill.amount)}</td>
     <td class="amount">${formatMoney(bill.total)}</td>
     <td><span class="status-pill ${bill.status === "Paid" ? "success-pill" : bill.status === "Part Paid" ? "warning-pill" : "danger-pill"}">${escapeHtml(bill.status || "Unpaid")}</span></td>
     <td class="action-stack">
@@ -2250,7 +2566,7 @@ function exportExcelReport() {
 
 function exportPdfReport() {
   setPrintableDocument(reportDocumentHtml(), "H&H SPACES Report");
-  document.getElementById("reportModal").classList.remove("is-hidden");
+  setOverlayOpen("reportModal", true);
 }
 
 function openCustomerBillPreview(billId) {
@@ -2259,7 +2575,7 @@ function openCustomerBillPreview(billId) {
   setPrintableDocument(customerBillDocumentHtml(bill), `Bill ${bill.billNo || ""}`.trim());
   document.querySelector("#reportModal strong").textContent = `Bill ${bill.billNo || ""}`.trim();
   document.querySelector("#reportModal span").textContent = "On iPhone, tap Print / Save PDF, then Share > Save to Files.";
-  document.getElementById("reportModal").classList.remove("is-hidden");
+  setOverlayOpen("reportModal", true);
 }
 
 function openQuotationPreview(quoteId) {
@@ -2268,7 +2584,7 @@ function openQuotationPreview(quoteId) {
   setPrintableDocument(quotationDocumentHtml(quote), `Quotation ${quote.quoteNo || ""}`.trim());
   document.querySelector("#reportModal strong").textContent = `Quotation ${quote.quoteNo || ""}`.trim();
   document.querySelector("#reportModal span").textContent = "On iPhone, tap Print / Save PDF, then Share > Save to Files.";
-  document.getElementById("reportModal").classList.remove("is-hidden");
+  setOverlayOpen("reportModal", true);
 }
 
 function setPrintableDocument(html, title) {
@@ -2288,7 +2604,10 @@ function savePdfPreview() {
   if (!currentPrintableHtml) {
     setPrintableDocument(reportDocumentHtml(), "H&H SPACES Report");
   }
-  openPrintablePage(currentPrintableHtml, currentPrintableTitle, "pdf");
+  const opened = openPrintablePage(currentPrintableHtml, currentPrintableTitle, "pdf");
+  if (!opened) {
+    downloadFile(currentPrintableHtml, `${fileSafeName(currentPrintableTitle)}.html`, "text/html");
+  }
 }
 
 function openPrintablePage(html, title, mode = "print") {
@@ -2301,23 +2620,34 @@ function openPrintablePage(html, title, mode = "print") {
     printWindow.document.open();
     printWindow.document.write(printableHtml);
     printWindow.document.close();
-    return;
+    return true;
   }
-  downloadFile(html, `${fileSafeName(title)}.html`, "text/html");
   alert("iPhone blocked the print page. An HTML copy was downloaded. Open it, tap Share, then Print or Save to Files.");
+  return false;
 }
 
 function closeReportPreview() {
-  document.getElementById("reportModal").classList.add("is-hidden");
+  setOverlayOpen("reportModal", false);
   document.querySelector("#reportModal strong").textContent = "Report Preview";
   document.querySelector("#reportModal span").textContent = "Print or save as PDF";
+  document.getElementById("reportFrame").srcdoc = "";
   currentPrintableHtml = "";
   currentPrintableTitle = "H&H SPACES Report";
+}
+
+function setOverlayOpen(id, open) {
+  document.getElementById(id)?.classList.toggle("is-hidden", !open);
+  const hasOpenOverlay = ["reportModal", "cloudModal", "aiDrawer"].some((overlayId) => {
+    const element = document.getElementById(overlayId);
+    return element && !element.classList.contains("is-hidden");
+  });
+  document.body.classList.toggle("modal-open", hasOpenOverlay);
 }
 
 function customerBillDocumentHtml(bill) {
   const settings = state.settings || {};
   const site = findSite(bill.siteId);
+  const items = billItems(bill);
   const companyName = (settings.companyName || "H&H SPACES").toUpperCase();
   const companySubtitle = settings.pdfHeader || "SPECIALIST IN ALL TYPES OF INTERIOR WORK | RESIDENTIAL | COMMERCIAL & CIVIL";
   const clientName = bill.client || site.client || "Client";
@@ -2383,15 +2713,12 @@ function customerBillDocumentHtml(bill) {
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td>1</td>
-                <td>
-                  <strong>${escapeHtml(bill.work)}</strong>
-                  ${bill.note ? `<small>${linesToHtml(bill.note)}</small>` : ""}
-                </td>
-                <td>${escapeHtml(formatQuantity(bill.quantity, bill.unit))}</td>
-                <td>${formatInvoiceAmount(subtotal)}</td>
-              </tr>
+              ${items.map((item, index) => `<tr>
+                <td>${index + 1}</td>
+                <td><strong>${escapeHtml(item.work)}</strong>${index === 0 && bill.note ? `<small>${linesToHtml(bill.note)}</small>` : ""}</td>
+                <td>${escapeHtml(formatQuantity(item.quantity, item.unit))}</td>
+                <td>${formatInvoiceAmount(item.amount)}</td>
+              </tr>`).join("")}
               ${discount ? `<tr class="adjustment"><td></td><td colspan="2">Discount</td><td>- ${formatInvoiceAmount(discount)}</td></tr>` : ""}
               ${tax ? `<tr class="adjustment"><td></td><td colspan="2">GST / Tax</td><td>${formatInvoiceAmount(tax)}</td></tr>` : ""}
             </tbody>
@@ -2630,10 +2957,8 @@ function buildReportData() {
       Bill: item.billNo || "",
       Site: plainSiteName(item.siteId),
       Client: item.client || "",
-      Work: item.work,
-      Quantity: item.quantity,
-      Unit: item.unit || "",
-      Rate: formatMoney(item.rate),
+      Items: billItems(item).map((billItem) => `${billItem.work} - ${formatQuantity(billItem.quantity, billItem.unit)} - ${formatMoney(billItem.amount)}`).join("; "),
+      "Item Count": billItemCount(item),
       Amount: formatMoney(item.amount),
       Discount: formatMoney(item.discount),
       Tax: formatMoney(item.tax),
@@ -2813,6 +3138,31 @@ function formatQuantity(quantity, unit) {
   return `${formatted} ${unit || ""}`.trim();
 }
 
+function billItems(bill) {
+  if (Array.isArray(bill.items) && bill.items.length) return bill.items;
+  const quantity = number(bill.quantity || 1) || 1;
+  const rate = number(bill.rate);
+  return [{
+    work: bill.work || "Bill item",
+    unit: bill.unit || "",
+    quantity,
+    rate,
+    amount: number(bill.amount || quantity * rate)
+  }];
+}
+
+function billItemCount(bill) {
+  return billItems(bill).length;
+}
+
+function billItemsSummary(bill) {
+  const items = billItems(bill);
+  return items
+    .slice(0, 3)
+    .map((item) => `<strong>${escapeHtml(item.work)}</strong> <span>${escapeHtml(formatQuantity(item.quantity, item.unit))} | ${formatMoney(item.amount)}</span>`)
+    .join("<br>") + (items.length > 3 ? `<br><span>+${items.length - 3} more items</span>` : "");
+}
+
 function linesToHtml(value) {
   return escapeHtml(value || "").replace(/\n/g, "<br>");
 }
@@ -2845,7 +3195,7 @@ function csvCell(value) {
 }
 
 function siteName(siteId) {
-  return escapeHtml(findSite(siteId).name || "Unknown site");
+  return escapeHtml(siteId ? findSite(siteId).name || "Unknown site" : "No site / direct bill");
 }
 
 function siteNameOptional(siteId) {
@@ -2853,7 +3203,7 @@ function siteNameOptional(siteId) {
 }
 
 function plainSiteName(siteId) {
-  return findSite(siteId).name || "Unknown site";
+  return siteId ? findSite(siteId).name || "Unknown site" : "No site / direct bill";
 }
 
 function findSite(siteId) {
