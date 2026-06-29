@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>H&amp;H SPACES</title>
-    <link rel="stylesheet" href="styles.css?v=20260622-qa">
+    <link rel="stylesheet" href="styles.css?v=20260629-invoices">
   </head>
   <body class="app-locked">
     <section class="auth-screen" id="authScreen">
@@ -41,6 +41,7 @@
           <button class="nav-item" data-view="capital" type="button">Company Capital</button>
           <button class="nav-item" data-view="sites" type="button">Sites & Clients</button>
           <button class="nav-item" data-view="rateList" type="button">Rate List</button>
+          <button class="nav-item" data-view="invoices" type="button">Invoices</button>
           <button class="nav-item" data-view="customerBills" type="button">Customer Bills</button>
           <button class="nav-item" data-view="extraWorks" type="button">Extra Works</button>
           <button class="nav-item" data-view="wages" type="button">Labour Wages</button>
@@ -187,6 +188,10 @@
               <button class="quick-action nav-jump" data-view="customerBills" type="button">
                 <span class="quick-icon customer-bill-icon"></span>
                 <b>Make Bill</b>
+              </button>
+              <button class="quick-action nav-jump" data-view="invoices" type="button">
+                <span class="quick-icon customer-bill-icon"></span>
+                <b>Invoices</b>
               </button>
               <button class="quick-action nav-jump" data-view="rateList" type="button">
                 <span class="quick-icon rate-icon"></span>
@@ -407,6 +412,156 @@
           <section class="panel">
             <div class="panel-header"><h3>Saved Rate List</h3></div>
             <div class="table-wrap"><table><thead><tr><th>Date</th><th>Category</th><th>Work / Item</th><th>Unit</th><th>Rate</th><th>Note</th><th></th></tr></thead><tbody id="rateListRows"></tbody></table></div>
+          </section>
+        </section>
+
+        <section class="view" id="invoices">
+          <section class="invoice-hero panel">
+            <div class="panel-header">
+              <div>
+                <h3>Invoice Dashboard</h3>
+                <p>GST billing, payment tracking, reminders and PDF invoices</p>
+              </div>
+              <button class="primary-btn nav-jump" data-view="invoices" type="button">+ New Invoice</button>
+            </div>
+            <div class="invoice-metric-grid">
+              <article class="metric"><span>Total Bills</span><strong id="invoiceMetricTotalBills">0</strong><small>All invoice types</small></article>
+              <article class="metric"><span>Total Received</span><strong id="invoiceMetricReceived">0</strong><small>Payments collected</small></article>
+              <article class="metric urgent"><span>Total Pending</span><strong id="invoiceMetricPending">0</strong><small>Balance amount</small></article>
+              <article class="metric"><span>Overdue Bills</span><strong id="invoiceMetricOverdue">0</strong><small>Past due date</small></article>
+            </div>
+            <div class="invoice-chart" id="invoiceRevenueChart"></div>
+          </section>
+
+          <section class="form-panel">
+            <h3>Create Professional Invoice</h3>
+            <form id="invoiceForm" class="entry-form wide">
+              <label>Invoice type
+                <select name="type">
+                  <option>Running Bill</option>
+                  <option>Final Bill</option>
+                  <option>Labour Bill</option>
+                  <option>Material Bill</option>
+                  <option>Proforma Invoice</option>
+                  <option>Tax Invoice</option>
+                  <option>Purchase Invoice</option>
+                </select>
+              </label>
+              <label>Invoice number<input name="invoiceNo" placeholder="Auto if blank"></label>
+              <label>Invoice date<input name="date" type="date" required></label>
+              <label>Due date<input name="dueDate" type="date"></label>
+              <label>Client name<input name="client" required placeholder="Client name"></label>
+              <label>Site<select name="siteId"></select></label>
+              <label class="full">Client address<textarea name="clientAddress" placeholder="Client billing address"></textarea></label>
+              <label>GST number<input name="gstNumber" placeholder="Client GSTIN"></label>
+              <label>PAN number<input name="panNumber" placeholder="Client PAN"></label>
+              <label>Payment terms<input name="paymentTerms" placeholder="Due in 7 days"></label>
+              <label>Status
+                <select name="status">
+                  <option>Draft</option>
+                  <option>Sent</option>
+                  <option>Partial</option>
+                  <option>Paid</option>
+                  <option>Overdue</option>
+                  <option>Cancelled</option>
+                </select>
+              </label>
+
+              <div class="invoice-items full-row">
+                <div class="invoice-items__header">
+                  <h4>Invoice Items</h4>
+                  <div>
+                    <button class="secondary-light-btn" id="loadMeasurementsToInvoice" type="button">Add From MB</button>
+                    <button class="secondary-light-btn" id="addInvoiceItemRow" type="button">+ Item</button>
+                    <button class="secondary-light-btn" id="clearInvoiceItems" type="button">Clear</button>
+                  </div>
+                </div>
+                <div id="invoiceItemsList"></div>
+              </div>
+
+              <label>Discount<input name="discount" type="number" min="0" step="0.01" placeholder="0"></label>
+              <label>TDS %<input name="tdsPercent" type="number" min="0" step="0.01" placeholder="0"></label>
+              <label>Payment received<input name="received" type="number" min="0" step="0.01" placeholder="0"></label>
+              <label>Payment mode
+                <select name="paymentMode">
+                  <option value="">Not received</option>
+                  <option>Cash</option>
+                  <option>UPI</option>
+                  <option>Bank Transfer</option>
+                  <option>Cheque</option>
+                </select>
+              </label>
+              <label class="full">Notes<textarea name="notes" placeholder="Scope, special notes, payment follow-up note"></textarea></label>
+              <div class="invoice-total-preview full-row" id="invoiceTotalPreview">Subtotal ₹0 | GST ₹0 | Grand Total ₹0 | Balance ₹0</div>
+              <button class="primary-btn sticky-save-btn" type="submit">Save Invoice</button>
+            </form>
+          </section>
+
+          <section class="form-panel">
+            <h3>Record Payment</h3>
+            <form id="invoicePaymentForm" class="entry-form">
+              <label>Invoice<select name="invoiceId" id="invoicePaymentSelect" required></select></label>
+              <label>Date<input name="date" type="date" required></label>
+              <label>Amount<input name="amount" type="number" min="0" step="0.01" required></label>
+              <label>Mode
+                <select name="mode">
+                  <option>Cash</option>
+                  <option>UPI</option>
+                  <option>Bank Transfer</option>
+                  <option>Cheque</option>
+                </select>
+              </label>
+              <label>Reference<input name="reference" placeholder="UTR / cheque no. / note"></label>
+              <button class="primary-btn" type="submit">Save Payment</button>
+            </form>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h3>Invoices</h3>
+                <p>Search, filter, PDF, WhatsApp, email and payment history</p>
+              </div>
+            </div>
+            <div class="invoice-filter-grid">
+              <label>Search<input id="invoiceSearch" type="search" placeholder="Client, site, invoice no., amount"></label>
+              <label>Status<select id="invoiceStatusFilter"><option value="">All status</option></select></label>
+              <label>Type<select id="invoiceTypeFilter"><option value="">All types</option></select></label>
+            </div>
+            <div class="activity-list invoice-list" id="invoiceRows"></div>
+          </section>
+
+          <section class="form-panel">
+            <h3>Recurring Invoices & Reminders</h3>
+            <form id="recurringInvoiceForm" class="entry-form">
+              <label>Client<input name="client" required placeholder="Client"></label>
+              <label>Site<select name="siteId"></select></label>
+              <label>Frequency<select name="frequency"><option>Monthly</option><option>Weekly</option></select></label>
+              <label>Next date<input name="nextDate" type="date" required></label>
+              <label>Amount<input name="amount" type="number" min="0" step="0.01" required></label>
+              <button class="primary-btn" type="submit">Save Recurring</button>
+            </form>
+            <form id="paymentReminderForm" class="entry-form">
+              <label>Invoice<select name="invoiceId" id="paymentReminderInvoiceSelect" required></select></label>
+              <label>Reminder type<select name="type"><option>7 days before due</option><option>On due date</option><option>Overdue reminder</option></select></label>
+              <label>Date<input name="date" type="date" required></label>
+              <label class="full">Message<textarea name="message" placeholder="Reminder message"></textarea></label>
+              <button class="primary-btn" type="submit">Save Reminder</button>
+            </form>
+            <div class="activity-list" id="invoiceReminderRows"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header"><h3>Invoice Reports</h3></div>
+            <div class="report-action-grid">
+              <button class="secondary-light-btn" data-invoice-report="client" type="button">Client Ledger</button>
+              <button class="secondary-light-btn" data-invoice-report="site" type="button">Site Ledger</button>
+              <button class="secondary-light-btn" data-invoice-report="revenue" type="button">Revenue Report</button>
+              <button class="secondary-light-btn" data-invoice-report="gst" type="button">GST Report</button>
+              <button class="secondary-light-btn" data-invoice-report="pending" type="button">Pending Payment</button>
+              <button class="secondary-light-btn" data-invoice-report="monthly" type="button">Monthly Collection</button>
+            </div>
+            <div class="activity-list" id="invoiceReportRows"></div>
           </section>
         </section>
 
@@ -1125,7 +1280,7 @@
         <button class="nav-item active" data-view="dashboard" type="button"><span>Home</span></button>
         <button class="nav-item" data-view="wages" type="button"><span>Labour</span></button>
         <button class="nav-item" data-view="materials" type="button"><span>Materials</span></button>
-        <button class="nav-item" data-view="customerBills" type="button"><span>Bills</span></button>
+        <button class="nav-item" data-view="invoices" type="button"><span>Invoices</span></button>
         <button class="nav-item" data-view="tools" type="button"><span>Tools</span></button>
       </nav>
     </div>
@@ -1209,6 +1364,6 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=20260622-qa"></script>
+    <script src="app.js?v=20260629-invoices"></script>
   </body>
 </html>

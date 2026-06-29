@@ -7,6 +7,10 @@ const AI_CHAT_KEY = "hh-spaces-ai-chat-v1";
 const OPENAI_KEY = "hh-spaces-openai-key-v1";
 const CLOUD_TABLE = "hh_spaces_app_state";
 const CLOUD_ROW_ID = "main";
+const NO_CLOUD_PREVIEW = typeof window !== "undefined" && new URLSearchParams(window.location?.search || "").has("noCloud");
+const INVOICE_TYPES = ["Running Bill", "Final Bill", "Labour Bill", "Material Bill", "Proforma Invoice", "Tax Invoice", "Purchase Invoice"];
+const INVOICE_STATUSES = ["Draft", "Sent", "Partial", "Paid", "Overdue", "Cancelled"];
+const PAYMENT_MODES = ["Cash", "UPI", "Bank Transfer", "Cheque"];
 const DEFAULT_SUPABASE_CONFIG = {
   url: "https://yvocwptxawxmloacpdrt.supabase.co",
   anonKey: "sb_publishable_L5569z24IpKtZwC-HkVI0g_C9ol2fmj"
@@ -37,6 +41,7 @@ const views = {
   capital: "Company Capital",
   sites: "Sites & Clients",
   rateList: "Rate List",
+  invoices: "Invoices",
   customerBills: "Customer Bills",
   extraWorks: "Extra Site Works",
   wages: "Labour Wages",
@@ -68,10 +73,12 @@ document.addEventListener("DOMContentLoaded", () => {
   bindSearch();
   bindForms();
   bindBillItems();
+  bindInvoiceItems();
   bindToolCalculators();
   bindAiAssistant();
   setupSettingsAccordions();
   bindActions();
+  bindInvoiceActions();
   bindCloudSync();
   initSupabaseClient();
   updateAuthView();
@@ -146,6 +153,10 @@ function loadState() {
     capital: [],
     sites: [],
     rateList: [],
+    invoices: [],
+    invoiceTemplates: [],
+    recurringInvoices: [],
+    paymentReminders: [],
     customerBills: [],
     extraWorks: [],
     wages: [],
@@ -174,6 +185,10 @@ function normalizeState(data) {
     capital: Array.isArray(data.capital) ? data.capital : [],
     sites: Array.isArray(data.sites) ? data.sites : [],
     rateList: Array.isArray(data.rateList) ? data.rateList : [],
+    invoices: Array.isArray(data.invoices) ? data.invoices.map(normalizeInvoice) : [],
+    invoiceTemplates: Array.isArray(data.invoiceTemplates) ? data.invoiceTemplates : [],
+    recurringInvoices: Array.isArray(data.recurringInvoices) ? data.recurringInvoices : [],
+    paymentReminders: Array.isArray(data.paymentReminders) ? data.paymentReminders : [],
     customerBills: Array.isArray(data.customerBills) ? data.customerBills : [],
     extraWorks: Array.isArray(data.extraWorks) ? data.extraWorks : [],
     wages: Array.isArray(data.wages) ? data.wages : [],
@@ -189,6 +204,18 @@ function normalizeState(data) {
     tools: normalizeTools(data.tools),
     settings: typeof data.settings === "object" && data.settings ? data.settings : {},
     updates: Array.isArray(data.updates) ? data.updates : []
+  };
+}
+
+function normalizeInvoice(invoice) {
+  const payments = Array.isArray(invoice.payments) ? invoice.payments : [];
+  const items = Array.isArray(invoice.items) ? invoice.items : [];
+  return {
+    ...invoice,
+    items,
+    payments,
+    paidAmount: number(invoice.paidAmount || sum(payments, "amount")),
+    status: invoice.status || "Draft"
   };
 }
 
@@ -286,6 +313,7 @@ function loadScriptOnce(id, src) {
 }
 
 function queueCloudSave() {
+  if (NO_CLOUD_PREVIEW) return;
   if (!supabaseClient || (!sessionStorage.getItem(SESSION_KEY) && !localStorage.getItem(REMEMBERED_LOGIN_KEY))) return;
   clearTimeout(cloudSaveTimer);
   cloudSaveTimer = setTimeout(() => pushCloudState(false), 1200);
@@ -431,6 +459,48 @@ function bindForms() {
     });
   });
 
+  bindForm("invoiceForm", (data) => {
+    const site = findSite(data.siteId);
+    const items = collectInvoiceItems();
+    if (!items.length) {
+      alert("Add at least one invoice item.");
+      return false;
+    }
+    const totals = calculateInvoiceTotals(items, data.discount, data.tdsPercent, data.received);
+    const invoiceNo = data.invoiceNo || nextProfessionalInvoiceNumber();
+    const received = number(data.received);
+    const initialStatus = data.status === "Draft" && received > 0 ? "Sent" : data.status;
+    const payments = received > 0 ? [{
+      id: makeId(),
+      date: data.date,
+      amount: received,
+      mode: data.paymentMode || "Cash",
+      reference: "Opening payment"
+    }] : [];
+    state.invoices.push({
+      id: makeId(),
+      invoiceNo,
+      type: data.type,
+      date: data.date,
+      dueDate: data.dueDate,
+      client: data.client || site.client || "",
+      siteId: data.siteId,
+      siteName: site.name || "",
+      clientAddress: data.clientAddress,
+      gstNumber: data.gstNumber,
+      panNumber: data.panNumber,
+      paymentTerms: data.paymentTerms || state.settings.paymentTerms || "",
+      notes: data.notes,
+      items,
+      discount: number(data.discount),
+      tdsPercent: number(data.tdsPercent),
+      ...totals,
+      payments,
+      paidAmount: received,
+      status: invoiceStatusFromAmounts(initialStatus, totals.grandTotal, received, data.dueDate)
+    });
+  });
+
   bindForm("customerBillForm", (data) => {
     const site = findSite(data.siteId);
     const items = collectBillItems(data);
@@ -536,6 +606,46 @@ function bindForms() {
       mode: data.mode,
       reference: data.reference,
       amount: number(data.amount)
+    });
+  });
+
+  bindForm("invoicePaymentForm", (data) => {
+    const invoice = state.invoices.find((item) => item.id === data.invoiceId);
+    if (!invoice) return false;
+    invoice.payments = Array.isArray(invoice.payments) ? invoice.payments : [];
+    invoice.payments.push({
+      id: makeId(),
+      date: data.date,
+      amount: number(data.amount),
+      mode: data.mode,
+      reference: data.reference
+    });
+    refreshInvoiceTotals(invoice);
+  });
+
+  bindForm("recurringInvoiceForm", (data) => {
+    state.recurringInvoices.push({
+      id: makeId(),
+      client: data.client,
+      siteId: data.siteId,
+      frequency: data.frequency,
+      nextDate: data.nextDate,
+      amount: number(data.amount),
+      status: "Active"
+    });
+  });
+
+  bindForm("paymentReminderForm", (data) => {
+    const invoice = state.invoices.find((item) => item.id === data.invoiceId);
+    state.paymentReminders.push({
+      id: makeId(),
+      invoiceId: data.invoiceId,
+      invoiceNo: invoice?.invoiceNo || "",
+      client: invoice?.client || "",
+      type: data.type,
+      date: data.date,
+      message: data.message || invoiceReminderMessage(invoice, data.type),
+      status: "Planned"
     });
   });
 
@@ -762,6 +872,7 @@ function bindForm(formId, onSubmit) {
     const days = form.querySelector('input[name="days"]');
     if (days) days.value = 1;
     if (formId === "customerBillForm") resetBillItems();
+    if (formId === "invoiceForm") resetInvoiceItems();
     render();
   });
 }
@@ -836,6 +947,221 @@ function collectBillItems(data) {
     items.push({ work: data.work, unit: data.unit || "", quantity, rate, amount: quantity * rate });
   }
   return items;
+}
+
+function bindInvoiceItems() {
+  document.getElementById("addInvoiceItemRow")?.addEventListener("click", () => addInvoiceItemRow());
+  document.getElementById("clearInvoiceItems")?.addEventListener("click", resetInvoiceItems);
+  document.getElementById("loadMeasurementsToInvoice")?.addEventListener("click", loadMeasurementsToInvoiceItems);
+  document.getElementById("invoiceItemsList")?.addEventListener("input", updateInvoicePreview);
+  document.getElementById("invoiceItemsList")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-remove-invoice-row]");
+    if (!button) return;
+    button.closest(".invoice-item-row")?.remove();
+    renumberInvoiceRows();
+    if (!document.querySelector("#invoiceItemsList .invoice-item-row")) addInvoiceItemRow();
+    updateInvoicePreview();
+  });
+  ["discount", "tdsPercent", "received"].forEach((name) => {
+    document.querySelector(`#invoiceForm [name="${name}"]`)?.addEventListener("input", updateInvoicePreview);
+  });
+  resetInvoiceItems();
+}
+
+function resetInvoiceItems() {
+  const list = document.getElementById("invoiceItemsList");
+  if (!list) return;
+  list.innerHTML = "";
+  addInvoiceItemRow();
+  updateInvoicePreview();
+}
+
+function addInvoiceItemRow(item = {}) {
+  const list = document.getElementById("invoiceItemsList");
+  if (!list) return;
+  const index = list.querySelectorAll(".invoice-item-row").length + 1;
+  list.insertAdjacentHTML("beforeend", invoiceItemRowHtml(index, item));
+  updateInvoicePreview();
+}
+
+function invoiceItemRowHtml(index, item = {}) {
+  const gst = item.gstPercent ?? state.settings.billingGstPercent ?? 18;
+  return `<div class="invoice-item-row" data-invoice-row>
+    <label>Description ${index}<input name="invoiceDescription[]" ${index === 1 ? "required" : ""} value="${escapeHtml(item.description || "")}" placeholder="Waterproofing, POP, RCC, electrical"></label>
+    <label>Qty<input name="invoiceQuantity[]" type="number" min="0" step="0.01" value="${item.quantity ?? 1}"></label>
+    <label>Unit<select name="invoiceUnit[]">${["Sqft", "RFT", "Nos", "Bags", "Kg", "Ton", "L.S."].map((unit) => `<option ${unit === (item.unit || "Sqft") ? "selected" : ""}>${unit}</option>`).join("")}</select></label>
+    <label>Rate<input name="invoiceRate[]" type="number" min="0" step="0.01" value="${item.rate ?? ""}"></label>
+    <label>GST %<input name="invoiceGst[]" type="number" min="0" step="0.01" value="${gst}"></label>
+    <output>${formatMoney(number(item.amount || 0))}</output>
+    <button class="delete-btn invoice-row-remove" data-remove-invoice-row type="button">Remove</button>
+  </div>`;
+}
+
+function renumberInvoiceRows() {
+  document.querySelectorAll("#invoiceItemsList .invoice-item-row").forEach((row, index) => {
+    const label = row.querySelector("label");
+    const input = row.querySelector('input[name="invoiceDescription[]"]');
+    if (label) label.firstChild.textContent = `Description ${index + 1}`;
+    if (input) input.required = index === 0;
+  });
+}
+
+function collectInvoiceItems() {
+  return Array.from(document.querySelectorAll("#invoiceItemsList .invoice-item-row"))
+    .map((row) => {
+      const description = row.querySelector('input[name="invoiceDescription[]"]')?.value.trim() || "";
+      const quantity = number(row.querySelector('input[name="invoiceQuantity[]"]')?.value || 1) || 1;
+      const unit = row.querySelector('select[name="invoiceUnit[]"]')?.value || "Sqft";
+      const rate = number(row.querySelector('input[name="invoiceRate[]"]')?.value);
+      const gstPercent = number(row.querySelector('input[name="invoiceGst[]"]')?.value);
+      const amount = quantity * rate;
+      const gstAmount = amount * (gstPercent / 100);
+      row.querySelector("output").textContent = formatMoney(amount + gstAmount);
+      return description ? { id: makeId(), description, quantity, unit, rate, gstPercent, amount, gstAmount, total: amount + gstAmount } : null;
+    })
+    .filter(Boolean);
+}
+
+function updateInvoicePreview() {
+  const form = document.getElementById("invoiceForm");
+  const box = document.getElementById("invoiceTotalPreview");
+  if (!form || !box) return;
+  const items = collectInvoiceItems();
+  const totals = calculateInvoiceTotals(items, form.elements.discount?.value, form.elements.tdsPercent?.value, form.elements.received?.value);
+  box.textContent = `Subtotal ${formatMoney(totals.subtotal)} | GST ${formatMoney(totals.gstTotal)} | TDS ${formatMoney(totals.tdsAmount)} | Grand Total ${formatMoney(totals.grandTotal)} | Balance ${formatMoney(totals.balanceAmount)}`;
+}
+
+function calculateInvoiceTotals(items, discountValue = 0, tdsPercentValue = 0, receivedValue = 0) {
+  const subtotal = sum(items, "amount");
+  const gstTotal = sum(items, "gstAmount");
+  const discount = number(discountValue);
+  const taxableAfterDiscount = Math.max(subtotal - discount, 0);
+  const tdsPercent = number(tdsPercentValue);
+  const tdsAmount = taxableAfterDiscount * (tdsPercent / 100);
+  const grandTotal = Math.max(taxableAfterDiscount + gstTotal - tdsAmount, 0);
+  const paidAmount = number(receivedValue);
+  const balanceAmount = Math.max(grandTotal - paidAmount, 0);
+  return { subtotal, gstTotal, discount, tdsPercent, tdsAmount, grandTotal, balanceAmount };
+}
+
+function loadMeasurementsToInvoiceItems() {
+  const rows = filtered(state.measurements).slice(-3);
+  if (!rows.length) {
+    alert("No measurement book entries found for the selected site/month.");
+    return;
+  }
+  const rateFor = (keyword, fallback) => {
+    const found = state.rateList.find((item) => item.work?.toLowerCase().includes(keyword));
+    return number(found?.rate || fallback);
+  };
+  rows.forEach((measurement) => {
+    const candidates = [
+      ["Plaster work", measurement.plasterSqft, "Sqft", rateFor("plaster", 0), 18],
+      ["POP work", measurement.popSqft, "Sqft", rateFor("pop", 0), 18],
+      ["Waterproofing work", measurement.waterproofingSqft, "Sqft", rateFor("waterproof", 0), 18],
+      ["Tile work", measurement.tileSqft, "Sqft", rateFor("tile", 0), 18],
+      ["Painting work", measurement.paintingSqft, "Sqft", rateFor("paint", 0), 18],
+      ["Electrical points", measurement.electricalPoints, "Nos", rateFor("electrical", 0), 18],
+      ["Running feet work", measurement.runningFeet, "RFT", rateFor("rft", 0), 18]
+    ];
+    candidates.filter(([, qty]) => number(qty) > 0).forEach(([description, quantity, unit, rate, gstPercent]) => {
+      addInvoiceItemRow({ description: `${description} - ${measurement.area || plainSiteName(measurement.siteId)}`, quantity, unit, rate, gstPercent });
+    });
+  });
+  updateInvoicePreview();
+}
+
+function invoiceStatusFromAmounts(status, grandTotal, paidAmount, dueDate) {
+  if (status === "Cancelled" || status === "Draft") return status;
+  if (paidAmount >= grandTotal && grandTotal > 0) return "Paid";
+  if (paidAmount > 0) return "Partial";
+  if (dueDate && dueDate < today) return "Overdue";
+  return status === "Paid" || status === "Partial" || status === "Overdue" ? "Sent" : status || "Sent";
+}
+
+function refreshInvoiceTotals(invoice) {
+  const totals = calculateInvoiceTotals(invoice.items || [], invoice.discount, invoice.tdsPercent, sum(invoice.payments || [], "amount"));
+  Object.assign(invoice, totals);
+  invoice.paidAmount = sum(invoice.payments || [], "amount");
+  const statusBase = invoice.status === "Draft" && invoice.paidAmount > 0 ? "Sent" : invoice.status;
+  invoice.status = invoiceStatusFromAmounts(statusBase, invoice.grandTotal, invoice.paidAmount, invoice.dueDate);
+}
+
+function nextProfessionalInvoiceNumber() {
+  const settings = state.settings || {};
+  const prefix = settings.invoicePrefix || "HH/INV";
+  const year = new Date().getFullYear();
+  const count = state.invoices.length + 1;
+  return `${prefix}/${year}/${String(count).padStart(3, "0")}`;
+}
+
+function bindInvoiceActions() {
+  document.getElementById("invoiceSearch")?.addEventListener("input", renderInvoices);
+  document.getElementById("invoiceStatusFilter")?.addEventListener("change", renderInvoices);
+  document.getElementById("invoiceTypeFilter")?.addEventListener("change", renderInvoices);
+  document.addEventListener("click", (event) => {
+    const printButton = event.target.closest("[data-print-invoice]");
+    if (printButton) openInvoicePreview(printButton.dataset.printInvoice);
+    const pdfButton = event.target.closest("[data-pdf-invoice]");
+    if (pdfButton) openInvoicePreview(pdfButton.dataset.pdfInvoice);
+    const whatsAppButton = event.target.closest("[data-whatsapp-invoice]");
+    if (whatsAppButton) shareInvoiceWhatsApp(whatsAppButton.dataset.whatsappInvoice);
+    const emailButton = event.target.closest("[data-email-invoice]");
+    if (emailButton) shareInvoiceEmail(emailButton.dataset.emailInvoice);
+    const reminderButton = event.target.closest("[data-reminder-invoice]");
+    if (reminderButton) createQuickInvoiceReminder(reminderButton.dataset.reminderInvoice);
+    const reportButton = event.target.closest("[data-invoice-report]");
+    if (reportButton) renderInvoiceReport(reportButton.dataset.invoiceReport);
+  });
+}
+
+function openInvoicePreview(invoiceId) {
+  const invoice = state.invoices.find((item) => item.id === invoiceId);
+  if (!invoice) return;
+  setPrintableDocument(professionalInvoiceDocumentHtml(invoice), `Invoice ${invoice.invoiceNo || ""}`.trim());
+  document.querySelector("#reportModal strong").textContent = `Invoice ${invoice.invoiceNo || ""}`.trim();
+  document.querySelector("#reportModal span").textContent = "Print, save PDF, or share from your iPhone.";
+  setOverlayOpen("reportModal", true);
+}
+
+function shareInvoiceWhatsApp(invoiceId) {
+  const invoice = state.invoices.find((item) => item.id === invoiceId);
+  if (!invoice) return;
+  const text = invoiceFollowUpMessage(invoice);
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+}
+
+function shareInvoiceEmail(invoiceId) {
+  const invoice = state.invoices.find((item) => item.id === invoiceId);
+  if (!invoice) return;
+  const subject = `Invoice ${invoice.invoiceNo || ""} - ${state.settings.companyName || "H&H SPACES"}`;
+  window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(invoiceFollowUpMessage(invoice))}`;
+}
+
+function createQuickInvoiceReminder(invoiceId) {
+  const invoice = state.invoices.find((item) => item.id === invoiceId);
+  if (!invoice) return;
+  state.paymentReminders.push({
+    id: makeId(),
+    invoiceId,
+    invoiceNo: invoice.invoiceNo,
+    client: invoice.client,
+    type: invoice.dueDate && invoice.dueDate < today ? "Overdue reminder" : "On due date",
+    date: today,
+    message: invoiceFollowUpMessage(invoice),
+    status: "Planned"
+  });
+  saveState();
+  render();
+}
+
+function invoiceReminderMessage(invoice, type = "Payment reminder") {
+  if (!invoice) return "";
+  return `${type}: Invoice ${invoice.invoiceNo} for ${formatMoney(invoice.balanceAmount)} is pending. Due date: ${invoice.dueDate ? dateText(invoice.dueDate) : "as per terms"}.`;
+}
+
+function invoiceFollowUpMessage(invoice) {
+  return `Dear ${invoice.client || "Client"},\n\nThis is a payment reminder for invoice ${invoice.invoiceNo} dated ${dateText(invoice.date)}. Total invoice value is ${formatMoney(invoice.grandTotal)} and pending balance is ${formatMoney(invoice.balanceAmount)}.\n\nPlease arrange payment at the earliest.\n\nRegards,\n${state.settings.companyName || "H&H SPACES"}`;
 }
 
 function bindToolCalculators() {
@@ -1000,8 +1326,8 @@ function localAiResponse(prompt, lower) {
   const smartEntry = detectSmartEntry(prompt, lower);
   if (smartEntry) return smartEntry;
   if (lower.includes("make bill") || lower.includes("create bill") || lower.includes("customer bill") || lower.includes("invoice")) {
-    activateView("customerBills");
-    return { confident: true, message: "I opened Customer Bills for you. You can make a bill without selecting an existing site, and you can add as many item rows as you need. Tap '+ Add Item Row' for more rows.", preview: null };
+    activateView("invoices");
+    return { confident: true, message: "I opened Professional Invoices for you. You can create GST invoices, running bills, final bills, proforma invoices, add unlimited items, load measurements, record payments, and generate PDF/WhatsApp reminders.", preview: null };
   }
   if (lower.includes("quote") || lower.includes("quotation")) {
     activateView("tools");
@@ -1315,6 +1641,45 @@ function aiConstructionCalc(prompt, lower) {
 function detectSmartEntry(prompt, lower) {
   const amount = extractAmount(prompt);
   const qty = extractFirstNumber(prompt);
+  if ((lower.includes("create bill") || lower.includes("create invoice") || lower.includes("make invoice") || lower.includes("make bill")) && qty) {
+    const rate = extractRateFromPrompt(prompt) || amount || 0;
+    const unit = lower.includes("rft") ? "RFT" : lower.includes("nos") || lower.includes("point") ? "Nos" : "Sqft";
+    const workType = invoiceWorkTypeFromPrompt(lower);
+    const client = extractInvoiceClient(prompt);
+    const item = {
+      id: makeId(),
+      description: workType,
+      quantity: qty,
+      unit,
+      rate,
+      gstPercent: number(state.settings.billingGstPercent || 18),
+      amount: qty * rate,
+      gstAmount: qty * rate * (number(state.settings.billingGstPercent || 18) / 100),
+      total: qty * rate * (1 + number(state.settings.billingGstPercent || 18) / 100)
+    };
+    const totals = calculateInvoiceTotals([item], 0, number(state.settings.billingTdsPercent || 0), 0);
+    return entryPreview("invoices", `Create invoice for ${formatQuantity(qty, unit)} ${workType} at ${formatMoney(rate)}?`, {
+      id: makeId(),
+      invoiceNo: nextProfessionalInvoiceNumber(),
+      type: lower.includes("proforma") ? "Proforma Invoice" : "Tax Invoice",
+      date: today,
+      dueDate: "",
+      client,
+      siteId: currentSiteIdForEntry(),
+      siteName: plainSiteName(currentSiteIdForEntry()),
+      clientAddress: "",
+      gstNumber: "",
+      panNumber: "",
+      paymentTerms: state.settings.paymentTerms || "",
+      notes: prompt,
+      items: [item],
+      discount: 0,
+      ...totals,
+      payments: [],
+      paidAmount: 0,
+      status: "Draft"
+    });
+  }
   if (lower.includes("labour") && lower.includes("present")) {
     const count = qty || 1;
     return entryPreview("wages", `Add ${count} labour present today?`, {
@@ -1531,6 +1896,40 @@ function extractNamedNumber(text, name) {
   return number(match?.[1] || 0);
 }
 
+function extractRateFromPrompt(text) {
+  const cleaned = String(text || "").replace(/,/g, "");
+  const match = cleaned.match(/(?:at|rate|@)\s*(?:rs\.?|\u20b9)?\s*(\d+(?:\.\d+)?)/i)
+    || cleaned.match(/(\d+(?:\.\d+)?)\s*(?:per|\/)\s*(sqft|rft|nos|point|unit)/i);
+  return number(match?.[1] || 0);
+}
+
+function extractInvoiceClient(text) {
+  const source = String(text || "");
+  const cleanName = (value) => String(value || "")
+    .replace(/\b(?:site|for|at|rate|rs|inr|sqft|rft|nos|bags|kg|ton|per|amount|gst|tds)\b.*$/i, "")
+    .replace(/[0-9]+.*$/g, "")
+    .trim();
+  const clientMatch = source.match(/\b(?:client|customer|party)\s+([a-z][a-z0-9 &.'-]{1,60})/i);
+  if (clientMatch) return cleanName(clientMatch[1]);
+  const forMatches = Array.from(source.matchAll(/\bfor\s+([a-z][a-z0-9 &.'-]{1,60})/gi))
+    .map((match) => cleanName(match[1]))
+    .filter((value) => value && !/\b(?:sqft|rft|nos|bags|kg|ton|waterproof|plaster|pop|tile|paint|rcc|electrical)\b/i.test(value));
+  return forMatches.pop() || "";
+}
+
+function invoiceWorkTypeFromPrompt(lower) {
+  if (lower.includes("waterproof")) return "Waterproofing work";
+  if (lower.includes("pop")) return "POP work";
+  if (lower.includes("rcc")) return "RCC work";
+  if (lower.includes("paint")) return "Painting work";
+  if (lower.includes("tile")) return "Tiling work";
+  if (lower.includes("electric")) return "Electrical work";
+  if (lower.includes("plaster")) return "Plaster work";
+  if (lower.includes("labour")) return "Labour work";
+  if (lower.includes("material")) return "Material supply";
+  return "Construction work";
+}
+
 function extractEntryTitle(text, removeWords = []) {
   const cleaned = String(text || "")
     .replace(/\u20b9|rs\.?/gi, "")
@@ -1709,6 +2108,7 @@ function render() {
   renderCapital();
   renderSites();
   renderRateList();
+  renderInvoices();
   renderCustomerBills();
   renderExtraWorks();
   renderWages();
@@ -1777,6 +2177,17 @@ function buildSearchRecords() {
       ["Unit", item.unit],
       ["Rate", formatMoney(item.rate)],
       ["Note", item.note]
+    ]));
+  });
+  state.invoices.forEach((item) => {
+    records.push(makeSearchRecord("Invoices", "invoices", item.invoiceNo || item.client, item.client || plainSiteName(item.siteId), item, [
+      ["Date", dateText(item.date)],
+      ["Type", item.type],
+      ["Site", plainSiteName(item.siteId)],
+      ["Items", (item.items || []).map((invoiceItem) => invoiceItem.description).join(", ")],
+      ["Status", item.status],
+      ["Total", formatMoney(item.grandTotal)],
+      ["Pending", formatMoney(item.balanceAmount)]
     ]));
   });
   state.customerBills.forEach((item) => {
@@ -1923,6 +2334,7 @@ function buildModuleSearchRecords() {
     moduleSearchRecord("Company Capital", "capital", "Company Capital", "Add or check company capital, cash in hand and payment used", ["capital entry", "cash", "company money", "payment used"]),
     moduleSearchRecord("Sites & Clients", "sites", "Sites & Clients", "Create, edit and check construction sites and client details", ["site management", "client", "address", "contract value"]),
     moduleSearchRecord("Rate List", "rateList", "Rate List", "Save work rates and material rates for future billing", ["work rate", "remember rate", "price list", "labour rate"]),
+    moduleSearchRecord("Invoices", "invoices", "Professional Invoices", "GST invoices, running bills, final bills, payments, reminders, PDF and WhatsApp sharing", ["invoice", "tax invoice", "running bill", "final bill", "proforma", "gst bill", "payment reminder", "client ledger", "site ledger"]),
     moduleSearchRecord("Customer Bills", "customerBills", "Make Customer Bill", "Create client bill, print bill and save as PDF", ["bill section", "billing", "invoice", "make bill", "customer bill", "print bill", "client bill"]),
     moduleSearchRecord("Extra Works", "extraWorks", "Extra Site Works", "Add approved extra work and increase site amount", ["extra work", "increase amount", "additional work"]),
     moduleSearchRecord("Labour Wages", "wages", "Labour Wages", "Daily labour attendance, wages, worker photo and payment records", ["labour wedges", "labour wages", "worker", "attendance", "daily wage", "payment"]),
@@ -2119,8 +2531,12 @@ function renderNotifications() {
   const billAlerts = state.customerBills
     .filter((item) => item.status !== "Paid")
     .map((item) => `<article class="activity-card"><h4>Client bill due</h4><p>${escapeHtml(item.billNo || item.work)} | ${escapeHtml(item.client || "-")} | ${formatMoney(item.total)}</p></article>`);
+  const invoiceAlerts = state.invoices
+    .filter((item) => item.status !== "Paid" && item.status !== "Cancelled" && number(item.balanceAmount) > 0)
+    .slice(0, 4)
+    .map((item) => `<article class="activity-card"><h4>${item.dueDate && item.dueDate < today ? "Overdue invoice" : "Invoice payment due"}</h4><p>${escapeHtml(item.invoiceNo || "-")} | ${escapeHtml(item.client || "-")} | ${formatMoney(item.balanceAmount)}</p></article>`);
 
-  const alerts = [...materialAlerts, ...labourAlerts, ...billAlerts].slice(0, 6).join("");
+  const alerts = [...invoiceAlerts, ...materialAlerts, ...labourAlerts, ...billAlerts].slice(0, 6).join("");
   document.getElementById("notificationRows").innerHTML = alerts || emptyCard("No alerts right now.");
 }
 
@@ -2170,6 +2586,165 @@ function renderRateList() {
     <td><button class="delete-btn" data-delete="rateList:${item.id}" type="button">Delete</button></td>
   </tr>`).join("");
   document.getElementById("rateListRows").innerHTML = rows || emptyRow(7);
+}
+
+function renderInvoices() {
+  renderInvoiceSelects();
+  renderInvoiceFilterOptions();
+  state.invoices.forEach(refreshInvoiceTotals);
+  const invoices = filteredInvoices();
+  const received = sum(state.invoices, "paidAmount");
+  const pending = sum(state.invoices, "balanceAmount");
+  const overdue = state.invoices.filter((invoice) => invoice.status !== "Paid" && invoice.status !== "Cancelled" && invoice.dueDate && invoice.dueDate < today);
+  setText("invoiceMetricTotalBills", state.invoices.length);
+  setText("invoiceMetricReceived", formatMoney(received));
+  setText("invoiceMetricPending", formatMoney(pending));
+  setText("invoiceMetricOverdue", overdue.length);
+  renderInvoiceRevenueChart();
+
+  const rows = invoices
+    .sort(byDateDesc)
+    .map(invoiceCard)
+    .join("");
+  document.getElementById("invoiceRows").innerHTML = rows || emptyCard("No invoices yet. Create your first GST invoice above.");
+  renderInvoiceReminders();
+  renderInvoiceReport("pending");
+}
+
+function setText(id, value) {
+  const element = document.getElementById(id);
+  if (element) element.textContent = value;
+}
+
+function renderInvoiceSelects() {
+  const options = state.invoices.length
+    ? state.invoices.sort(byDateDesc).map((invoice) => `<option value="${invoice.id}">${escapeHtml(invoice.invoiceNo || "Invoice")} - ${escapeHtml(invoice.client || "")} - ${formatMoney(invoice.balanceAmount || 0)}</option>`).join("")
+    : '<option value="">No invoices yet</option>';
+  ["invoicePaymentSelect", "paymentReminderInvoiceSelect"].forEach((id) => {
+    const select = document.getElementById(id);
+    if (!select) return;
+    const current = select.value;
+    select.innerHTML = options;
+    if (state.invoices.some((invoice) => invoice.id === current)) select.value = current;
+  });
+}
+
+function renderInvoiceFilterOptions() {
+  const status = document.getElementById("invoiceStatusFilter");
+  const type = document.getElementById("invoiceTypeFilter");
+  if (status && status.options.length <= 1) status.innerHTML = '<option value="">All status</option>' + INVOICE_STATUSES.map((item) => `<option>${item}</option>`).join("");
+  if (type && type.options.length <= 1) type.innerHTML = '<option value="">All types</option>' + INVOICE_TYPES.map((item) => `<option>${item}</option>`).join("");
+}
+
+function filteredInvoices() {
+  const query = document.getElementById("invoiceSearch")?.value.trim().toLowerCase() || "";
+  const status = document.getElementById("invoiceStatusFilter")?.value || "";
+  const type = document.getElementById("invoiceTypeFilter")?.value || "";
+  return filtered(state.invoices).filter((invoice) => {
+    const haystack = [
+      invoice.invoiceNo,
+      invoice.client,
+      invoice.siteName,
+      plainSiteName(invoice.siteId),
+      invoice.status,
+      invoice.type,
+      invoice.grandTotal,
+      invoice.balanceAmount
+    ].join(" ").toLowerCase();
+    return (!query || haystack.includes(query)) && (!status || invoice.status === status) && (!type || invoice.type === type);
+  });
+}
+
+function invoiceCard(invoice) {
+  const payments = Array.isArray(invoice.payments) ? invoice.payments : [];
+  const paymentHistory = payments.length
+    ? payments.slice(-3).map((payment) => `<li>${dateText(payment.date)} - ${formatMoney(payment.amount)} - ${escapeHtml(payment.mode || "")} ${payment.reference ? `(${escapeHtml(payment.reference)})` : ""}</li>`).join("")
+    : "<li>No payments recorded</li>";
+  return `<article class="invoice-card">
+    <header>
+      <div>
+        <span class="search-section">${escapeHtml(invoice.type || "Invoice")}</span>
+        <h4>${escapeHtml(invoice.invoiceNo || "-")} - ${escapeHtml(invoice.client || "Client")}</h4>
+        <time>${dateText(invoice.date)} | Due: ${invoice.dueDate ? dateText(invoice.dueDate) : "Not set"} | ${plainSiteName(invoice.siteId)}</time>
+      </div>
+      <span class="status-pill ${invoiceStatusClass(invoice.status)}">${escapeHtml(invoice.status || "Draft")}</span>
+    </header>
+    <div class="invoice-card__money">
+      <span>Total <b>${formatMoney(invoice.grandTotal)}</b></span>
+      <span>Received <b>${formatMoney(invoice.paidAmount)}</b></span>
+      <span>Balance <b>${formatMoney(invoice.balanceAmount)}</b></span>
+    </div>
+    <p>${escapeHtml((invoice.items || []).slice(0, 3).map((item) => `${item.description} ${formatQuantity(item.quantity, item.unit)}`).join(", ") || invoice.notes || "")}</p>
+    <details>
+      <summary>Payment history</summary>
+      <ul>${paymentHistory}</ul>
+    </details>
+    <div class="action-stack">
+      <button class="paid-btn" data-pdf-invoice="${invoice.id}" type="button">&#128196; PDF</button>
+      <button class="secondary-light-btn" data-print-invoice="${invoice.id}" type="button">&#128424; Print</button>
+      <button class="secondary-light-btn" data-whatsapp-invoice="${invoice.id}" type="button">WhatsApp</button>
+      <button class="secondary-light-btn" data-email-invoice="${invoice.id}" type="button">Email</button>
+      <button class="secondary-light-btn" data-reminder-invoice="${invoice.id}" type="button">Reminder</button>
+      <button class="delete-btn" data-delete="invoices:${invoice.id}" type="button">Delete</button>
+    </div>
+  </article>`;
+}
+
+function renderInvoiceRevenueChart() {
+  const box = document.getElementById("invoiceRevenueChart");
+  if (!box) return;
+  const months = [...new Set(state.invoices.map((invoice) => (invoice.date || "").slice(0, 7)).filter(Boolean))].sort().slice(-6);
+  const values = months.map((month) => sum(state.invoices.filter((invoice) => invoice.date?.startsWith(month)), "grandTotal"));
+  const max = Math.max(...values, 1);
+  box.innerHTML = months.length
+    ? months.map((month, index) => `<div><span>${escapeHtml(month)}</span><b style="height:${Math.max((values[index] / max) * 120, 8)}px"></b><strong>${formatMoney(values[index])}</strong></div>`).join("")
+    : `<p>No monthly revenue yet.</p>`;
+}
+
+function renderInvoiceReminders() {
+  const recurring = state.recurringInvoices.map((item) => `<article class="activity-card"><h4>${escapeHtml(item.frequency)} recurring - ${escapeHtml(item.client)}</h4><p>${siteNameOptional(item.siteId)} | Next ${dateText(item.nextDate)} | ${formatMoney(item.amount)}</p></article>`).join("");
+  const reminders = state.paymentReminders.sort(byDateDesc).slice(0, 6).map((item) => `<article class="activity-card"><h4>${escapeHtml(item.type)} - ${escapeHtml(item.invoiceNo || "")}</h4><p>${dateText(item.date)} | ${escapeHtml(item.client || "")}</p><p>${escapeHtml(item.message || "")}</p></article>`).join("");
+  document.getElementById("invoiceReminderRows").innerHTML = recurring + reminders || emptyCard("No recurring invoices or reminders yet.");
+}
+
+function renderInvoiceReport(type) {
+  const box = document.getElementById("invoiceReportRows");
+  if (!box) return;
+  const invoices = filteredInvoices();
+  let rows = [];
+  if (type === "client") rows = groupedInvoiceReport(invoices, "client", "Client Ledger");
+  else if (type === "site") rows = groupedInvoiceReport(invoices, "siteId", "Site Ledger", (siteId) => siteId === "Not set" ? "No site / direct bill" : plainSiteName(siteId));
+  else if (type === "gst") rows = [{ title: "GST Report", detail: `Output GST: ${formatMoney(sum(invoices, "gstTotal"))}`, amount: sum(invoices, "gstTotal") }];
+  else if (type === "monthly") rows = groupedInvoiceReport(invoices, (invoice) => (invoice.date || "").slice(0, 7), "Monthly Collection");
+  else if (type === "revenue") rows = [{ title: "Revenue Report", detail: `${invoices.length} invoices`, amount: sum(invoices, "grandTotal") }];
+  else rows = [{ title: "Pending Payment Report", detail: `${invoices.filter((invoice) => invoice.balanceAmount > 0).length} invoices pending`, amount: sum(invoices, "balanceAmount") }];
+  box.innerHTML = rows.map((row) => `<article class="activity-card"><h4>${escapeHtml(row.title)}</h4><p>${escapeHtml(row.detail)}</p><p><strong>${formatMoney(row.amount)}</strong></p></article>`).join("") || emptyCard("No report data yet.");
+}
+
+function groupedInvoiceReport(invoices, key, fallbackTitle, labeler) {
+  const map = new Map();
+  invoices.forEach((invoice) => {
+    const rawKey = typeof key === "function" ? key(invoice) : invoice[key];
+    const groupKey = rawKey || "Not set";
+    if (!map.has(groupKey)) map.set(groupKey, { total: 0, paid: 0, pending: 0, count: 0 });
+    const row = map.get(groupKey);
+    row.total += number(invoice.grandTotal);
+    row.paid += number(invoice.paidAmount);
+    row.pending += number(invoice.balanceAmount);
+    row.count += 1;
+  });
+  return Array.from(map.entries()).map(([groupKey, row]) => ({
+    title: labeler ? labeler(groupKey) : groupKey || fallbackTitle,
+    detail: `${row.count} invoice(s) | Received ${formatMoney(row.paid)} | Pending ${formatMoney(row.pending)}`,
+    amount: row.total
+  }));
+}
+
+function invoiceStatusClass(status) {
+  if (status === "Paid") return "success-pill";
+  if (status === "Partial" || status === "Sent") return "warning-pill";
+  if (status === "Overdue" || status === "Cancelled") return "danger-pill";
+  return "neutral-pill";
 }
 
 function renderCustomerBills() {
@@ -2521,6 +3096,10 @@ function exportCsv() {
     ["capital", state.capital],
     ["sites", state.sites],
     ["rate_list", state.rateList],
+    ["invoices", state.invoices.map(invoiceExportRow)],
+    ["invoice_payments", state.invoices.flatMap((invoice) => (invoice.payments || []).map((payment) => ({ invoiceNo: invoice.invoiceNo, client: invoice.client, ...payment })))],
+    ["recurring_invoices", state.recurringInvoices],
+    ["payment_reminders", state.paymentReminders],
     ["customer_bills", state.customerBills],
     ["extra_works", state.extraWorks],
     ["wages", state.wages.map(({ photo, ...row }) => ({ ...row, photo: photo ? "Saved in app" : "" }))],
@@ -2554,6 +3133,26 @@ function exportCsv() {
   link.download = `hh-spaces-${today}.csv`;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+function invoiceExportRow(invoice) {
+  return {
+    invoiceNo: invoice.invoiceNo,
+    type: invoice.type,
+    date: invoice.date,
+    dueDate: invoice.dueDate,
+    client: invoice.client,
+    site: plainSiteName(invoice.siteId),
+    status: invoice.status,
+    subtotal: invoice.subtotal,
+    gstTotal: invoice.gstTotal,
+    discount: invoice.discount,
+    tdsAmount: invoice.tdsAmount,
+    grandTotal: invoice.grandTotal,
+    paidAmount: invoice.paidAmount,
+    balanceAmount: invoice.balanceAmount,
+    items: (invoice.items || []).map((item) => `${item.description} ${formatQuantity(item.quantity, item.unit)} @ ${item.rate}`).join("; ")
+  };
 }
 
 function exportWordReport() {
@@ -2644,6 +3243,154 @@ function setOverlayOpen(id, open) {
   document.body.classList.toggle("modal-open", hasOpenOverlay);
 }
 
+function professionalInvoiceDocumentHtml(invoice) {
+  const settings = state.settings || {};
+  const companyName = (settings.companyName || "H&H SPACES").toUpperCase();
+  const site = findSite(invoice.siteId);
+  const items = Array.isArray(invoice.items) ? invoice.items : [];
+  const payments = Array.isArray(invoice.payments) ? invoice.payments : [];
+  const logo = settings.logo && settings.companyLogoOnPdf !== "Hide"
+    ? `<img class="invoice-logo" src="${settings.logo}" alt="Company logo">`
+    : "";
+  const signature = settings.signature
+    ? `<img class="signature-img" src="${settings.signature}" alt="Signature">`
+    : '<div class="signature-line"></div>';
+  const upiUrl = settings.upiId
+    ? `upi://pay?pa=${encodeURIComponent(settings.upiId)}&pn=${encodeURIComponent(companyName)}&am=${encodeURIComponent(round(invoice.balanceAmount, 2))}&cu=INR&tn=${encodeURIComponent(invoice.invoiceNo || "Invoice")}`
+    : "";
+  const qr = settings.upiId
+    ? `<img class="upi-qr" src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(upiUrl)}" alt="UPI QR"><small>UPI: ${escapeHtml(settings.upiId)}</small>`
+    : "";
+  const taxRows = invoiceTaxSummary(items).map((row) => `<tr><td>${row.gst}%</td><td>${formatInvoiceAmount(row.taxable)}</td><td>${formatInvoiceAmount(row.gstAmount)}</td><td>${formatInvoiceAmount(row.total)}</td></tr>`).join("");
+  const paymentRows = payments.length
+    ? payments.map((payment) => `<tr><td>${dateText(payment.date)}</td><td>${escapeHtml(payment.mode || "-")}</td><td>${escapeHtml(payment.reference || "-")}</td><td>${formatInvoiceAmount(payment.amount)}</td></tr>`).join("")
+    : `<tr><td colspan="4">No payments recorded</td></tr>`;
+
+  return `<!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <title>${escapeHtml(companyName)} ${escapeHtml(invoice.invoiceNo || "Invoice")}</title>
+        <style>${customerBillCss()} .tax-summary{margin-top:18px}.tax-summary h3,.payment-summary h3{font-size:14px;margin:0 0 8px}.payment-summary{margin-top:18px}.invoice-type-pill{display:inline-block;margin:10px auto 0;border:1px solid #111827;padding:5px 12px;font-size:12px;font-weight:900}.upi-qr{width:120px;height:120px;display:block;margin:8px 0}.terms-box{margin-top:18px;border:1px solid #111827;padding:10px;font-size:12px;line-height:1.5}.stamp-box{height:68px;border:1px dashed #111827;margin:10px 20px 8px;display:grid;place-items:center;color:#6b7280;font-size:11px;text-transform:uppercase}@media screen and (max-width:700px){.upi-qr{width:96px;height:96px}.tax-summary .invoice-table,.payment-summary .invoice-table{font-size:10px}}</style>
+      </head>
+      <body>
+        <main class="invoice-page">
+          <header class="invoice-header">
+            <div>${logo}</div>
+            <div class="invoice-brand">
+              <h1>${escapeHtml(companyName)}</h1>
+              <p>${escapeHtml(settings.pdfHeader || "CONSTRUCTION | WATERPROOFING | ELECTRICAL | POP | RCC | PAINTING | TILING | TURNKEY PROJECTS")}</p>
+              ${settings.address ? `<p>${linesToHtml(settings.address)}</p>` : ""}
+            </div>
+            <div class="invoice-contact">
+              ${settings.phone ? `<div>Mob: ${escapeHtml(settings.phone)}</div>` : ""}
+              ${settings.email ? `<div>Email: ${escapeHtml(settings.email)}</div>` : ""}
+              ${settings.gstNumber ? `<div>GSTIN: ${escapeHtml(settings.gstNumber)}</div>` : ""}
+              ${settings.panNumber ? `<div>PAN: ${escapeHtml(settings.panNumber)}</div>` : ""}
+            </div>
+          </header>
+
+          <div class="document-title">${escapeHtml(invoice.type || "TAX INVOICE")}</div>
+
+          <section class="bill-meta">
+            <div class="party-box">
+              <h3>BILL TO:</h3>
+              <strong>${escapeHtml(invoice.client || "Client")}</strong>
+              ${invoice.clientAddress ? `<p>${linesToHtml(invoice.clientAddress)}</p>` : ""}
+              <dl>
+                <div><dt>GSTIN:</dt><dd>${escapeHtml(invoice.gstNumber || "-")}</dd></div>
+                <div><dt>PAN:</dt><dd>${escapeHtml(invoice.panNumber || "-")}</dd></div>
+                <div><dt>Site:</dt><dd>${escapeHtml(invoice.siteName || site.name || "-")}</dd></div>
+              </dl>
+            </div>
+            <div class="bill-date">
+              <dl>
+                <div><dt>Invoice:</dt><dd>${escapeHtml(invoice.invoiceNo || "-")}</dd></div>
+                <div><dt>Date:</dt><dd>${dateText(invoice.date)}</dd></div>
+                <div><dt>Due:</dt><dd>${invoice.dueDate ? dateText(invoice.dueDate) : "-"}</dd></div>
+                <div><dt>Status:</dt><dd>${escapeHtml(invoice.status || "Draft")}</dd></div>
+              </dl>
+              ${qr}
+            </div>
+          </section>
+
+          <table class="invoice-table">
+            <thead>
+              <tr><th>S.NO</th><th>DESCRIPTION</th><th>QTY</th><th>RATE</th><th>GST</th><th>AMOUNT</th></tr>
+            </thead>
+            <tbody>
+              ${items.map((item, index) => `<tr>
+                <td>${index + 1}</td>
+                <td><strong>${escapeHtml(item.description)}</strong></td>
+                <td>${escapeHtml(formatQuantity(item.quantity, item.unit))}</td>
+                <td>${formatInvoiceAmount(item.rate)}</td>
+                <td>${round(item.gstPercent, 2)}%</td>
+                <td>${formatInvoiceAmount(item.total)}</td>
+              </tr>`).join("")}
+              ${invoice.discount ? `<tr class="adjustment"><td></td><td colspan="4">Discount</td><td>- ${formatInvoiceAmount(invoice.discount)}</td></tr>` : ""}
+              ${invoice.tdsAmount ? `<tr class="adjustment"><td></td><td colspan="4">TDS ${round(invoice.tdsPercent, 2)}%</td><td>- ${formatInvoiceAmount(invoice.tdsAmount)}</td></tr>` : ""}
+            </tbody>
+            <tfoot>
+              <tr><td colspan="5">Grand Total:</td><td>${formatInvoiceAmount(invoice.grandTotal)}</td></tr>
+              <tr><td colspan="5">Received:</td><td>${formatInvoiceAmount(invoice.paidAmount)}</td></tr>
+              <tr><td colspan="5">Balance:</td><td>${formatInvoiceAmount(invoice.balanceAmount)}</td></tr>
+            </tfoot>
+          </table>
+          <div class="amount-words"><b>Amount in words</b><span>${escapeHtml(amountInWords(invoice.grandTotal))}</span></div>
+
+          <section class="tax-summary">
+            <h3>Tax Summary</h3>
+            <table class="invoice-table"><thead><tr><th>GST %</th><th>Taxable</th><th>GST</th><th>Total</th></tr></thead><tbody>${taxRows || "<tr><td colspan='4'>No GST</td></tr>"}</tbody></table>
+          </section>
+
+          <section class="payment-summary">
+            <h3>Payment History</h3>
+            <table class="invoice-table"><thead><tr><th>Date</th><th>Mode</th><th>Reference</th><th>Amount</th></tr></thead><tbody>${paymentRows}</tbody></table>
+          </section>
+
+          <section class="document-notes">
+            <div class="terms-box">
+              <strong>Terms & Conditions</strong>
+              <p>${linesToHtml(invoice.paymentTerms || settings.paymentTerms || settings.defaultPaymentTerms || "Payment due as per agreed terms. Delayed payments may affect work schedule.")}</p>
+              ${invoice.notes ? `<p>${linesToHtml(invoice.notes)}</p>` : ""}
+            </div>
+            <div class="bank-box">
+              <strong>Bank / Payment Details</strong>
+              ${settings.bankDetails ? `<p>${linesToHtml(settings.bankDetails)}</p>` : "<p>Bank details not configured.</p>"}
+              ${settings.upiId ? `<p>UPI: ${escapeHtml(settings.upiId)}</p>` : ""}
+            </div>
+          </section>
+
+          <footer class="invoice-footer">
+            <div class="declaration">
+              <strong>Declaration</strong>
+              <p>We declare that this bill is issued for the work/material supplied as mentioned above. Please verify quantities and payment details before processing.</p>
+            </div>
+            <div class="signature">
+              <p>For ${escapeHtml(toTitleCase(companyName))}</p>
+              <div class="stamp-box">Company Stamp</div>
+              ${signature}
+              <strong>Authorized Signatory</strong>
+            </div>
+          </footer>
+        </main>
+      </body>
+    </html>`;
+}
+
+function invoiceTaxSummary(items) {
+  const map = new Map();
+  items.forEach((item) => {
+    const key = String(number(item.gstPercent));
+    if (!map.has(key)) map.set(key, { gst: number(item.gstPercent), taxable: 0, gstAmount: 0, total: 0 });
+    const row = map.get(key);
+    row.taxable += number(item.amount);
+    row.gstAmount += number(item.gstAmount);
+    row.total += number(item.total);
+  });
+  return Array.from(map.values());
+}
+
 function customerBillDocumentHtml(bill) {
   const settings = state.settings || {};
   const site = findSite(bill.siteId);
@@ -2673,18 +3420,24 @@ function customerBillDocumentHtml(bill) {
       <body>
         <main class="invoice-page">
           <header class="invoice-header">
-            ${logo}
-            <h1>${escapeHtml(companyName)}</h1>
-            <p>${escapeHtml(companySubtitle)}</p>
-            ${settings.phone ? `<p>Mob: ${escapeHtml(settings.phone)}</p>` : ""}
-            ${settings.email ? `<p>Email: ${escapeHtml(settings.email)}</p>` : ""}
-            ${settings.address ? `<p>${linesToHtml(settings.address)}</p>` : ""}
+            <div>${logo}</div>
+            <div class="invoice-brand">
+              <h1>${escapeHtml(companyName)}</h1>
+              <p>${escapeHtml(companySubtitle)}</p>
+              ${settings.address ? `<p>${linesToHtml(settings.address)}</p>` : ""}
+            </div>
+            <div class="invoice-contact">
+              ${settings.phone ? `<div>Mob: ${escapeHtml(settings.phone)}</div>` : ""}
+              ${settings.email ? `<div>Email: ${escapeHtml(settings.email)}</div>` : ""}
+              ${settings.gstNumber ? `<div>GSTIN: ${escapeHtml(settings.gstNumber)}</div>` : ""}
+              ${settings.panNumber ? `<div>PAN: ${escapeHtml(settings.panNumber)}</div>` : ""}
+            </div>
           </header>
 
-          <h2>BILL</h2>
+          <div class="document-title">BILL</div>
 
           <section class="bill-meta">
-            <div>
+            <div class="party-box">
               <h3>BILL TO:</h3>
               <strong>${escapeHtml(clientName)}</strong>
               ${clientAddress ? `<p>${linesToHtml(clientAddress)}</p>` : ""}
@@ -2729,14 +3482,24 @@ function customerBillDocumentHtml(bill) {
               </tr>
             </tfoot>
           </table>
+          <div class="amount-words"><b>Amount in words</b><span>${escapeHtml(amountInWords(total))}</span></div>
+
+          <section class="document-notes">
+            <div class="terms-box">
+              <strong>Terms & Conditions</strong>
+              <p>${linesToHtml(settings.paymentTerms || "Payment due as per agreed terms. Subject to final measurement and approval.")}</p>
+            </div>
+            <div class="bank-box">
+              <strong>Bank / Payment Details</strong>
+              ${settings.bankDetails ? `<p>${linesToHtml(settings.bankDetails)}</p>` : "<p>Bank details not configured.</p>"}
+              ${settings.upiId ? `<p>UPI: ${escapeHtml(settings.upiId)}</p>` : ""}
+            </div>
+          </section>
 
           <footer class="invoice-footer">
-            <div>
-              <strong>${escapeHtml(companyName)}</strong>
-              ${settings.gstNumber ? `<p>GST NO: ${escapeHtml(settings.gstNumber)}</p>` : ""}
-              ${settings.panNumber ? `<p>PAN: ${escapeHtml(settings.panNumber)}</p>` : ""}
-              ${settings.bankDetails ? `<p>${linesToHtml(settings.bankDetails)}</p>` : ""}
-              ${settings.upiId ? `<p>UPI: ${escapeHtml(settings.upiId)}</p>` : ""}
+            <div class="declaration">
+              <strong>Declaration</strong>
+              <p>We declare that this bill is correct as per the work executed / material supplied. Kindly release payment as per the above total.</p>
             </div>
             <div class="signature">
               <p>For ${escapeHtml(toTitleCase(companyName))}</p>
@@ -2758,6 +3521,9 @@ function quotationDocumentHtml(quote) {
   const logo = settings.logo && settings.companyLogoOnPdf !== "Hide"
     ? `<img class="invoice-logo" src="${settings.logo}" alt="Company logo">`
     : "";
+  const signature = settings.signature
+    ? `<img class="signature-img" src="${settings.signature}" alt="Signature">`
+    : `<div class="signature-line"></div>`;
 
   return `<!doctype html>
     <html>
@@ -2769,18 +3535,24 @@ function quotationDocumentHtml(quote) {
       <body>
         <main class="invoice-page">
           <header class="invoice-header">
-            ${logo}
-            <h1>${escapeHtml(companyName)}</h1>
-            <p>${escapeHtml(settings.pdfHeader || "SPECIALIST IN ALL TYPES OF INTERIOR WORK | RESIDENTIAL | COMMERCIAL & CIVIL")}</p>
-            ${settings.phone ? `<p>Mob: ${escapeHtml(settings.phone)}</p>` : ""}
-            ${settings.email ? `<p>Email: ${escapeHtml(settings.email)}</p>` : ""}
-            ${settings.address ? `<p>${linesToHtml(settings.address)}</p>` : ""}
+            <div>${logo}</div>
+            <div class="invoice-brand">
+              <h1>${escapeHtml(companyName)}</h1>
+              <p>${escapeHtml(settings.pdfHeader || "SPECIALIST IN ALL TYPES OF INTERIOR WORK | RESIDENTIAL | COMMERCIAL & CIVIL")}</p>
+              ${settings.address ? `<p>${linesToHtml(settings.address)}</p>` : ""}
+            </div>
+            <div class="invoice-contact">
+              ${settings.phone ? `<div>Mob: ${escapeHtml(settings.phone)}</div>` : ""}
+              ${settings.email ? `<div>Email: ${escapeHtml(settings.email)}</div>` : ""}
+              ${settings.gstNumber ? `<div>GSTIN: ${escapeHtml(settings.gstNumber)}</div>` : ""}
+              ${settings.panNumber ? `<div>PAN: ${escapeHtml(settings.panNumber)}</div>` : ""}
+            </div>
           </header>
 
-          <h2>QUOTATION</h2>
+          <div class="document-title">QUOTATION</div>
 
           <section class="bill-meta">
-            <div>
+            <div class="party-box">
               <h3>QUOTATION TO:</h3>
               <strong>${escapeHtml(quote.client || "Client")}</strong>
               <dl>
@@ -2816,18 +3588,29 @@ function quotationDocumentHtml(quote) {
               <tr><td colspan="3">Total Quotation:</td><td>${formatInvoiceAmount(total)}</td></tr>
             </tfoot>
           </table>
+          <div class="amount-words"><b>Amount in words</b><span>${escapeHtml(amountInWords(total))}</span></div>
 
-          ${quote.terms ? `<section class="quotation-terms"><h3>Terms</h3><p>${linesToHtml(quote.terms)}</p></section>` : ""}
+          <section class="document-notes">
+            <div class="terms-box">
+              <strong>Terms & Conditions</strong>
+              <p>${linesToHtml(quote.terms || settings.paymentTerms || "Quotation is valid as per discussion. Final billing will be based on actual approved measurements and site conditions.")}</p>
+            </div>
+            <div class="bank-box">
+              <strong>Bank / Payment Details</strong>
+              ${settings.bankDetails ? `<p>${linesToHtml(settings.bankDetails)}</p>` : "<p>Bank details not configured.</p>"}
+              ${settings.upiId ? `<p>UPI: ${escapeHtml(settings.upiId)}</p>` : ""}
+            </div>
+          </section>
 
           <footer class="invoice-footer">
-            <div>
-              <strong>${escapeHtml(companyName)}</strong>
-              ${settings.gstNumber ? `<p>GST NO: ${escapeHtml(settings.gstNumber)}</p>` : ""}
-              ${settings.upiId ? `<p>UPI: ${escapeHtml(settings.upiId)}</p>` : ""}
+            <div class="declaration">
+              <strong>Scope Note</strong>
+              <p>This quotation includes the mentioned labour, material and overhead values. Any extra work, change in quantity or site variation will be billed separately.</p>
             </div>
             <div class="signature">
               <p>For ${escapeHtml(toTitleCase(companyName))}</p>
-              <div class="signature-line"></div>
+              <div class="stamp-box">Company Stamp</div>
+              ${signature}
               <strong>Authorized Signatory</strong>
             </div>
           </footer>
@@ -2851,6 +3634,8 @@ function reportDocumentHtml() {
         <section class="summary">${report.summary.map((item) => `<div><span>${item.label}</span><strong>${item.value}</strong></div>`).join("")}</section>
         ${reportSection("Site Summary", report.sites)}
         ${reportSection("Rate List", report.rateList)}
+        ${reportSection("Professional Invoices", report.invoices)}
+        ${reportSection("Invoice Payments", report.invoicePayments)}
         ${reportSection("Customer Bills", report.customerBills)}
         ${reportSection("Extra Site Works", report.extraWorks)}
         ${reportSection("Labour Wages", report.wages)}
@@ -2880,6 +3665,8 @@ function reportWorkbookHtml() {
         ${excelTable("Summary", report.summary.map((item) => ({ Particular: item.label, Amount: item.value })))}
         ${excelTable("Site Summary", report.sites)}
         ${excelTable("Rate List", report.rateList)}
+        ${excelTable("Professional Invoices", report.invoices)}
+        ${excelTable("Invoice Payments", report.invoicePayments)}
         ${excelTable("Customer Bills", report.customerBills)}
         ${excelTable("Extra Site Works", report.extraWorks)}
         ${excelTable("Labour Wages", report.wages)}
@@ -2905,6 +3692,7 @@ function buildReportData() {
   const expenses = filtered(state.expenses);
   const extraWorks = filtered(state.extraWorks);
   const customerBills = filtered(state.customerBills);
+  const invoices = filtered(state.invoices);
   const payments = filtered(state.payments);
   const pendingBills = filtered(state.bills).filter((bill) => bill.status !== "Paid");
   const paidBills = filtered(state.bills).filter((bill) => bill.status === "Paid");
@@ -2919,6 +3707,8 @@ function buildReportData() {
       { label: "Cash In Hand", value: formatMoney(cash) },
       { label: "Company Capital", value: formatMoney(capitalTotal) },
       { label: "Client Payments", value: formatMoney(received) },
+      { label: "Professional Invoices", value: formatMoney(sum(invoices, "grandTotal")) },
+      { label: "Invoice Pending", value: formatMoney(sum(invoices, "balanceAmount")) },
       { label: "Customer Bills", value: formatMoney(sum(customerBills, "total")) },
       { label: "Extra Site Works", value: formatMoney(sum(extraWorks, "amount")) },
       { label: "Payment Used", value: formatMoney(used) },
@@ -2952,6 +3742,15 @@ function buildReportData() {
       Rate: formatMoney(item.rate),
       Note: item.note || ""
     })),
+    invoices: invoices.map(invoiceExportRow),
+    invoicePayments: invoices.flatMap((invoice) => (invoice.payments || []).map((payment) => ({
+      Invoice: invoice.invoiceNo,
+      Client: invoice.client,
+      Date: dateText(payment.date),
+      Mode: payment.mode || "",
+      Reference: payment.reference || "",
+      Amount: formatMoney(payment.amount)
+    }))),
     customerBills: customerBills.map((item) => ({
       Date: dateText(item.date),
       Bill: item.billNo || "",
@@ -3125,7 +3924,36 @@ function reportCss() {
 }
 
 function customerBillCss() {
-  return `@page{size:A4;margin:18mm}*{box-sizing:border-box}body{margin:0;background:#f3f4f6;color:#111827;font-family:Arial,Helvetica,sans-serif}.invoice-page{width:min(210mm,100vw);min-height:297mm;margin:0 auto;background:#fff;padding:20mm 18mm;border:1px solid #e5e7eb}.invoice-header{text-align:center;border-bottom:2px solid #111827;padding-bottom:12px}.invoice-logo{max-width:92px;max-height:70px;object-fit:contain;margin-bottom:8px}.invoice-header h1{margin:0;color:#111827;font-size:28px;font-weight:900;letter-spacing:.5px}.invoice-header p{margin:5px 0 0;font-size:12px;font-weight:700}.invoice-page h2{text-align:center;margin:18px 0 16px;font-size:22px;text-decoration:underline;letter-spacing:1px}.bill-meta{display:grid;grid-template-columns:1fr 210px;gap:24px;margin-bottom:18px}.bill-meta h3{margin:0 0 8px;font-size:14px}.bill-meta strong{display:block;margin-bottom:5px;font-size:15px}.bill-meta p{margin:4px 0;font-size:12px;line-height:1.45}dl{margin:10px 0 0}dl div{display:grid;grid-template-columns:74px 1fr;gap:8px;margin-top:6px;font-size:12px}dt{font-weight:900}dd{margin:0}.bill-date{border:1px solid #111827;padding:10px 12px;align-self:start}.bill-date dl{margin:0}.invoice-table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}.invoice-table th,.invoice-table td{border:1px solid #111827;padding:10px;text-align:left;vertical-align:top}.invoice-table th{background:#f3f4f6;text-align:center;font-weight:900}.invoice-table th:first-child,.invoice-table td:first-child{width:48px;text-align:center}.invoice-table th:nth-child(3),.invoice-table td:nth-child(3){width:150px;text-align:center}.invoice-table th:last-child,.invoice-table td:last-child{width:140px;text-align:right}.invoice-table small{display:block;margin-top:6px;color:#4b5563;line-height:1.45}.invoice-table .adjustment td{font-weight:700}.invoice-table tfoot td{font-size:14px;font-weight:900}.invoice-table tfoot td:first-child{text-align:right}.quotation-terms{margin-top:22px;border:1px solid #111827;padding:12px}.quotation-terms h3{margin:0 0 8px;font-size:14px}.quotation-terms p{margin:0;font-size:12px;line-height:1.5}.invoice-footer{display:grid;grid-template-columns:1fr 220px;gap:24px;margin-top:34px;align-items:end}.invoice-footer p{margin:6px 0 0;font-size:12px;line-height:1.45}.signature{text-align:center}.signature p{font-weight:700}.signature-img{max-width:150px;max-height:70px;margin:18px auto 8px;object-fit:contain}.signature-line{height:52px;border-bottom:1px solid #111827;margin:12px 22px 8px}.screen-print-help{position:fixed;left:12px;right:12px;bottom:12px;background:#111827;color:#fff;border-radius:14px;padding:12px 14px;font-size:14px;text-align:center}@media screen and (max-width:700px){body{background:#fff}.invoice-page{width:100vw;min-height:auto;padding:16px 12px;border:0}.invoice-header h1{font-size:22px}.invoice-header p{font-size:11px}.invoice-page h2{font-size:18px;margin:14px 0}.bill-meta{grid-template-columns:1fr;gap:12px}.bill-date{padding:8px}.invoice-table{font-size:10.5px}.invoice-table th,.invoice-table td{padding:6px 5px}.invoice-table th:first-child,.invoice-table td:first-child{width:34px}.invoice-table th:nth-child(3),.invoice-table td:nth-child(3){width:82px}.invoice-table th:last-child,.invoice-table td:last-child{width:82px}.invoice-footer{grid-template-columns:1fr;gap:18px;margin-top:24px}.signature-line{height:42px}}@media print{body{background:#fff}.invoice-page{width:auto;min-height:auto;margin:0;padding:0;border:0}.screen-print-help{display:none}}`;
+  return `@page{size:A4;margin:14mm}*{box-sizing:border-box}body{margin:0;background:#e5e7eb;color:#111827;font-family:Arial,Helvetica,sans-serif}.invoice-page{width:min(210mm,100vw);min-height:297mm;margin:0 auto;background:#fff;padding:14mm 13mm;border:1px solid #d1d5db}.invoice-header{display:grid;grid-template-columns:88px 1fr 128px;gap:12px;align-items:center;border:2px solid #111827;padding:10px 12px}.invoice-logo{max-width:82px;max-height:70px;object-fit:contain}.invoice-brand{text-align:center}.invoice-brand h1{margin:0;color:#111827;font-size:28px;font-weight:900;letter-spacing:.7px;text-transform:uppercase}.invoice-brand p{margin:4px 0 0;font-size:11px;font-weight:800;line-height:1.35}.invoice-contact{font-size:10.5px;font-weight:800;line-height:1.5;text-align:right}.document-title{margin:12px 0 10px;text-align:center;border:2px solid #111827;background:#f3f4f6;padding:7px 10px;font-size:20px;font-weight:900;letter-spacing:1.4px;text-transform:uppercase}.bill-meta{display:grid;grid-template-columns:1fr 236px;gap:10px;margin-bottom:10px}.party-box,.bill-date{border:1.5px solid #111827;padding:9px 10px;min-height:118px}.bill-meta h3{margin:0 0 7px;font-size:12px;text-transform:uppercase;letter-spacing:.3px}.bill-meta strong{display:block;margin-bottom:4px;font-size:15px;text-transform:uppercase}.bill-meta p{margin:3px 0;font-size:11.5px;line-height:1.45}dl{margin:6px 0 0}dl div{display:grid;grid-template-columns:78px 1fr;gap:7px;margin-top:5px;font-size:11.5px}dt{font-weight:900}dd{margin:0}.invoice-table{width:100%;border-collapse:collapse;margin-top:8px;font-size:11.5px}.invoice-table th,.invoice-table td{border:1.5px solid #111827;padding:7px 8px;text-align:left;vertical-align:top}.invoice-table th{background:#e5e7eb;text-align:center;font-weight:900;text-transform:uppercase}.invoice-table th:first-child,.invoice-table td:first-child{width:42px;text-align:center}.invoice-table th:nth-child(3),.invoice-table td:nth-child(3){width:120px;text-align:center}.invoice-table th:last-child,.invoice-table td:last-child{width:126px;text-align:right}.invoice-table small{display:block;margin-top:5px;color:#374151;line-height:1.45}.invoice-table .adjustment td{font-weight:800}.invoice-table tfoot td{font-size:13px;font-weight:900}.invoice-table tfoot td:first-child{text-align:right}.amount-words{display:grid;grid-template-columns:118px 1fr;margin-top:0;border:1.5px solid #111827;border-top:0;font-size:11.5px}.amount-words b,.amount-words span{padding:8px}.amount-words b{border-right:1.5px solid #111827;text-transform:uppercase}.document-notes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}.terms-box,.bank-box,.quotation-terms{border:1.5px solid #111827;padding:9px 10px;font-size:11.5px;line-height:1.5}.terms-box strong,.bank-box strong,.quotation-terms h3{display:block;margin:0 0 6px;font-size:12px;text-transform:uppercase}.terms-box p,.bank-box p,.quotation-terms p{margin:0}.invoice-footer{display:grid;grid-template-columns:1fr 218px;gap:14px;margin-top:18px;align-items:end}.declaration{font-size:11px;line-height:1.45}.signature{text-align:center;border:1.5px solid #111827;padding:8px 10px;min-height:118px}.signature p{margin:0 0 8px;font-weight:800}.signature-img{max-width:150px;max-height:54px;margin:5px auto;object-fit:contain}.signature-line{height:42px;border-bottom:1.5px solid #111827;margin:8px 18px}.stamp-box{height:44px;border:1px dashed #6b7280;margin:5px 16px 6px;display:grid;place-items:center;color:#6b7280;font-size:10px;text-transform:uppercase}.screen-print-help{position:fixed;left:12px;right:12px;bottom:12px;background:#111827;color:#fff;border-radius:14px;padding:12px 14px;font-size:14px;text-align:center}@media screen and (max-width:700px){body{background:#fff}.invoice-page{width:100vw;min-height:auto;padding:12px;border:0}.invoice-header{grid-template-columns:1fr;text-align:center}.invoice-contact{text-align:center}.invoice-brand h1{font-size:22px}.document-title{font-size:17px}.bill-meta,.document-notes,.invoice-footer{grid-template-columns:1fr}.party-box,.bill-date{min-height:auto}.invoice-table{font-size:10px}.invoice-table th,.invoice-table td{padding:5px 4px}.invoice-table th:first-child,.invoice-table td:first-child{width:30px}.invoice-table th:nth-child(3),.invoice-table td:nth-child(3){width:72px}.invoice-table th:last-child,.invoice-table td:last-child{width:78px}.amount-words{grid-template-columns:1fr}.amount-words b{border-right:0;border-bottom:1.5px solid #111827}.signature-line{height:34px}}@media print{body{background:#fff}.invoice-page{width:auto;min-height:auto;margin:0;padding:0;border:0}.screen-print-help{display:none}}`;
+}
+
+function amountInWords(value) {
+  const amount = Math.round(number(value));
+  if (!amount) return "Zero Rupees Only";
+  const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+  const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+  const underHundred = (num) => num < 20 ? ones[num] : `${tens[Math.floor(num / 10)]}${num % 10 ? ` ${ones[num % 10]}` : ""}`;
+  const underThousand = (num) => {
+    const hundred = Math.floor(num / 100);
+    const rest = num % 100;
+    return `${hundred ? `${ones[hundred]} Hundred` : ""}${hundred && rest ? " " : ""}${rest ? underHundred(rest) : ""}`.trim();
+  };
+  const parts = [
+    [10000000, "Crore"],
+    [100000, "Lakh"],
+    [1000, "Thousand"],
+    [1, ""]
+  ];
+  let remaining = amount;
+  const words = [];
+  parts.forEach(([size, label]) => {
+    const count = Math.floor(remaining / size);
+    if (count) {
+      words.push(`${underThousand(count)}${label ? ` ${label}` : ""}`);
+      remaining %= size;
+    }
+  });
+  return `${words.join(" ")} Rupees Only`;
 }
 
 function formatInvoiceAmount(value) {
