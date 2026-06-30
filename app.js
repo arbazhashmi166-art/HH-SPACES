@@ -8,6 +8,7 @@ const OPENAI_KEY = "hh-spaces-openai-key-v1";
 const CLOUD_TABLE = "hh_spaces_app_state";
 const CLOUD_ROW_ID = "main";
 const NO_CLOUD_PREVIEW = typeof window !== "undefined" && new URLSearchParams(window.location?.search || "").has("noCloud");
+const PREVIEW_UNLOCK = NO_CLOUD_PREVIEW && typeof window !== "undefined" && new URLSearchParams(window.location?.search || "").has("previewUnlock");
 const INVOICE_TYPES = ["Running Bill", "Final Bill", "Labour Bill", "Material Bill", "Proforma Invoice", "Tax Invoice", "Purchase Invoice"];
 const INVOICE_STATUSES = ["Draft", "Sent", "Partial", "Paid", "Overdue", "Cancelled"];
 const PAYMENT_MODES = ["Cash", "UPI", "Bank Transfer", "Cheque"];
@@ -38,6 +39,8 @@ let speechRecognizer = null;
 
 const views = {
   dashboard: "Dashboard",
+  finance: "Finance",
+  more: "More",
   capital: "Company Capital",
   sites: "Sites & Clients",
   rateList: "Rate List",
@@ -77,6 +80,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindToolCalculators();
   bindAiAssistant();
   setupSettingsAccordions();
+  setupMobileAppShell();
   bindActions();
   bindInvoiceActions();
   bindCloudSync();
@@ -94,7 +98,7 @@ function bindAuth() {
 function handleAuthSubmit(event) {
   event.preventDefault();
   const username = document.getElementById("authUser").value.trim().toUpperCase();
-  const password = document.getElementById("authPass").value.trim();
+  const password = document.getElementById("authPass").value.trim().toUpperCase();
 
   if (!username || !password) {
     showAuthMessage("Enter username and password.");
@@ -116,7 +120,7 @@ function handleAuthSubmit(event) {
 function updateAuthView() {
   const rememberedUser = localStorage.getItem(REMEMBERED_LOGIN_KEY);
   const sessionUser = sessionStorage.getItem(SESSION_KEY);
-  const unlocked = Boolean(sessionUser || rememberedUser);
+  const unlocked = Boolean(sessionUser || rememberedUser || PREVIEW_UNLOCK);
   if (!sessionUser && rememberedUser) {
     sessionStorage.setItem(SESSION_KEY, rememberedUser);
   }
@@ -388,11 +392,15 @@ function bindNavigation() {
   document.querySelectorAll(".nav-item").forEach((button) => {
     button.addEventListener("click", () => {
       activateView(button.dataset.view);
+      closeFormSheets();
     });
   });
 
   document.querySelectorAll(".nav-jump").forEach((button) => {
-    button.addEventListener("click", () => activateView(button.dataset.view));
+    button.addEventListener("click", () => {
+      activateView(button.dataset.view);
+      if (button.dataset.openForm) openFormSheet(button.dataset.openForm);
+    });
   });
 
   document.getElementById("siteFilter").addEventListener("change", render);
@@ -414,13 +422,132 @@ function bindSearch() {
 }
 
 function activateView(viewName) {
+  if (!document.getElementById(viewName)) return;
+  const activeGroup = viewGroup(viewName);
   document.querySelectorAll(".nav-item").forEach((item) => {
-    item.classList.toggle("active", item.dataset.view === viewName);
+    item.classList.toggle("active", item.dataset.view === viewName || item.dataset.view === activeGroup);
   });
   document.querySelectorAll(".view").forEach((view) => view.classList.remove("active"));
   document.getElementById(viewName).classList.add("active");
   document.getElementById("viewTitle").textContent = views[viewName];
+  document.body.dataset.activeView = viewName;
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function viewGroup(viewName) {
+  if (["capital", "invoices", "customerBills", "expenses", "payments", "bills", "wages", "materials", "rateList"].includes(viewName)) return "finance";
+  if (["progress", "schedule", "diary", "updates", "extraWorks", "boq", "measurements"].includes(viewName)) return "sites";
+  if (["settings"].includes(viewName)) return "more";
+  return viewName;
+}
+
+function setupMobileAppShell() {
+  document.body.classList.add("mobile-app-shell");
+  document.querySelectorAll(".view").forEach((view) => {
+    const firstForm = view.querySelector(".form-panel form");
+    if (!firstForm || view.querySelector(".sheet-open-btn")) return;
+    const button = document.createElement("button");
+    button.className = "sheet-open-btn";
+    button.type = "button";
+    button.dataset.openForm = firstForm.id;
+    button.textContent = addButtonLabel(view.id);
+    view.insertBefore(button, view.firstElementChild);
+  });
+
+  document.querySelectorAll(".form-panel").forEach((panel) => {
+    if (panel.querySelector(".sheet-close-btn")) return;
+    const close = document.createElement("button");
+    close.className = "sheet-close-btn";
+    close.type = "button";
+    close.dataset.closeSheet = "true";
+    close.textContent = "Close";
+    panel.insertBefore(close, panel.firstElementChild);
+  });
+
+  document.addEventListener("click", (event) => {
+    const openButton = event.target.closest("[data-open-form]");
+    if (openButton) {
+      if (openButton.dataset.view) activateView(openButton.dataset.view);
+      openFormSheet(openButton.dataset.openForm);
+    }
+    const jumpButton = event.target.closest(".nav-jump[data-view]");
+    if (jumpButton && !openButton) {
+      activateView(jumpButton.dataset.view);
+      closeFormSheets();
+    }
+    const siteFocus = event.target.closest("[data-site-focus]");
+    if (siteFocus) {
+      document.getElementById("siteFilter").value = siteFocus.dataset.siteFocus;
+      render();
+      showToast("Site selected");
+    }
+    if (event.target.closest("[data-close-sheet]")) closeFormSheets();
+    if (event.target === document.querySelector(".sheet-backdrop")) closeFormSheets();
+  });
+
+  document.getElementById("homeAskAi")?.addEventListener("click", openAiAssistant);
+  document.getElementById("mobileExportPdf")?.addEventListener("click", exportPdfReport);
+  document.getElementById("mobileExportExcel")?.addEventListener("click", exportExcelReport);
+  document.getElementById("mobileCloudSync")?.addEventListener("click", openCloudModal);
+  document.getElementById("mobileThemeToggle")?.addEventListener("click", toggleTheme);
+
+  const backdrop = document.createElement("div");
+  backdrop.className = "sheet-backdrop is-hidden";
+  document.body.appendChild(backdrop);
+}
+
+function addButtonLabel(viewId) {
+  const labels = {
+    sites: "+ Add Site",
+    capital: "+ Add Capital",
+    wages: "+ Add Labour",
+    materials: "+ Add Material",
+    expenses: "+ Add Expense",
+    payments: "+ Add Payment",
+    invoices: "+ Create Invoice",
+    customerBills: "+ Create Bill",
+    bills: "+ Add Pending Bill",
+    progress: "+ Add Progress",
+    updates: "+ Add Update",
+    tools: "+ Add Tool Entry",
+    settings: "Open Settings"
+  };
+  return labels[viewId] || "+ Add Entry";
+}
+
+function openFormSheet(formId) {
+  const form = document.getElementById(formId);
+  const panel = form?.closest(".form-panel");
+  if (!panel) return;
+  closeFormSheets();
+  panel.classList.add("sheet-open");
+  document.querySelector(".sheet-backdrop")?.classList.remove("is-hidden");
+  document.body.classList.add("sheet-visible");
+  setTimeout(() => {
+    const first = panel.querySelector("input, select, textarea");
+    first?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, 120);
+}
+
+function closeFormSheets() {
+  document.querySelectorAll(".form-panel.sheet-open").forEach((panel) => panel.classList.remove("sheet-open"));
+  document.querySelector(".sheet-backdrop")?.classList.add("is-hidden");
+  document.body.classList.remove("sheet-visible");
+}
+
+function showToast(message, type = "success") {
+  let toast = document.getElementById("appToast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "appToast";
+    toast.className = "app-toast";
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.dataset.type = type;
+  toast.classList.add("is-visible");
+  clearTimeout(showToast.timer);
+  showToast.timer = setTimeout(() => toast.classList.remove("is-visible"), 2200);
 }
 
 function bindForms() {
@@ -874,6 +1001,8 @@ function bindForm(formId, onSubmit) {
     if (formId === "customerBillForm") resetBillItems();
     if (formId === "invoiceForm") resetInvoiceItems();
     render();
+    closeFormSheets();
+    showToast("Saved successfully");
   });
 }
 
@@ -2105,6 +2234,8 @@ function render() {
   renderSiteSelects();
   renderSearchResults();
   renderDashboard();
+  renderFinanceApp();
+  renderMoreApp();
   renderCapital();
   renderSites();
   renderRateList();
@@ -2540,6 +2671,79 @@ function renderNotifications() {
   document.getElementById("notificationRows").innerHTML = alerts || emptyCard("No alerts right now.");
 }
 
+function renderFinanceApp() {
+  const wages = filtered(state.wages);
+  const materials = filtered(state.materials);
+  const expenses = filtered(state.expenses);
+  const paidBills = filtered(state.bills).filter((bill) => bill.status === "Paid");
+  const payments = filtered(state.payments);
+  const customerBills = filtered(state.customerBills);
+  const invoices = filtered(state.invoices);
+  const pendingBills = filtered(state.bills).filter((bill) => bill.status !== "Paid");
+  const income = sum(payments, "amount") + sum(invoices, "paidAmount");
+  const expenseTotal = sum(wages, "amount") + sum(materials, "amount") + sum(expenses, "amount") + sum(paidBills, "amount");
+  const pending = sum(pendingBills, "amount") + sum(invoices, "balanceAmount") + sum(customerBills.filter((bill) => bill.status !== "Paid"), "total");
+  const totalContract = visibleSites().reduce((total, site) => total + siteTotalAmount(site.id), 0);
+  const profit = totalContract - expenseTotal;
+  const balance = income - expenseTotal;
+
+  setText("financeBalanceMetric", formatMoney(balance));
+  setText("financeProfitMetric", `Profit / loss ${formatMoney(profit)}`);
+  setText("financeReceivedMetric", formatMoney(income));
+  setText("financePendingMetric", formatMoney(pending));
+  setText("financeExpenseMetric", formatMoney(expenseTotal));
+  setText("financeBillsMetric", String(invoices.length + customerBills.length));
+
+  const max = Math.max(income, expenseTotal, pending, 1);
+  const bars = [
+    ["Income", income, "income"],
+    ["Expense", expenseTotal, "expense"],
+    ["Pending", pending, "pending"]
+  ].map(([label, value, type]) => `<div class="finance-bar finance-bar--${type}"><span>${escapeHtml(label)}</span><b style="height:${Math.max((value / max) * 132, 12)}px"></b><strong>${formatMoney(value)}</strong></div>`).join("");
+  setHtml("financeBars", bars);
+
+  const recent = [
+    ...payments.map((item) => ({ date: item.date, title: `Payment - ${item.client || plainSiteName(item.siteId)}`, detail: item.mode || "", amount: item.amount, type: "success" })),
+    ...expenses.map((item) => ({ date: item.date, title: `Expense - ${item.title}`, detail: item.type || plainSiteName(item.siteId), amount: item.amount, type: "danger" })),
+    ...invoices.map((item) => ({ date: item.date, title: `Invoice - ${item.invoiceNo}`, detail: item.client || "", amount: item.grandTotal, type: item.balanceAmount > 0 ? "warning" : "success" }))
+  ].sort(byDateDesc).slice(0, 8);
+
+  setHtml("financeRecentRows", recent.length ? recent.map((item) => `<article class="activity-card finance-row-card">
+    <div><h4>${escapeHtml(item.title)}</h4><p>${dateText(item.date)} | ${escapeHtml(item.detail || "")}</p></div>
+    <strong class="${item.type}-text">${formatMoney(item.amount)}</strong>
+  </article>`).join("") : emptyCard("No finance activity yet."));
+}
+
+function renderMoreApp() {
+  const modules = [
+    ["Labour Wages", "wages", "Daily attendance and wage entries", "labour-icon"],
+    ["Materials", "materials", "Material purchase, stock and supplier", "material-icon"],
+    ["Expenses", "expenses", "Transport, equipment and misc.", "expense-icon"],
+    ["Payments", "payments", "Client payment history", "payment-icon"],
+    ["Invoices", "invoices", "GST bills and PDF invoices", "customer-bill-icon"],
+    ["Customer Bills", "customerBills", "Simple client bills", "bill-icon"],
+    ["Measurements", "measurements", "MB, sqft, RFT and points", "measurement-icon"],
+    ["BOQ", "boq", "Estimated vs actual cost", "boq-icon"],
+    ["Targets", "schedule", "Work schedule and targets", "schedule-icon"],
+    ["Progress", "progress", "Daily progress percentage", "progress-icon"],
+    ["Site Diary", "diary", "Weather, issues and instructions", "diary-icon"],
+    ["Daily Updates", "updates", "Photo updates and notes", "updates-icon"],
+    ["Rate List", "rateList", "Saved work rates", "rate-icon"],
+    ["Extra Works", "extraWorks", "Approved extra site amount", "extra-icon"],
+    ["Settings", "settings", "Company, billing and backup", "settings-icon"]
+  ];
+  setHtml("moreGrid", modules.map(([title, view, detail, icon]) => `<button class="more-card nav-jump" data-view="${view}" type="button">
+    <span class="quick-icon ${icon}"></span>
+    <b>${escapeHtml(title)}</b>
+    <small>${escapeHtml(detail)}</small>
+  </button>`).join(""));
+}
+
+function setHtml(id, value) {
+  const element = document.getElementById(id);
+  if (element) element.innerHTML = value;
+}
+
 function selectedSiteName() {
   const siteId = document.getElementById("siteFilter")?.value || "all";
   if (siteId === "all") return "All sites";
@@ -2562,7 +2766,31 @@ function renderCapital() {
 }
 
 function renderSites() {
-  const rows = visibleSites().map((site) => `<tr>
+  const sites = visibleSites();
+  const cards = sites.map((site) => {
+    const progress = latestProgress(site.id);
+    const contract = siteTotalAmount(site.id);
+    const paid = sum(state.payments.filter((item) => item.siteId === site.id), "amount");
+    const pending = Math.max(contract - paid, 0);
+    return `<article class="site-app-card">
+      <header>
+        <div>
+          <span class="search-section">${escapeHtml(site.status || "Active")}</span>
+          <h4>${escapeHtml(site.name)}</h4>
+          <p>${escapeHtml(site.client)}${site.location ? ` | ${escapeHtml(site.location)}` : ""}</p>
+        </div>
+        <button class="secondary-light-btn" data-site-focus="${site.id}" type="button">Open Site</button>
+      </header>
+      ${progressCell(progress.percent, progress.stage)}
+      <div class="site-card-money">
+        <span>Contract <b>${formatMoney(contract)}</b></span>
+        <span>Pending <b>${formatMoney(pending)}</b></span>
+      </div>
+    </article>`;
+  }).join("");
+  setHtml("siteCardRows", cards || emptyCard("No sites yet. Add your first site."));
+
+  const rows = sites.map((site) => `<tr>
     <td><strong>${escapeHtml(site.name)}</strong><br><span>${escapeHtml(site.location || "")}</span></td>
     <td>${escapeHtml(site.client)}</td>
     <td>${escapeHtml(site.phone || "-")}</td>

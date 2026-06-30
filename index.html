@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>H&amp;H SPACES</title>
-    <link rel="stylesheet" href="styles.css?v=20260629-invoices">
+    <link rel="stylesheet" href="styles.css?v=20260630-mobile-app">
   </head>
   <body class="app-locked">
     <section class="auth-screen" id="authScreen">
@@ -127,7 +127,7 @@
           </section>
 
           <section class="quick-actions">
-            <h3>All Modules</h3>
+            <h3>Quick Actions</h3>
             <div class="quick-action-grid">
               <button class="quick-action nav-jump" data-view="capital" type="button">
                 <span class="quick-icon capital-icon"></span>
@@ -137,17 +137,17 @@
                 <span class="quick-icon site-icon"></span>
                 <b>Sites</b>
               </button>
-              <button class="quick-action nav-jump" data-view="wages" type="button">
+              <button class="quick-action nav-jump" data-view="wages" data-open-form="wageForm" type="button">
                 <span class="quick-icon labour-icon"></span>
-                <b>Labour</b>
+                <b>Add Labour</b>
               </button>
-              <button class="quick-action nav-jump" data-view="materials" type="button">
+              <button class="quick-action nav-jump" data-view="materials" data-open-form="materialForm" type="button">
                 <span class="quick-icon material-icon"></span>
-                <b>Materials</b>
+                <b>Add Material</b>
               </button>
-              <button class="quick-action nav-jump" data-view="expenses" type="button">
+              <button class="quick-action nav-jump" data-view="expenses" data-open-form="expenseForm" type="button">
                 <span class="quick-icon expense-icon"></span>
-                <b>Expenses</b>
+                <b>Add Expense</b>
               </button>
               <button class="quick-action nav-jump" data-view="payments" type="button">
                 <span class="quick-icon payment-icon"></span>
@@ -185,9 +185,9 @@
                 <span class="quick-icon extra-icon"></span>
                 <b>Extra</b>
               </button>
-              <button class="quick-action nav-jump" data-view="customerBills" type="button">
+              <button class="quick-action nav-jump" data-view="customerBills" data-open-form="customerBillForm" type="button">
                 <span class="quick-icon customer-bill-icon"></span>
-                <b>Make Bill</b>
+                <b>Create Bill</b>
               </button>
               <button class="quick-action nav-jump" data-view="invoices" type="button">
                 <span class="quick-icon customer-bill-icon"></span>
@@ -204,6 +204,10 @@
               <button class="quick-action nav-jump" data-view="settings" type="button">
                 <span class="quick-icon settings-icon"></span>
                 <b>Settings</b>
+              </button>
+              <button class="quick-action" id="homeAskAi" type="button">
+                <span class="quick-icon ai-icon"></span>
+                <b>Ask AI</b>
               </button>
             </div>
           </section>
@@ -340,6 +344,47 @@
           </div>
         </section>
 
+        <section class="view" id="finance">
+          <section class="finance-hero-card">
+            <div>
+              <span>Current balance</span>
+              <strong id="financeBalanceMetric">₹0</strong>
+              <small id="financeProfitMetric">Profit / loss ₹0</small>
+            </div>
+            <button class="secondary-light-btn nav-jump" data-view="invoices" data-open-form="invoiceForm" type="button">Create Bill</button>
+          </section>
+
+          <section class="finance-chart-card">
+            <div class="panel-header">
+              <h3>Income vs Expense</h3>
+              <p>This month collection and spending</p>
+            </div>
+            <div class="finance-bars" id="financeBars"></div>
+          </section>
+
+          <section class="finance-card-grid">
+            <article class="finance-mini-card"><span>Received</span><strong id="financeReceivedMetric">₹0</strong></article>
+            <article class="finance-mini-card"><span>Pending</span><strong id="financePendingMetric">₹0</strong></article>
+            <article class="finance-mini-card"><span>Expenses</span><strong id="financeExpenseMetric">₹0</strong></article>
+            <article class="finance-mini-card"><span>Bills</span><strong id="financeBillsMetric">₹0</strong></article>
+          </section>
+
+          <section class="quick-actions finance-actions">
+            <h3>Finance actions</h3>
+            <div class="quick-action-grid">
+              <button class="quick-action nav-jump" data-view="payments" data-open-form="paymentForm" type="button"><span class="quick-icon payment-icon"></span><b>Add Payment</b></button>
+              <button class="quick-action nav-jump" data-view="expenses" data-open-form="expenseForm" type="button"><span class="quick-icon expense-icon"></span><b>Add Expense</b></button>
+              <button class="quick-action nav-jump" data-view="invoices" data-open-form="invoiceForm" type="button"><span class="quick-icon customer-bill-icon"></span><b>Invoice</b></button>
+              <button class="quick-action nav-jump" data-view="capital" data-open-form="capitalForm" type="button"><span class="quick-icon capital-icon"></span><b>Capital</b></button>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header"><h3>Recent Finance</h3></div>
+            <div class="activity-list" id="financeRecentRows"></div>
+          </section>
+        </section>
+
         <section class="view" id="capital">
           <section class="form-panel">
             <h3>Add Company Capital</h3>
@@ -384,6 +429,7 @@
           </section>
           <section class="panel">
             <div class="panel-header"><h3>All Sites</h3></div>
+            <div class="mobile-card-list site-card-list" id="siteCardRows"></div>
             <div class="table-wrap"><table><thead><tr><th>Site</th><th>Client</th><th>Phone</th><th>Contract</th><th>Extra Work</th><th>Total Amount</th><th>Status</th><th></th></tr></thead><tbody id="siteRows"></tbody></table></div>
           </section>
         </section>
@@ -1078,6 +1124,26 @@
           </section>
         </section>
 
+        <section class="view" id="more">
+          <section class="more-hero-card">
+            <div>
+              <span>More</span>
+              <strong>All tools and records</strong>
+              <small>Search, reports, settings and daily site controls</small>
+            </div>
+          </section>
+          <section class="more-grid" id="moreGrid"></section>
+          <section class="panel">
+            <div class="panel-header"><h3>Reports & Sync</h3></div>
+            <div class="more-actions">
+              <button class="secondary-light-btn" id="mobileExportPdf" type="button">PDF Report</button>
+              <button class="secondary-light-btn" id="mobileExportExcel" type="button">Excel Report</button>
+              <button class="secondary-light-btn" id="mobileCloudSync" type="button">Cloud Sync</button>
+              <button class="secondary-light-btn" id="mobileThemeToggle" type="button">Theme</button>
+            </div>
+          </section>
+        </section>
+
         <section class="view" id="settings">
           <section class="form-panel">
             <h3>App Settings</h3>
@@ -1278,10 +1344,10 @@
 
       <nav class="bottom-nav" aria-label="Mobile navigation">
         <button class="nav-item active" data-view="dashboard" type="button"><span>Home</span></button>
-        <button class="nav-item" data-view="wages" type="button"><span>Labour</span></button>
-        <button class="nav-item" data-view="materials" type="button"><span>Materials</span></button>
-        <button class="nav-item" data-view="invoices" type="button"><span>Invoices</span></button>
+        <button class="nav-item" data-view="sites" type="button"><span>Sites</span></button>
+        <button class="nav-item" data-view="finance" type="button"><span>Finance</span></button>
         <button class="nav-item" data-view="tools" type="button"><span>Tools</span></button>
+        <button class="nav-item" data-view="more" type="button"><span>More</span></button>
       </nav>
     </div>
 
@@ -1364,6 +1430,6 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=20260629-invoices"></script>
+    <script src="app.js?v=20260630-mobile-app"></script>
   </body>
 </html>
