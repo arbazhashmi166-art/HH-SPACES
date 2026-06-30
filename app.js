@@ -87,6 +87,9 @@ document.addEventListener("DOMContentLoaded", () => {
   initSupabaseClient();
   updateAuthView();
   render();
+  activateViewFromHash();
+  registerPwa();
+  window.addEventListener("hashchange", activateViewFromHash);
 });
 
 function bindAuth() {
@@ -431,7 +434,20 @@ function activateView(viewName) {
   document.getElementById(viewName).classList.add("active");
   document.getElementById("viewTitle").textContent = views[viewName];
   document.body.dataset.activeView = viewName;
+  if (window.location.hash !== `#${viewName}`) {
+    history.replaceState(null, "", `#${viewName}`);
+  }
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function activateViewFromHash() {
+  const viewName = window.location.hash.replace("#", "");
+  if (viewName && views[viewName]) activateView(viewName);
+}
+
+function registerPwa() {
+  if (!("serviceWorker" in navigator) || window.location.protocol === "file:") return;
+  navigator.serviceWorker.register("./service-worker.js").catch(() => undefined);
 }
 
 function viewGroup(viewName) {
