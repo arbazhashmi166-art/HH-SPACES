@@ -1,116 +1,153 @@
-# H&H SPACES
+# SiteTracker Pro
 
-A simple browser-based construction site tracker for:
+Premium mobile-first construction business management PWA for contractors.
 
-- Labour wages
-- Material expenses
-- Client payments
-- Customer bills
-- Rate list
-- Company capital
-- Expense tracker
-- Measurement book
-- BOQ management
-- Work progress
-- Site diary
-- Pending payment bills
-- Daily updates
-- Multiple sites and clients
+Built with Next.js App Router, React 19, TypeScript strict mode, Ionic React mobile shell, Radix/shadcn-style reusable components, Supabase, TanStack Query, Dexie offline queue, React Hook Form, Zod, PDF/CSV/Excel export, PWA install support, and GitHub Pages static export.
 
-## How to Use
+## What Is Included
 
-Open `index.html` in a browser. The system saves data in that browser using local storage.
+- Login, signup, logout, session persistence, offline mode
+- Company onboarding and company-owned data separation
+- Mobile app shell with five labeled bottom tabs, safe-area support, Add button, Ask AI button, sheets, cards, and dark mode
+- Sites, labour, attendance, materials, suppliers, expenses, client payments, supplier payments, progress, reminders, staff
+- Dashboard with active sites, daily costs, pending payments, labour balance, monthly profit/loss, alerts, and activity
+- Reports with PDF, CSV, and Excel-compatible export
+- AI assistant through Supabase Edge Functions, with local fallback parser and confirmation before saving
+- Smart memory, notifications, audit logs, and data health screens
+- Dexie offline local database and retryable sync queue
+- Supabase SQL schema with RLS, indexes, duplicate-prevention constraints, storage policies, and pgvector memory table
+- PWA manifest, service worker, offline fallback, app icon, and GitHub Pages deployment workflow
+- Vitest unit tests and Playwright mobile smoke test
 
-Use `Company Capital` to add owner/company money first. Use `Sites & Clients` to add at least one site. After that, you can add wages, materials, payments, bills, progress, and daily updates for each site.
+## Local Run
 
-The dashboard shows:
+```powershell
+$env:Path='C:\Program Files\nodejs;' + $env:Path
+npm install
+npm run dev
+```
 
-- Cash in hand
-- Company capital
-- Client payments received
-- Payment used
-- Pending payment bills
-- Client balance
+Open:
 
-Use the search box at the top of the app to find any saved site, client, labour, phone number, bill number, material, payment, amount, work target, progress note, or daily update.
+```text
+http://localhost:3000
+```
 
-Use `Rate List` to save standard work/material rates. Use `Customer Bills` to make client bills using quantity, unit, rate, discount, tax/GST, and total amount.
+If Supabase env vars are not configured, the app opens in offline mode so you can test the UI and local storage.
 
-The app also includes Expense Tracker, Measurement Book, BOQ variance, Site Diary, stock/payment notifications, dark/light mode, exports, reports, offline local storage, and Supabase cloud sync.
+## Environment Variables
 
-After a successful login, the app remembers that browser/device. Use `Lock App` to log out and remove the remembered login from that device.
+Copy `.env.example` to `.env.local`:
 
-## Use on Phone With GitHub Pages
+```text
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-public-anon-key
+NEXT_PUBLIC_BASE_PATH=
+NEXT_PUBLIC_APP_NAME=SiteTracker Pro
+```
 
-1. Create a new GitHub repository.
-2. Upload these files to the repository:
-   - `index.html`
-   - `styles.css`
-   - `app.js`
-   - `manifest.webmanifest`
-   - `service-worker.js`
-   - `icons/icon.svg`
-   - `.nojekyll`
-   - `README.md`
-   - `supabase-schema.sql`
-3. On GitHub, open the repository settings.
-4. Go to `Pages`.
-5. Under `Build and deployment`, choose:
-   - Source: `Deploy from a branch`
-   - Branch: `main`
-   - Folder: `/root`
-6. Save.
-7. GitHub will give you a website link like:
-   `https://your-username.github.io/your-repository-name/`
-8. Open that link on your phone.
-9. On iPhone Safari, tap `Share` > `Add to Home Screen`.
+Only use the Supabase anon/public key in the frontend. Do not put service role keys or OpenAI keys in the browser.
 
-This gives the app a home-screen icon and standalone app window. It keeps the browser version free while still supporting the main features: local storage, Supabase sync, billing, reports, search, tools, settings, and offline app shell caching.
+## Supabase Setup
 
-## Free iPhone Feature Limits
+1. Open Supabase SQL Editor.
+2. Paste and run `supabase/schema.sql`.
+3. In Supabase Edge Functions, deploy:
 
-The free GitHub Pages app can include almost all Site Tracker features. A real native iPhone app without Apple Developer account is not allowed by Apple.
+```bash
+supabase functions deploy ai-assistant
+supabase functions deploy voice-parser
+```
 
-Supported in the free web app:
+4. Add Edge Function secrets:
 
-- Home-screen app icon
-- Login remembered on device
-- Local storage
-- Supabase sync between laptop and phone
-- Sites, labour, materials, expenses, payments, bills, BOQ, measurements, tools, settings
-- PDF/print/share options where Safari allows it
-- Offline opening after first load
+```bash
+supabase secrets set OPENAI_API_KEY=your_key
+supabase secrets set OPENAI_MODEL=gpt-4.1-mini
+```
 
-Limited compared with a paid native iOS app:
+The AI functions use the logged-in user's JWT and RLS-protected queries. The app never exposes the OpenAI key.
 
-- Native App Store/TestFlight install
-- Full native push notifications
-- Deep background backup while the app is closed
-- Some iPhone file/download behavior depends on Safari
+## GitHub Pages Deployment
 
-## Supabase Cloud Sync
+The workflow is at `.github/workflows/deploy.yml`.
 
-1. Create a Supabase project.
-2. Open Supabase SQL Editor.
-3. Paste and run the SQL from `supabase-schema.sql`.
-4. This app is already pre-filled with the current project:
-   - `https://yvocwptxawxmloacpdrt.supabase.co`
-   - publishable key ending with `2fmj`
-5. If you use a different Supabase project later, go to `Project Settings` > `Data API` and copy:
-   - `SUPABASE_URL`
-   - `SUPABASE_PUBLISHABLE_KEY`
-   - Do not use `SUPABASE_SECRET_KEY` in this browser app.
-6. Open the H&H SPACES app.
-7. Login.
-8. Click `Cloud Sync`.
-9. Click `Save Connection`.
-10. Click `Save To Cloud` once from the device that already has your data.
-11. On another phone/computer, open Cloud Sync and click `Load From Cloud`.
+In GitHub repository settings:
 
-## Notes
+1. Go to `Settings > Pages`.
+2. Select `GitHub Actions`.
+3. Add repository secrets:
 
-- `Export CSV` downloads all saved records.
-- `Print Report` prints the current dashboard/report view.
-- `Clear Data` removes saved data from the current browser only.
-- Without Supabase setup, data is local to the browser and device where it is entered.
-- With Supabase setup, the app can sync the same saved data between phone and computer.
+```text
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+```
+
+Push to `main` or run the workflow manually.
+
+Manual build check:
+
+```powershell
+npm run export:check
+```
+
+For GitHub Pages, the workflow sets:
+
+```text
+NEXT_PUBLIC_BASE_PATH=/${{ github.event.repository.name }}
+```
+
+## Install On iPhone
+
+1. Open the GitHub Pages site in Safari.
+2. Tap Share.
+3. Tap Add to Home Screen.
+4. Open SiteTracker Pro from the home screen.
+
+## Install On Android
+
+1. Open the GitHub Pages site in Chrome.
+2. Tap the menu.
+3. Tap Install app or Add to Home screen.
+4. Open SiteTracker Pro from the launcher.
+
+## Reports
+
+Reports export from current local/Supabase records:
+
+- PDF through `jspdf`
+- CSV through browser download
+- Excel-compatible `.xls` through HTML workbook export
+
+On iPhone Safari, generated files open through the browser download/share sheet.
+
+## Testing
+
+```powershell
+npm run typecheck
+npm test
+npm run build
+npm run test:e2e
+```
+
+Current unit coverage checks:
+
+- Money/dashboard calculations
+- Zod validation
+- AI draft parsing safety
+- Role permissions
+
+## Data Protection Rules
+
+Every business record carries:
+
+- `company_id`
+- `site_id` where applicable
+- `created_by`, `updated_by`
+- `source`
+- `sync_status`
+- `idempotency_key`
+- `archived`
+- timestamps
+
+Supabase RLS restricts data by company. Admin, staff, and viewer roles are enforced in the app and in database policies.

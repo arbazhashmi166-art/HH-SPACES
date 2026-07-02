@@ -1,9 +1,9 @@
-const CACHE_NAME = "hh-spaces-pwa-v20260701";
+const CACHE_NAME = "hh-spaces-pwa-v20260701-settings-fix2";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=20260701-pwa",
-  "./app.js?v=20260701-pwa",
+  "./styles.css?v=20260701-settings-fix2",
+  "./app.js?v=20260701-settings-fix2",
   "./manifest.webmanifest",
   "./icons/icon.svg"
 ];

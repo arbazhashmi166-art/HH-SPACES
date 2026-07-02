@@ -2782,6 +2782,41 @@ body.mobile-app-shell.dark-mode {
   display: none;
 }
 
+.mobile-app-shell .settings-panel {
+  display: block !important;
+  overflow: visible;
+}
+
+.mobile-app-shell #settings .entry-form {
+  max-height: none;
+  overflow: visible;
+  padding: 0 0 calc(120px + env(safe-area-inset-bottom));
+}
+
+.mobile-app-shell #settings .settings-group {
+  margin-bottom: 12px;
+  border-radius: 22px;
+}
+
+.mobile-app-shell #settings .settings-group__header {
+  min-height: 58px;
+  position: sticky;
+  top: calc(92px + env(safe-area-inset-top));
+  z-index: 5;
+}
+
+.mobile-app-shell[data-active-view="settings"] #settings .settings-save-btn {
+  position: fixed;
+  left: 50%;
+  bottom: calc(82px + env(safe-area-inset-bottom));
+  z-index: 8;
+  width: min(492px, calc(100vw - 28px));
+  min-height: 56px;
+  margin: 0;
+  transform: translateX(-50%);
+  box-shadow: 0 16px 32px rgba(79, 70, 229, 0.22);
+}
+
 .mobile-app-shell .sheet-backdrop {
   position: fixed;
   inset: 0;

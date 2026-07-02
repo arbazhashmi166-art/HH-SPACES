@@ -460,6 +460,7 @@ function viewGroup(viewName) {
 function setupMobileAppShell() {
   document.body.classList.add("mobile-app-shell");
   document.querySelectorAll(".view").forEach((view) => {
+    if (view.id === "settings") return;
     const firstForm = view.querySelector(".form-panel form");
     if (!firstForm || view.querySelector(".sheet-open-btn")) return;
     const button = document.createElement("button");
@@ -535,6 +536,10 @@ function openFormSheet(formId) {
   const form = document.getElementById(formId);
   const panel = form?.closest(".form-panel");
   if (!panel) return;
+  if (panel.classList.contains("settings-panel")) {
+    panel.scrollIntoView({ block: "start", behavior: "smooth" });
+    return;
+  }
   closeFormSheets();
   panel.classList.add("sheet-open");
   document.querySelector(".sheet-backdrop")?.classList.remove("is-hidden");
