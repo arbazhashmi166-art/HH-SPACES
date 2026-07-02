@@ -1,0 +1,19 @@
+.empty {
+  display: grid;
+  place-items: center;
+  text-align: center;
+  gap: 8px;
+  min-height: 190px;
+  color: var(--app-muted);
+}
+
+.empty h3 {
+  color: var(--app-text);
+  margin: 0;
+}
+
+.empty p {
+  max-width: 320px;
+  margin: 0;
+  line-height: 1.45;
+}

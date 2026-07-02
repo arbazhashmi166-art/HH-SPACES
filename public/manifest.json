@@ -1,0 +1,19 @@
+{
+  "name": "SiteTracker Pro",
+  "short_name": "SiteTracker",
+  "description": "Construction business operating system for sites, labour, materials, payments, reports, AI, and offline sync.",
+  "start_url": "./dashboard/",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f6f7fb",
+  "theme_color": "#3b5bff",
+  "icons": [
+    {
+      "src": "./icons/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

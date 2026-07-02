@@ -1,0 +1,16 @@
+.skeleton {
+  min-height: 16px;
+  border-radius: 14px;
+  background: linear-gradient(90deg, var(--app-surface-2), rgba(148, 163, 184, 0.25), var(--app-surface-2));
+  background-size: 240% 100%;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}

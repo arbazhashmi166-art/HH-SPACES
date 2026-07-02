@@ -1,0 +1,28 @@
+.card {
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  background: color-mix(in srgb, var(--app-surface), transparent 4%);
+  box-shadow: var(--app-shadow);
+  padding: 16px;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.header h3 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.header p {
+  margin: 6px 0 0;
+  color: var(--app-muted);
+  line-height: 1.4;
+  font-size: 13px;
+}

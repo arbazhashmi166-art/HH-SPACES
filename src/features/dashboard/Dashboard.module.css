@@ -1,0 +1,140 @@
+.stack {
+  display: grid;
+  gap: 14px;
+}
+
+.hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 32px;
+  padding: 20px;
+  color: #fff;
+  background:
+    linear-gradient(135deg, #2f49e8 0%, #7650ff 52%, #00a7b5 100%);
+  box-shadow: 0 26px 54px rgba(59, 91, 255, 0.3);
+}
+
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: auto -40px -70px auto;
+  width: 160px;
+  height: 160px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.hero p,
+.hero h2 {
+  margin: 0;
+}
+
+.hero h2 {
+  font-size: 34px;
+  line-height: 1;
+  letter-spacing: 0;
+  margin-top: 12px;
+}
+
+.hero p {
+  color: rgba(255, 255, 255, 0.82);
+  line-height: 1.45;
+}
+
+.heroGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.heroMini {
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.16);
+  padding: 12px;
+  backdrop-filter: blur(12px);
+}
+
+.heroMini span,
+.metric span {
+  display: block;
+  color: var(--app-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.heroMini strong,
+.metric strong {
+  display: block;
+  margin-top: 5px;
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.heroMini span {
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.metric {
+  min-height: 104px;
+  display: grid;
+  align-content: space-between;
+}
+
+.quickGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.quick {
+  min-height: 84px;
+  border: 1px solid var(--app-border);
+  border-radius: 22px;
+  background: var(--app-surface);
+  color: var(--app-text);
+  padding: 13px;
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 8px;
+  font-weight: 900;
+}
+
+.alertList,
+.timeline {
+  display: grid;
+  gap: 10px;
+}
+
+.alert {
+  border-radius: 18px;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  padding: 12px;
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.alert strong {
+  display: block;
+}
+
+.alert p,
+.timeline p {
+  margin: 4px 0 0;
+  color: var(--app-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.timelineItem {
+  border-left: 3px solid var(--app-primary);
+  padding: 2px 0 2px 12px;
+}

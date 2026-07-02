@@ -1,0 +1,61 @@
+.button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 16px;
+  padding: 0 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 800;
+  letter-spacing: 0;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
+}
+
+.button:active {
+  transform: scale(0.98);
+}
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.full {
+  width: 100%;
+}
+
+.primary {
+  color: #fff;
+  background: linear-gradient(135deg, var(--app-primary), var(--app-primary-2));
+  box-shadow: 0 14px 30px rgba(59, 91, 255, 0.3);
+}
+
+.secondary {
+  color: var(--app-text);
+  background: var(--app-surface-2);
+}
+
+.ghost {
+  color: var(--app-text);
+  background: transparent;
+}
+
+.danger {
+  color: #fff;
+  background: var(--app-danger);
+}
+
+.success {
+  color: #fff;
+  background: var(--app-success);
+}
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+}

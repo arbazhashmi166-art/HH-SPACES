@@ -13,3 +13,9 @@ tsconfig.tsbuildinfo
 .expo
 .localappdata
 *.zip
+/index.html
+/app.js
+/styles.css
+/manifest.webmanifest
+/service-worker.js
+/icons/

@@ -1,0 +1,107 @@
+.stack {
+  display: grid;
+  gap: 14px;
+}
+
+.hero {
+  border-radius: 30px;
+  padding: 18px;
+  color: #fff;
+  background: linear-gradient(135deg, #111827, #3b5bff 50%, #00a7b5);
+  box-shadow: 0 24px 50px rgba(59, 91, 255, 0.27);
+}
+
+.hero h2,
+.hero p {
+  margin: 0;
+}
+
+.hero h2 {
+  font-size: 26px;
+}
+
+.hero p {
+  margin-top: 8px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.chat {
+  display: grid;
+  gap: 10px;
+}
+
+.bubble {
+  max-width: 88%;
+  border-radius: 22px;
+  padding: 12px 14px;
+  line-height: 1.45;
+  box-shadow: 0 10px 24px rgba(17, 24, 39, 0.08);
+}
+
+.user {
+  justify-self: end;
+  background: var(--app-primary);
+  color: #fff;
+}
+
+.assistant {
+  justify-self: start;
+  background: var(--app-surface);
+  color: var(--app-text);
+  border: 1px solid var(--app-border);
+}
+
+.promptGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.prompt {
+  min-height: 56px;
+  border-radius: 18px;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface);
+  color: var(--app-text);
+  padding: 10px;
+  text-align: left;
+  font-weight: 800;
+}
+
+.composer {
+  position: sticky;
+  bottom: 0;
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+  background: linear-gradient(180deg, transparent, var(--app-bg) 20%);
+}
+
+.input {
+  width: 100%;
+  min-height: 98px;
+  border-radius: 22px;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface);
+  color: var(--app-text);
+  padding: 14px;
+  outline: 0;
+  resize: vertical;
+}
+
+.draft {
+  display: grid;
+  gap: 10px;
+}
+
+.json {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border-radius: 18px;
+  background: var(--app-surface-2);
+  padding: 12px;
+  font-size: 12px;
+  line-height: 1.45;
+}

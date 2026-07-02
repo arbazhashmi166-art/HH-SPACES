@@ -1,0 +1,62 @@
+.stack {
+  display: grid;
+  gap: 14px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.setting {
+  min-height: 96px;
+  display: grid;
+  align-content: center;
+  gap: 6px;
+  border-radius: 20px;
+  background: var(--app-surface-2);
+  padding: 12px;
+}
+
+.setting span {
+  color: var(--app-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.setting strong {
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.form {
+  display: grid;
+  gap: 12px;
+}
+
+.moduleGrid {
+  display: grid;
+  gap: 10px;
+}
+
+.module {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 12px;
+  align-items: center;
+  min-height: 72px;
+  border-radius: 20px;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface);
+  padding: 12px;
+  color: var(--app-text);
+}
+
+.module p {
+  margin: 4px 0 0;
+  color: var(--app-muted);
+  line-height: 1.35;
+  font-size: 13px;
+}

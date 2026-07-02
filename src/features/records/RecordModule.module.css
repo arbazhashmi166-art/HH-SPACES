@@ -1,0 +1,144 @@
+.stack {
+  display: grid;
+  gap: 14px;
+}
+
+.hero {
+  border-radius: 28px;
+  padding: 18px;
+  color: #fff;
+  background:
+    linear-gradient(135deg, rgba(59, 91, 255, 0.97), rgba(124, 58, 237, 0.92)),
+    radial-gradient(circle at 85% 15%, rgba(255, 255, 255, 0.32), transparent 24%);
+  box-shadow: 0 22px 46px rgba(59, 91, 255, 0.28);
+}
+
+.hero p,
+.hero h2 {
+  margin: 0;
+}
+
+.hero h2 {
+  font-size: 24px;
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
+.hero p {
+  margin-top: 8px;
+  color: rgba(255, 255, 255, 0.82);
+  line-height: 1.45;
+}
+
+.toolbar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.search {
+  min-height: 48px;
+  border: 1px solid var(--app-border);
+  border-radius: 18px;
+  background: var(--app-surface);
+  color: var(--app-text);
+  padding: 0 14px;
+  outline: 0;
+}
+
+.list {
+  display: grid;
+  gap: 12px;
+}
+
+.record {
+  display: grid;
+  gap: 12px;
+}
+
+.rowTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.record h3 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.record p {
+  margin: 5px 0 0;
+  color: var(--app-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.amount {
+  white-space: nowrap;
+  font-weight: 900;
+  color: var(--app-primary);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.sheet {
+  padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+  background: var(--app-bg);
+  color: var(--app-text);
+  max-height: min(86vh, 760px);
+  overflow: auto;
+}
+
+.handle {
+  width: 44px;
+  height: 5px;
+  border-radius: 999px;
+  margin: 0 auto 16px;
+  background: rgba(148, 163, 184, 0.55);
+}
+
+.form {
+  display: grid;
+  gap: 14px;
+  padding-bottom: 84px;
+}
+
+.stickySave {
+  position: sticky;
+  bottom: 0;
+  display: grid;
+  gap: 10px;
+  padding: 12px 0 0;
+  background: linear-gradient(180deg, transparent, var(--app-bg) 22%);
+}
+
+.warning {
+  border-radius: 16px;
+  background: rgba(245, 158, 11, 0.14);
+  color: #b45309;
+  padding: 12px 14px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.permission {
+  border-radius: 18px;
+  padding: 12px 14px;
+  background: rgba(59, 91, 255, 0.1);
+  color: var(--app-primary);
+  font-weight: 800;
+}

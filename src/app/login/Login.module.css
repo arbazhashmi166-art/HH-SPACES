@@ -1,0 +1,89 @@
+.screen {
+  min-height: 100dvh;
+  padding: calc(22px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
+  display: grid;
+  align-content: center;
+  gap: 18px;
+  background:
+    radial-gradient(circle at 20% 5%, rgba(59, 91, 255, 0.22), transparent 34%),
+    radial-gradient(circle at 90% 8%, rgba(0, 167, 181, 0.16), transparent 32%),
+    var(--app-bg);
+}
+
+.hero {
+  width: min(100%, 440px);
+  margin: 0 auto;
+  display: grid;
+  gap: 14px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 900;
+  color: var(--app-primary);
+}
+
+.logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(135deg, var(--app-primary), var(--app-primary-2));
+  box-shadow: 0 16px 30px rgba(59, 91, 255, 0.32);
+}
+
+.headline {
+  margin: 0;
+  font-size: clamp(34px, 10vw, 48px);
+  line-height: 0.98;
+  letter-spacing: 0;
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--app-muted);
+  line-height: 1.55;
+  font-size: 15px;
+}
+
+.form {
+  display: grid;
+  gap: 14px;
+}
+
+.switchRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 5px;
+  border-radius: 18px;
+  background: var(--app-surface-2);
+}
+
+.switchRow button {
+  min-height: 44px;
+  border-radius: 14px;
+  border: 0;
+  background: transparent;
+  color: var(--app-muted);
+  font-weight: 900;
+}
+
+.switchRow .active {
+  background: var(--app-surface);
+  color: var(--app-text);
+  box-shadow: 0 10px 20px rgba(17, 24, 39, 0.1);
+}
+
+.error {
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(220, 38, 38, 0.1);
+  color: var(--app-danger);
+  font-weight: 800;
+  font-size: 13px;
+}
