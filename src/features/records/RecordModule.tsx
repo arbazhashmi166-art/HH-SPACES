@@ -239,7 +239,7 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
         <div className={styles.list}>
           {filtered.map((row) => {
             const amount = config.amount?.(row as any);
-            const status = safeString((row as Record<string, unknown>).status || (row as Record<string, unknown>).payment_status || (row as Record<string, unknown>).sync_status);
+            const status = safeString((row as Record<string, unknown>).status || (row as Record<string, unknown>).payment_status);
             return (
               <Card key={row.id} className={styles.record}>
                 <div className={styles.rowTop}>

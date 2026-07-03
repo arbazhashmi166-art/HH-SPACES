@@ -91,6 +91,7 @@ export default function LoginPage() {
               <FieldShell label="Password" error={loginForm.formState.errors.password?.message}>
                 <TextInput type="password" autoComplete="current-password" {...loginForm.register("password")} />
               </FieldShell>
+              <p className={styles.note}>Username login uses Supabase cloud sync when the cloud setup is active.</p>
               <Button full disabled={loginForm.formState.isSubmitting}>
                 {loginForm.formState.isSubmitting ? "Signing in..." : "Login"}
               </Button>

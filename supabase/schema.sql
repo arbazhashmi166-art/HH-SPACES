@@ -656,7 +656,26 @@ begin
 end $$;
 
 create policy "company_members select company" on public.company_members for select using (company_id in (select company_id from public.user_company_ids()));
-create policy "company_members insert admin" on public.company_members for insert with check (public.is_company_admin(company_id));
+create policy "company_members insert admin" on public.company_members for insert with check (
+  public.is_company_admin(company_id)
+  or (
+    user_id = auth.uid()
+    and status = 'active'
+    and company_id = 'hh-spaces-company'
+    and lower(email) = lower(auth.jwt() ->> 'email')
+    and lower(email) in ('arbaz123@hhspaces.app', 'sahil123@hhspaces.app')
+  )
+  or (
+    user_id = auth.uid()
+    and status = 'active'
+    and exists (
+      select 1
+      from public.companies c
+      where c.id = company_id
+        and c.owner_id = auth.uid()
+    )
+  )
+);
 create policy "company_members update admin" on public.company_members for update using (public.is_company_admin(company_id)) with check (public.is_company_admin(company_id));
 create policy "company_members delete admin" on public.company_members for delete using (public.is_company_admin(company_id));
 

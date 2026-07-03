@@ -6,6 +6,31 @@ import { createId } from "./id";
 import { requireSupabase, supabase } from "./supabase";
 import type { AnyEntity, EntityMap, SourceType, TableName } from "@/types/domain";
 
+export const syncableTables: TableName[] = [
+  "sites",
+  "labour",
+  "attendance",
+  "labour_payments",
+  "suppliers",
+  "materials",
+  "expenses",
+  "client_payments",
+  "supplier_payments",
+  "progress_updates",
+  "progress_photos",
+  "reminders",
+  "notifications",
+  "activity_logs",
+  "audit_logs",
+  "ai_conversations",
+  "ai_messages",
+  "ai_memories",
+  "ai_memory_links",
+  "smart_suggestions",
+  "user_preferences",
+  "data_health_checks"
+];
+
 function isBrowserOnline() {
   return typeof navigator === "undefined" ? true : navigator.onLine;
 }
@@ -266,6 +291,43 @@ export async function syncPendingMutations(companyId: string) {
   }
 
   return { synced };
+}
+
+export async function migrateLocalCompanyRecords(fromCompanyId: string, toCompanyId: string, userId: string | null) {
+  if (fromCompanyId === toCompanyId) return 0;
+  const rows = await db.records.where("companyId").equals(fromCompanyId).toArray();
+  let migrated = 0;
+
+  for (const row of rows) {
+    if (!syncableTables.includes(row.table)) continue;
+    const record = {
+      ...(row.record as AnyEntity),
+      company_id: toCompanyId,
+      updated_by: userId,
+      sync_status: "pending"
+    } as EntityMap[typeof row.table];
+
+    await applyLocal(row.table, toCompanyId, record);
+    const exists = await db.pendingMutations.where({ companyId: toCompanyId, recordId: record.id }).count();
+    if (!exists) {
+      await queueMutation({
+        id: createId("mutation"),
+        table: row.table,
+        operationType: "insert",
+        companyId: toCompanyId,
+        recordId: record.id,
+        idempotencyKey: record.idempotency_key,
+        payload: record as Record<string, unknown>,
+        retryCount: 0,
+        lastError: null,
+        createdAt: nowIso(),
+        updatedAt: nowIso()
+      });
+    }
+    migrated += 1;
+  }
+
+  return migrated;
 }
 
 export function useRecords<T extends TableName>(table: T, companyId?: string) {

@@ -4,6 +4,7 @@ import type { Session, User } from "@supabase/supabase-js";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { createId } from "./id";
 import { hasSupabaseConfig } from "./env";
+import { migrateLocalCompanyRecords, syncPendingMutations } from "./repository";
 import { requireSupabase, supabase } from "./supabase";
 import type { Company, Profile, Role } from "@/types/domain";
 
@@ -40,11 +41,19 @@ const offlineCompany: Company = {
 
 const offlineRememberKey = "sitetracker.offlineMode";
 const localUserKey = "sitetracker.localUser";
+const cloudCompanyId = "hh-spaces-company";
+const cloudCompanyName = "H&H Spaces";
 
-const allowedLocalUsers: Record<string, { password: string; fullName: string; role: Role }> = {
-  SAHIL123: { password: "DAVID9529", fullName: "Sahil", role: "admin" },
-  ARBAZ123: { password: "BUCKY1081", fullName: "Arbaz", role: "admin" }
+const allowedLocalUsers: Record<string, { password: string; fullName: string; role: Role; cloudEmail: string }> = {
+  SAHIL123: { password: "DAVID9529", fullName: "Sahil", role: "admin", cloudEmail: "sahil123@hhspaces.app" },
+  ARBAZ123: { password: "BUCKY1081", fullName: "Arbaz", role: "admin", cloudEmail: "arbaz123@hhspaces.app" }
 };
+
+function approvedUserForEmail(email?: string | null) {
+  const normalized = email?.trim().toLowerCase();
+  if (!normalized) return null;
+  return Object.values(allowedLocalUsers).find((user) => user.cloudEmail.toLowerCase() === normalized) || null;
+}
 
 function isOfflineRemembered() {
   return typeof window !== "undefined" && window.localStorage.getItem(offlineRememberKey) === "1";
@@ -100,6 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadCompany = useCallback(async (currentSession: Session | null) => {
     if (!currentSession || !supabase) return;
     const userId = currentSession.user.id;
+    const approvedUser = approvedUserForEmail(currentSession.user.email);
 
     const { data: profileRow } = await requireSupabase().from("profiles").select("*").eq("id", userId).maybeSingle();
     setProfile((profileRow as Profile | null) || null);
@@ -118,34 +128,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const companyId = createId("company");
-    const { data: companyData, error: companyError } = await requireSupabase()
-      .from("companies")
-      .insert({
-        id: companyId,
-        owner_id: userId,
-        name: profileRow?.full_name ? `${profileRow.full_name}'s Company` : "My Construction Company"
-      })
-      .select("*")
-      .single();
+    const companyId = approvedUser ? cloudCompanyId : createId("company");
+    const companyName = approvedUser ? cloudCompanyName : profileRow?.full_name ? `${profileRow.full_name}'s Company` : "My Construction Company";
+    let companyData: Company | null = null;
 
-    if (companyError) throw companyError;
+    const { data: existingCompany } = await requireSupabase().from("companies").select("*").eq("id", companyId).maybeSingle();
+    if (existingCompany) {
+      companyData = existingCompany as Company;
+    } else {
+      const { data: insertedCompany, error: companyError } = await requireSupabase()
+        .from("companies")
+        .insert({
+          id: companyId,
+          owner_id: userId,
+          name: companyName
+        })
+        .select("*")
+        .single();
 
-    await requireSupabase().from("company_members").insert({
+      if (companyError && companyError.code !== "23505") throw companyError;
+      companyData = (insertedCompany as Company | null) || null;
+    }
+
+    const { error: memberError } = await requireSupabase().from("company_members").insert({
       id: createId("member"),
       company_id: companyId,
       user_id: userId,
-      full_name: profileRow?.full_name || currentSession.user.email || "Admin",
+      full_name: approvedUser?.fullName || profileRow?.full_name || currentSession.user.email || "Admin",
       email: currentSession.user.email || "",
-      role: "admin",
+      role: approvedUser?.role || "admin",
       status: "active",
       phone: null,
       can_delete_financial: true,
       ...recordMeta(userId)
     });
 
-    setCompany(companyData as Company);
-    setRole("admin");
+    if (memberError && memberError.code !== "23505") {
+      throw new Error(
+        "Supabase company member policy is blocking cloud login. Run the latest supabase/schema.sql once in Supabase SQL Editor."
+      );
+    }
+
+    if (!companyData) {
+      const { data: selectedCompany, error: selectError } = await requireSupabase().from("companies").select("*").eq("id", companyId).single();
+      if (selectError) throw selectError;
+      companyData = selectedCompany as Company;
+    }
+
+    if (approvedUser) {
+      await migrateLocalCompanyRecords("offline-company", companyId, userId);
+      await syncPendingMutations(companyId);
+    }
+
+    setCompany(companyData);
+    setRole(approvedUser?.role || "admin");
   }, []);
 
   useEffect(() => {
@@ -162,7 +198,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (isOfflineRemembered()) {
         const localUser = rememberedLocalUser();
         setOfflineMode(true);
-        setCompany({ ...offlineCompany, name: "H&H Spaces" });
+        setCompany({ ...offlineCompany, name: cloudCompanyName });
         setProfile(localUser ? { id: "offline-user", full_name: localUser.fullName, phone: null, avatar_url: null } : null);
         setRole(localUser?.role || "admin");
         setLoading(false);
@@ -187,7 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (isOfflineRemembered()) {
           const localUser = rememberedLocalUser();
           setOfflineMode(true);
-          setCompany({ ...offlineCompany, name: "H&H Spaces" });
+          setCompany({ ...offlineCompany, name: cloudCompanyName });
           setProfile(localUser ? { id: "offline-user", full_name: localUser.fullName, phone: null, avatar_url: null } : null);
           setRole(localUser?.role || "admin");
           return;
@@ -209,7 +245,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       user: session?.user || null,
       profile,
-      company: offlineMode ? company || { ...offlineCompany, name: "H&H Spaces" } : company,
+      company: offlineMode ? company || { ...offlineCompany, name: cloudCompanyName } : company,
       role,
       loading,
       offlineMode,
@@ -218,13 +254,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const localUser = allowedLocalUsers[username];
         if (localUser) {
           if (password !== localUser.password) throw new Error("Wrong password for this username.");
-          rememberOfflineMode(true);
-          rememberLocalUser(username);
-          setSession(null);
-          setOfflineMode(true);
-          setProfile({ id: "offline-user", full_name: localUser.fullName, phone: null, avatar_url: null });
-          setCompany({ ...offlineCompany, name: "H&H Spaces" });
-          setRole(localUser.role);
+          if (!supabase) {
+            rememberOfflineMode(true);
+            rememberLocalUser(username);
+            setSession(null);
+            setOfflineMode(true);
+            setProfile({ id: "offline-user", full_name: localUser.fullName, phone: null, avatar_url: null });
+            setCompany({ ...offlineCompany, name: cloudCompanyName });
+            setRole(localUser.role);
+            return;
+          }
+
+          const cloudEmail = localUser.cloudEmail;
+          const login = await requireSupabase().auth.signInWithPassword({ email: cloudEmail, password });
+          if (login.error) {
+            const signup = await requireSupabase().auth.signUp({
+              email: cloudEmail,
+              password,
+              options: { data: { full_name: localUser.fullName } }
+            });
+            if (signup.error) throw signup.error;
+            if (!signup.data.session) {
+              throw new Error("Cloud user created, but Supabase email confirmation is ON. Turn off email confirmation in Supabase Auth, then login again.");
+            }
+            rememberOfflineMode(false);
+            rememberLocalUser(null);
+            setOfflineMode(false);
+            setSession(signup.data.session);
+            await loadCompany(signup.data.session);
+            return;
+          }
+
+          if (!login.data.session) throw new Error("Cloud login failed. Check Supabase Auth settings.");
+          rememberOfflineMode(false);
+          rememberLocalUser(null);
+          setOfflineMode(false);
+          setSession(login.data.session);
+          await loadCompany(login.data.session);
           return;
         }
 
@@ -292,7 +358,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         rememberOfflineMode(true);
         rememberLocalUser(null);
         setOfflineMode(true);
-        setCompany({ ...offlineCompany, name: "H&H Spaces" });
+        setCompany({ ...offlineCompany, name: cloudCompanyName });
         setRole("admin");
       },
       refreshCompany: async () => loadCompany(session)

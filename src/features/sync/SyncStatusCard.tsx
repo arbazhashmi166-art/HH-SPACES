@@ -43,14 +43,14 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
   const statusText = !cloudReady
     ? "Not connected"
     : offlineMode
-      ? "Offline mode"
+      ? "Saved locally"
       : session
         ? "Cloud connected"
         : "Login needed";
   const subtitle = !cloudReady
     ? "Supabase keys are missing in this GitHub build. Add GitHub Actions secrets or use the connected build."
     : offlineMode
-      ? "Offline mode is active on this device. Login with Supabase to sync laptop and iPhone data."
+      ? "Your entries are saving on this phone/browser only. Login with Supabase email to sync laptop and iPhone data."
       : online
         ? session
           ? "Online. Entries sync through Supabase and pending local entries can be retried."
@@ -71,10 +71,19 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
   return (
     <Card>
       <CardHeader
-        title="Supabase Cloud Sync"
+        title={offlineMode ? "Data Save Status" : "Supabase Cloud Sync"}
         subtitle={subtitle}
         action={<Badge tone={tone}>{statusText}</Badge>}
       />
+      {!compact ? (
+        <p style={{ margin: "0 0 12px", color: "var(--app-muted)", fontWeight: 800, lineHeight: 1.4 }}>
+          {offlineMode
+            ? `${pending} saved local ${pending === 1 ? "entry is" : "entries are"} waiting for cloud sync.`
+            : session
+              ? `${pending} local ${pending === 1 ? "entry" : "entries"} waiting to sync.`
+              : "Use Supabase email login when you want the same data on laptop and phone."}
+        </p>
+      ) : null}
       {!compact ? (
         <Button variant="secondary" onClick={sync} disabled={syncing || !online || !cloudReady || offlineMode || !session}>
           {actionLabel}

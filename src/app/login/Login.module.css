@@ -87,3 +87,11 @@
   font-weight: 800;
   font-size: 13px;
 }
+
+.note {
+  margin: -2px 0 0;
+  color: var(--app-muted);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.45;
+}
