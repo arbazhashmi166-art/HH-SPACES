@@ -95,12 +95,45 @@
   gap: 8px;
 }
 
+.sheetOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 10px calc(8px + env(safe-area-inset-bottom));
+}
+
+.sheetBackdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(8px);
+}
+
 .sheet {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 640px);
+  border: 1px solid var(--app-border);
+  border-radius: 28px 28px 24px 24px;
   padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
   background: var(--app-bg);
   color: var(--app-text);
   max-height: min(86vh, 760px);
   overflow: auto;
+  box-shadow: 0 -24px 60px rgba(15, 23, 42, 0.24);
+  animation: sheetIn 160ms ease-out;
+}
+
+.heroTitle {
+  margin: 0 0 14px;
+  font-size: 24px;
+  line-height: 1.1;
+  font-weight: 900;
+  letter-spacing: 0;
 }
 
 .handle {
@@ -141,4 +174,16 @@
   background: rgba(59, 91, 255, 0.1);
   color: var(--app-primary);
   font-weight: 800;
+}
+
+@keyframes sheetIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }

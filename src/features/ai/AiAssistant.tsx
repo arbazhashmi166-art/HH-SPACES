@@ -184,7 +184,7 @@ export function AiAssistant() {
         <CardHeader title="Business Summary" subtitle="Ask about pending payments, low stock, labour balance, delayed sites, or profit." />
         <div className={styles.promptGrid}>
           <Badge tone="info">INR protected</Badge>
-          <Badge tone="success">{formatMoney(0)} placeholder-free exports</Badge>
+          <Badge tone="success">PDF and Excel ready</Badge>
         </div>
       </Card>
 

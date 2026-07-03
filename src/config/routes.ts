@@ -62,6 +62,7 @@ export const appRoutes: AppRoute[] = [
   { path: "/staff", label: "Staff", icon: personCircleOutline, group: "system", description: "Admin, staff, viewer roles, and permissions." },
   { path: "/audit", label: "Audit Logs", icon: shieldCheckmarkOutline, group: "system", description: "Who changed what, when, and from which source." },
   { path: "/data-health", label: "Data Health", icon: checkmarkDoneOutline, group: "system", description: "Duplicates, missing site mapping, sync failures, suspicious values, and budget risk." },
+  { path: "/settings#supabase-sync", label: "Supabase Sync", shortLabel: "Sync", icon: syncOutline, group: "system", description: "Supabase cloud sync, backup status, laptop and phone data sharing." },
   { path: "/settings", label: "Settings", icon: settingsOutline, group: "system", description: "Company, GST, theme, PDF, sync, backup, and defaults." }
 ];
 

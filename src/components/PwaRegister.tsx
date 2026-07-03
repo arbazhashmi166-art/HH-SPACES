@@ -24,7 +24,7 @@ export function PwaRegister() {
     updateReady ? (
       <button
         type="button"
-        onClick={() => setUpdateReady(false)}
+        onClick={() => window.location.reload()}
         style={{
           position: "fixed",
           left: 14,
@@ -40,7 +40,7 @@ export function PwaRegister() {
           boxShadow: "0 16px 34px rgba(59,91,255,.34)"
         }}
       >
-        App update ready. Close and reopen the app.
+        App update ready. Tap to refresh.
       </button>
     ) : null
   );

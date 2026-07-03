@@ -3,11 +3,8 @@
 import {
   IonApp,
   IonContent,
-  IonHeader,
   IonIcon,
-  IonModal,
   IonPage,
-  IonToolbar
 } from "@ionic/react";
 import { addOutline, moonOutline, searchOutline, sparklesOutline, sunnyOutline } from "ionicons/icons";
 import { motion } from "framer-motion";
@@ -26,8 +23,7 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
   const { company, loading, offlineMode } = useAuth();
   const mode = useUiStore((state) => state.mode);
   const toggleMode = useUiStore((state) => state.toggleMode);
-  const quickOpen = useUiStore((state) => state.quickAddOpen);
-  const setQuickOpen = useUiStore((state) => state.setQuickAddOpen);
+  const [quickOpen, setQuickOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -41,38 +37,61 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
     return appRoutes.filter((route) => `${route.label} ${route.description}`.toLowerCase().includes(term));
   }, [query]);
 
+  const scrollToHash = (path: string) => {
+    const hash = path.split("#")[1];
+    if (!hash) return;
+    window.setTimeout(() => {
+      document.getElementById(hash)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 120);
+  };
+
   const go = (path: string) => {
     setQuickOpen(false);
     setSearchOpen(false);
-    router.push(path);
+    setQuery("");
+    window.setTimeout(() => {
+      router.push(path);
+      scrollToHash(path);
+    }, 0);
   };
+
+  useEffect(() => {
+    setQuickOpen(false);
+    setSearchOpen(false);
+  }, [pathname]);
 
   return (
     <IonApp>
       <IonPage>
-        <IonHeader translucent>
-          <IonToolbar>
-            <div className={styles.topBar}>
-              <div className={styles.titleBlock}>
-                <p className={styles.eyebrow}>{company?.name || appName}</p>
-                <h1 className={styles.title}>{title}</h1>
-              </div>
-              <div className={styles.headerActions}>
-                <button className={styles.iconButton} type="button" aria-label="Search everything" onClick={() => setSearchOpen(true)}>
-                  <IonIcon icon={searchOutline} />
-                </button>
-                <button className={styles.iconButton} type="button" aria-label="Toggle theme" onClick={toggleMode}>
-                  <IonIcon icon={mode === "dark" ? sunnyOutline : moonOutline} />
-                </button>
-              </div>
+        <header className={styles.appHeader}>
+          <div className={styles.topBar}>
+            <div className={styles.titleBlock}>
+              <p className={styles.eyebrow}>{company?.name || appName}</p>
+              <h1 className={styles.title}>{title}</h1>
             </div>
-          </IonToolbar>
-        </IonHeader>
+            <div className={styles.headerActions}>
+                <button
+                  className={styles.iconButton}
+                  type="button"
+                  aria-label="Search everything"
+                  onClick={() => {
+                    setQuery("");
+                    setSearchOpen(true);
+                  }}
+                >
+                <IonIcon icon={searchOutline} />
+              </button>
+              <button className={styles.iconButton} type="button" aria-label="Toggle theme" onClick={toggleMode}>
+                <IonIcon icon={mode === "dark" ? sunnyOutline : moonOutline} />
+              </button>
+            </div>
+          </div>
+        </header>
 
-        <IonContent fullscreen className={styles.page}>
+        <IonContent className={styles.page}>
           <main className={styles.content}>
             {subtitle ? <p className={styles.sheetSub}>{subtitle}</p> : null}
-            {offlineMode ? <SyncStatusCard compact /> : null}
+            {offlineMode && !pathname.startsWith("/settings") ? <SyncStatusCard compact /> : null}
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }}>
               {children}
             </motion.div>
@@ -105,8 +124,10 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
           <span>Add</span>
         </button>
 
-        <IonModal isOpen={quickOpen} onDidDismiss={() => setQuickOpen(false)} className="mobile-sheet" initialBreakpoint={1} breakpoints={[0, 1]}>
-          <div className={styles.quickSheet}>
+        {quickOpen ? (
+          <div className={styles.sheetOverlay} role="dialog" aria-modal="true" aria-label="Quick Add">
+            <button className={styles.sheetBackdrop} type="button" aria-label="Close quick add" onClick={() => setQuickOpen(false)} />
+            <div className={styles.quickSheet}>
             <div className={styles.sheetHandle} />
             <h2 className={styles.sheetTitle}>Quick Add</h2>
             <p className={styles.sheetSub}>Fast daily entries with site ownership, validation, and offline queue support.</p>
@@ -118,11 +139,17 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
                 </button>
               ))}
             </div>
+            <button className={styles.sheetClose} type="button" onClick={() => setQuickOpen(false)}>
+              Close
+            </button>
           </div>
-        </IonModal>
+          </div>
+        ) : null}
 
-        <IonModal isOpen={searchOpen} onDidDismiss={() => setSearchOpen(false)} className="mobile-sheet" initialBreakpoint={1} breakpoints={[0, 1]}>
-          <div className={styles.searchSheet}>
+        {searchOpen ? (
+          <div className={styles.sheetOverlay} role="dialog" aria-modal="true" aria-label="Search Everything">
+            <button className={styles.sheetBackdrop} type="button" aria-label="Close search" onClick={() => setSearchOpen(false)} />
+            <div className={styles.searchSheet}>
             <div className={styles.sheetHandle} />
             <h2 className={styles.sheetTitle}>Search Everything</h2>
             <p className={styles.sheetSub}>Search modules like bills, labour wages, POP calculator, reports, payments, audit, memory, and settings.</p>
@@ -154,7 +181,8 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
               ))}
             </div>
           </div>
-        </IonModal>
+          </div>
+        ) : null}
       </IonPage>
     </IonApp>
   );

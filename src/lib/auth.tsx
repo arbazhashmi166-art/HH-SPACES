@@ -40,6 +40,19 @@ const offlineCompany: Company = {
 
 const offlineRememberKey = "sitetracker.offlineMode";
 
+function isOfflineRemembered() {
+  return typeof window !== "undefined" && window.localStorage.getItem(offlineRememberKey) === "1";
+}
+
+function rememberOfflineMode(enabled: boolean) {
+  if (typeof window === "undefined") return;
+  if (enabled) {
+    window.localStorage.setItem(offlineRememberKey, "1");
+  } else {
+    window.localStorage.removeItem(offlineRememberKey);
+  }
+}
+
 function recordMeta(userId: string | null) {
   const now = new Date().toISOString();
   return {
@@ -125,7 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      if (typeof window !== "undefined" && window.localStorage.getItem(offlineRememberKey) === "1") {
+      if (isOfflineRemembered()) {
         setOfflineMode(true);
         setCompany(offlineCompany);
         setRole("admin");
@@ -144,8 +157,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const subscription = supabase?.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
       if (nextSession) {
+        rememberOfflineMode(false);
+        setOfflineMode(false);
         loadCompany(nextSession).catch(() => undefined);
       } else {
+        if (isOfflineRemembered()) {
+          setOfflineMode(true);
+          setCompany(offlineCompany);
+          setRole("admin");
+          return;
+        }
         setProfile(null);
         setCompany(null);
         setRole("viewer");
@@ -170,6 +191,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signIn: async (email, password) => {
         const { error } = await requireSupabase().auth.signInWithPassword({ email, password });
         if (error) throw error;
+        rememberOfflineMode(false);
+        setOfflineMode(false);
       },
       signUp: async ({ email, password, companyName, fullName }) => {
         const { data, error } = await requireSupabase().auth.signUp({
@@ -180,6 +203,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         });
         if (error) throw error;
+        rememberOfflineMode(false);
+        setOfflineMode(false);
         const userId = data.user?.id;
         if (!userId) return;
 
@@ -211,11 +236,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       signOut: async () => {
         if (supabase) await supabase.auth.signOut();
-        if (typeof window !== "undefined") window.localStorage.removeItem(offlineRememberKey);
+        rememberOfflineMode(false);
         setOfflineMode(false);
       },
       continueOffline: () => {
-        if (typeof window !== "undefined") window.localStorage.setItem(offlineRememberKey, "1");
+        rememberOfflineMode(true);
         setOfflineMode(true);
         setCompany(offlineCompany);
         setRole("admin");

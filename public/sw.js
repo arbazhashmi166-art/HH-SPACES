@@ -1,4 +1,4 @@
-const CACHE_NAME = "sitetracker-pro-v1";
+const CACHE_NAME = "sitetracker-pro-v3";
 const APP_SHELL = ["./", "./dashboard/", "./login/", "./manifest.json", "./offline.html", "./icons/icon.svg"];
 
 self.addEventListener("install", (event) => {

@@ -31,7 +31,7 @@ function baseMeta(companyId: string, userId: string | null, source: SourceType, 
 }
 
 export async function getLocalRecords<T extends TableName>(table: T, companyId: string) {
-  const rows = await db.records.where({ table, companyId }).toArray();
+  const rows = await db.records.where("[table+companyId]").equals([table, companyId]).toArray();
   return rows
     .map((row) => row.record as EntityMap[T])
     .filter((row) => !row.deleted_at)
@@ -40,7 +40,7 @@ export async function getLocalRecords<T extends TableName>(table: T, companyId: 
 
 export async function cacheRecords<T extends TableName>(table: T, companyId: string, records: EntityMap[T][]) {
   await db.transaction("rw", db.records, async () => {
-    await db.records.where({ table, companyId }).delete();
+    await db.records.where("[table+companyId]").equals([table, companyId]).delete();
     await db.records.bulkPut(
       records.map((record) => ({
         key: localRecordKey(table, record.id),
@@ -104,14 +104,18 @@ export async function createRecord<T extends TableName>(
     ...baseMeta(companyId, options.userId || null, options.source || "manual", idempotencyKey),
     ...values,
     idempotency_key: idempotencyKey,
-    sync_status: isBrowserOnline() ? "synced" : "pending"
+    sync_status: "pending"
   } as EntityMap[T];
 
   await applyLocal(table, companyId, record);
 
   if (supabase && isBrowserOnline()) {
     const { error } = await requireSupabase().from(table).insert(record);
-    if (!error) return record;
+    if (!error) {
+      const syncedRecord = { ...record, sync_status: "synced" } as EntityMap[T];
+      await applyLocal(table, companyId, syncedRecord);
+      return syncedRecord;
+    }
   }
 
   await queueMutation({
@@ -148,7 +152,7 @@ export async function updateRecord<T extends TableName>(
     updated_by: options.userId || (existing?.record as AnyEntity | undefined)?.updated_by || null,
     updated_at: nowIso(),
     source: options.source || (existing?.record as AnyEntity | undefined)?.source || "manual",
-    sync_status: isBrowserOnline() ? "synced" : "pending",
+    sync_status: "pending",
     idempotency_key: idempotencyKey
   } as EntityMap[T];
 
@@ -160,7 +164,11 @@ export async function updateRecord<T extends TableName>(
       .update(values as Record<string, unknown>)
       .eq("id", recordId)
       .eq("company_id", companyId);
-    if (!error) return record;
+    if (!error) {
+      const syncedRecord = { ...record, sync_status: "synced" } as EntityMap[T];
+      await applyLocal(table, companyId, syncedRecord);
+      return syncedRecord;
+    }
   }
 
   await queueMutation({
@@ -242,6 +250,16 @@ export async function syncPendingMutations(companyId: string) {
         updatedAt: nowIso()
       });
       break;
+    }
+    if (item.operationType !== "delete") {
+      const local = await db.records.get(localRecordKey(item.table, item.recordId));
+      if (local) {
+        await applyLocal(item.table, companyId, {
+          ...(local.record as AnyEntity),
+          sync_status: "synced",
+          updated_at: (local.record as AnyEntity).updated_at || nowIso()
+        } as EntityMap[typeof item.table]);
+      }
     }
     await db.pendingMutations.delete(item.id);
     synced += 1;

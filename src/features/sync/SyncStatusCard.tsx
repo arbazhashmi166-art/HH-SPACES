@@ -1,30 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
 import { useAuth } from "@/lib/auth";
 import { syncPendingMutations } from "@/lib/repository";
+import { supabase } from "@/lib/supabase";
 
 export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
-  const { company } = useAuth();
+  const { company, offlineMode, session } = useAuth();
   const [pending, setPending] = useState(0);
   const [syncing, setSyncing] = useState(false);
   const online = typeof navigator === "undefined" ? true : navigator.onLine;
+  const cloudReady = Boolean(supabase);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     if (!company?.id) return;
     const count = await db.pendingMutations.where({ companyId: company.id }).count();
     setPending(count);
-  };
+  }, [company?.id]);
 
   useEffect(() => {
     refresh().catch(() => undefined);
     const timer = window.setInterval(() => refresh().catch(() => undefined), 4000);
     return () => window.clearInterval(timer);
-  });
+  }, [refresh]);
 
   const sync = async () => {
     if (!company?.id) return;
@@ -37,18 +39,45 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
     }
   };
 
-  if (compact && pending === 0 && online) return null;
+  const tone = !cloudReady || offlineMode || !online ? "warning" : pending ? "warning" : "success";
+  const statusText = !cloudReady
+    ? "Not connected"
+    : offlineMode
+      ? "Offline mode"
+      : session
+        ? "Cloud connected"
+        : "Login needed";
+  const subtitle = !cloudReady
+    ? "Supabase keys are missing in this GitHub build. Add GitHub Actions secrets or use the connected build."
+    : offlineMode
+      ? "Offline mode is active on this device. Login with Supabase to sync laptop and iPhone data."
+      : online
+        ? session
+          ? "Online. Entries sync through Supabase and pending local entries can be retried."
+          : "Supabase is configured. Login to your account to sync this device."
+        : "No internet. Entries are saved locally and queued until this device is online.";
+  const actionLabel = !cloudReady
+    ? "Supabase Not Configured"
+    : offlineMode || !session
+      ? "Login Required for Sync"
+      : syncing
+        ? "Syncing..."
+        : pending
+          ? "Sync Pending Entries"
+          : "Sync Now";
+
+  if (compact && pending === 0 && online && cloudReady && !offlineMode) return null;
 
   return (
     <Card>
       <CardHeader
-        title="Offline Sync"
-        subtitle={online ? "Online. Pending local entries will sync automatically." : "Offline. Entries are saved locally and queued."}
-        action={<Badge tone={pending ? "warning" : "success"}>{pending} pending</Badge>}
+        title="Supabase Cloud Sync"
+        subtitle={subtitle}
+        action={<Badge tone={tone}>{statusText}</Badge>}
       />
       {!compact ? (
-        <Button variant="secondary" onClick={sync} disabled={syncing || !online}>
-          {syncing ? "Syncing..." : "Retry Sync"}
+        <Button variant="secondary" onClick={sync} disabled={syncing || !online || !cloudReady || offlineMode || !session}>
+          {actionLabel}
         </Button>
       ) : null}
     </Card>

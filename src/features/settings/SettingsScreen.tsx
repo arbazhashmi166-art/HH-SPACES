@@ -2,11 +2,12 @@
 
 import { IonIcon, IonToast } from "@ionic/react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { FieldShell, TextArea, TextInput } from "@/components/ui/form-controls";
 import { appRoutes } from "@/config/routes";
+import { SyncStatusCard } from "@/features/sync/SyncStatusCard";
 import { useAuth } from "@/lib/auth";
 import { useUiStore } from "@/lib/ui-store";
 import { requireSupabase, supabase } from "@/lib/supabase";
@@ -14,7 +15,7 @@ import styles from "./Settings.module.css";
 
 export function SettingsScreen() {
   const router = useRouter();
-  const { company, role, signOut, refreshCompany } = useAuth();
+  const { company, role, signOut, refreshCompany, offlineMode, session } = useAuth();
   const mode = useUiStore((state) => state.mode);
   const toggleMode = useUiStore((state) => state.toggleMode);
   const [form, setForm] = useState({
@@ -30,6 +31,23 @@ export function SettingsScreen() {
   const [toast, setToast] = useState<string | null>(null);
 
   const update = (key: keyof typeof form, value: string) => setForm((current) => ({ ...current, [key]: value }));
+  const openRoute = (path: string) => {
+    router.push(path);
+    const hash = path.split("#")[1];
+    if (hash) {
+      window.setTimeout(() => document.getElementById(hash)?.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
+    }
+  };
+
+  const openCloudLogin = async () => {
+    await signOut();
+    router.replace("/login");
+  };
+
+  useEffect(() => {
+    if (window.location.hash !== "#supabase-sync") return;
+    window.setTimeout(() => document.getElementById("supabase-sync")?.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
+  }, []);
 
   const save = async () => {
     if (!company) return;
@@ -46,6 +64,43 @@ export function SettingsScreen() {
 
   return (
     <section className={styles.stack}>
+      <SyncStatusCard />
+
+      <Card id="supabase-sync">
+        <CardHeader
+          title="Where Is Supabase Sync?"
+          subtitle={
+            supabase
+              ? session
+                ? "This device is connected to Supabase. Use Retry Sync for pending local entries."
+                : "Supabase is configured, but this device is not logged in. Login to sync laptop and phone data."
+              : "This GitHub Pages build does not have Supabase keys. Add GitHub Actions secrets to enable cloud sync."
+          }
+        />
+        <div className={styles.syncPanel}>
+          <div>
+            <span>Cloud Status</span>
+            <strong>{supabase ? (session ? "Connected" : "Login needed") : "Not configured"}</strong>
+          </div>
+          <div>
+            <span>Device Mode</span>
+            <strong>{offlineMode ? "Offline device" : "Cloud device"}</strong>
+          </div>
+          <div>
+            <span>Data Sharing</span>
+            <strong>{session && supabase && !offlineMode ? "Laptop and phone sync" : "Local only until login"}</strong>
+          </div>
+        </div>
+        <div className={styles.actions}>
+          <Button variant="secondary" onClick={openCloudLogin}>
+            Login for Supabase Sync
+          </Button>
+          <Button variant="ghost" onClick={() => setToast("Supabase Sync is the card above. Pending entries sync automatically when online.")}>
+            What This Means
+          </Button>
+        </div>
+      </Card>
+
       <Card>
         <CardHeader title="Company Settings" subtitle="These details auto-fill PDFs, invoices, reports, WhatsApp messages, and headers." />
         <div className={styles.form}>
@@ -84,30 +139,30 @@ export function SettingsScreen() {
       <Card>
         <CardHeader title="Business Defaults" subtitle="Clean grouped settings for phone use instead of one long settings screen." />
         <div className={styles.grid}>
-          <div className={styles.setting}>
+          <button className={styles.setting} type="button" onClick={() => router.push("/labour")}>
             <span>Labour</span>
             <strong>Default rates, OT, half-day rules</strong>
-          </div>
-          <div className={styles.setting}>
+          </button>
+          <button className={styles.setting} type="button" onClick={() => router.push("/payments")}>
             <span>Billing</span>
             <strong>Invoice prefix, GST, TDS, terms</strong>
-          </div>
-          <div className={styles.setting}>
+          </button>
+          <button className={styles.setting} type="button" onClick={() => router.push("/materials")}>
             <span>Material</span>
             <strong>Categories, units, low-stock alerts</strong>
-          </div>
-          <div className={styles.setting}>
+          </button>
+          <button className={styles.setting} type="button" onClick={() => document.getElementById("supabase-sync")?.scrollIntoView({ behavior: "smooth" })}>
             <span>Backup</span>
             <strong>Supabase sync, export, restore, daily backup</strong>
-          </div>
-          <div className={styles.setting}>
+          </button>
+          <button className={styles.setting} type="button" onClick={() => router.push("/reports")}>
             <span>WhatsApp</span>
             <strong>Client, supplier, labour report sharing</strong>
-          </div>
-          <div className={styles.setting}>
+          </button>
+          <button className={styles.setting} type="button" onClick={() => router.push("/expenses")}>
             <span>Vehicles</span>
             <strong>Fuel, mileage, service, driver details</strong>
-          </div>
+          </button>
         </div>
       </Card>
 
@@ -127,9 +182,10 @@ export function SettingsScreen() {
         <CardHeader title="All Modules" subtitle="Open any module from one clean phone-friendly list." />
         <div className={styles.moduleGrid}>
           {appRoutes
+            .filter((route) => route.group !== "main")
             .filter((route, index, list) => list.findIndex((item) => item.path === route.path) === index)
             .map((route) => (
-              <button key={route.path} className={styles.module} type="button" onClick={() => router.push(route.path)}>
+              <button key={route.path} className={styles.module} type="button" onClick={() => openRoute(route.path)}>
                 <IonIcon icon={route.icon} />
                 <span>
                   <strong>{route.label}</strong>

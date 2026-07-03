@@ -47,6 +47,11 @@ class SiteTrackerDb extends Dexie {
       pendingMutations: "id, table, companyId, recordId, idempotencyKey, createdAt, updatedAt",
       meta: "key"
     });
+    this.version(3).stores({
+      records: "key, table, companyId, [table+companyId], updatedAt",
+      pendingMutations: "id, table, companyId, recordId, idempotencyKey, [companyId+createdAt], createdAt, updatedAt",
+      meta: "key"
+    });
   }
 }
 

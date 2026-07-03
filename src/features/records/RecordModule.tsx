@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { IonIcon, IonModal, IonToast } from "@ionic/react";
+import { IonIcon, IonToast } from "@ionic/react";
 import { archiveOutline, createOutline, trashOutline } from "ionicons/icons";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
@@ -139,11 +139,18 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
   });
 
   useEffect(() => {
-    if (searchParams.get("add") === "1" && !open) {
-      setEditing(null);
-      form.reset(defaultValues as Record<string, unknown>);
-      setOpen(true);
+    const requested =
+      searchParams.get("add") === "1" ||
+      (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("add") === "1");
+    if (!requested || open) return;
+    setEditing(null);
+    form.reset(defaultValues as Record<string, unknown>);
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", window.location.pathname);
+      window.setTimeout(() => setOpen(true), 80);
+    } else {
       router.replace(pathname);
+      setOpen(true);
     }
   }, [defaultValues, form, open, pathname, router, searchParams]);
 
@@ -262,8 +269,10 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
         <EmptyState title={`No ${config.title.toLowerCase()} yet`} description={`Tap ${config.addLabel} to create the first working record. Offline entries will sync when internet returns.`} />
       )}
 
-      <IonModal isOpen={open} onDidDismiss={() => setOpen(false)} className="mobile-sheet" initialBreakpoint={1} breakpoints={[0, 1]}>
-        <div className={styles.sheet}>
+      {open ? (
+        <div className={styles.sheetOverlay} role="dialog" aria-modal="true" aria-label={editing ? `Edit ${config.title}` : config.addLabel}>
+          <button className={styles.sheetBackdrop} type="button" aria-label={`Close ${config.title} form`} onClick={() => setOpen(false)} />
+          <div className={styles.sheet}>
           <div className={styles.handle} />
           <h2 className={styles.heroTitle}>{editing ? `Edit ${config.title}` : config.addLabel}</h2>
           <form className={styles.form} onSubmit={submit}>
@@ -286,7 +295,8 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
             </div>
           </form>
         </div>
-      </IonModal>
+        </div>
+      ) : null}
 
       <IonToast isOpen={Boolean(toast)} message={toast || ""} duration={2200} color="success" onDidDismiss={() => setToast(null)} />
     </section>

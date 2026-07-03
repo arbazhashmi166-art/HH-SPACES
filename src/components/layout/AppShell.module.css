@@ -9,6 +9,15 @@
   padding: 14px 14px calc(120px + env(safe-area-inset-bottom));
 }
 
+.appHeader {
+  position: relative;
+  z-index: 30;
+  padding: calc(8px + env(safe-area-inset-top)) 14px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--app-border) 70%, transparent);
+  background: color-mix(in srgb, var(--app-bg) 92%, transparent);
+  backdrop-filter: blur(18px);
+}
+
 .topBar {
   display: flex;
   align-items: center;
@@ -106,8 +115,8 @@
   right: max(10px, env(safe-area-inset-right));
   bottom: calc(8px + env(safe-area-inset-bottom));
   z-index: 44;
-  min-height: 78px;
-  padding: 8px;
+  min-height: 86px;
+  padding: 9px 8px;
   border: 1px solid var(--app-border);
   border-radius: 26px;
   background: rgba(255, 255, 255, 0.9);
@@ -124,7 +133,7 @@
 
 .navButton {
   min-width: 0;
-  min-height: 60px;
+  min-height: 68px;
   border: 0;
   border-radius: 19px;
   background: transparent;
@@ -133,17 +142,17 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 6px;
   padding: 6px 2px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 900;
   line-height: 1.1;
   text-align: center;
 }
 
 .navButton ion-icon {
-  width: 28px;
-  height: 28px;
+  width: 31px;
+  height: 31px;
   flex: 0 0 auto;
 }
 
@@ -157,14 +166,62 @@
   transform: translateY(-1px) scale(1.04);
 }
 
+.sheetOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 10px calc(8px + env(safe-area-inset-bottom));
+}
+
+.sheetBackdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(8px);
+}
+
 .quickSheet,
 .aiSheet,
 .searchSheet {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 640px);
+  border: 1px solid var(--app-border);
+  border-radius: 28px 28px 24px 24px;
   padding: 18px 16px calc(24px + env(safe-area-inset-bottom));
   background: var(--app-bg);
   color: var(--app-text);
   max-height: min(86vh, 760px);
   overflow: auto;
+  box-shadow: 0 -24px 60px rgba(15, 23, 42, 0.24);
+  animation: sheetIn 160ms ease-out;
+}
+
+.sheetClose {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 14px;
+  border: 1px solid var(--app-border);
+  border-radius: 18px;
+  background: var(--app-surface-2);
+  color: var(--app-text);
+  font-weight: 900;
+}
+
+@keyframes sheetIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .sheetHandle {
@@ -232,8 +289,15 @@
   line-height: 1.35;
 }
 
+.searchItem ion-icon,
+.searchItem span,
+.searchItem strong,
+.searchItem p {
+  pointer-events: none;
+}
+
 .navIconLabel {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 900;
   line-height: 1.1;
   max-width: 100%;
@@ -259,19 +323,23 @@
   .bottomNav {
     left: max(8px, env(safe-area-inset-left));
     right: max(8px, env(safe-area-inset-right));
-    min-height: 74px;
+    min-height: 80px;
     padding: 7px;
     gap: 2px;
   }
 
   .navButton {
-    min-height: 58px;
+    min-height: 64px;
     border-radius: 17px;
     font-size: 11px;
   }
 
   .navButton ion-icon {
-    width: 26px;
-    height: 26px;
+    width: 28px;
+    height: 28px;
+  }
+
+  .navIconLabel {
+    font-size: 12px;
   }
 }
