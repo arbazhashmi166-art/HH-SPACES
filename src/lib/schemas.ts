@@ -133,11 +133,13 @@ export const memberSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  email: z.string().email("Enter your email"),
+  email: requiredText,
   password: z.string().min(6, "Password must be at least 6 characters")
 });
 
-export const signUpSchema = loginSchema.extend({
+export const signUpSchema = z.object({
+  email: z.string().email("Enter a valid email"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
   fullName: requiredText,
   companyName: requiredText
 });

@@ -1,6 +1,6 @@
 {
-  "name": "SiteTracker Pro",
-  "short_name": "SiteTracker",
+  "name": "H&H SPACES",
+  "short_name": "H&H SPACES",
   "description": "Construction business operating system for sites, labour, materials, payments, reports, AI, and offline sync.",
   "start_url": "./dashboard/",
   "scope": "./",

@@ -1,4 +1,4 @@
-# SiteTracker Pro
+# H&H SPACES
 
 Premium mobile-first construction business management PWA for contractors.
 
@@ -43,7 +43,7 @@ Copy `.env.example` to `.env.local`:
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-public-anon-key
 NEXT_PUBLIC_BASE_PATH=
-NEXT_PUBLIC_APP_NAME=SiteTracker Pro
+NEXT_PUBLIC_APP_NAME=H&H SPACES
 ```
 
 Only use the Supabase anon/public key in the frontend. Do not put service role keys or OpenAI keys in the browser.
@@ -102,14 +102,14 @@ NEXT_PUBLIC_BASE_PATH=/${{ github.event.repository.name }}
 1. Open the GitHub Pages site in Safari.
 2. Tap Share.
 3. Tap Add to Home Screen.
-4. Open SiteTracker Pro from the home screen.
+4. Open H&H SPACES from the home screen.
 
 ## Install On Android
 
 1. Open the GitHub Pages site in Chrome.
 2. Tap the menu.
 3. Tap Install app or Add to Home screen.
-4. Open SiteTracker Pro from the launcher.
+4. Open H&H SPACES from the launcher.
 
 ## Reports
 

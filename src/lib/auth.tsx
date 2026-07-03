@@ -39,6 +39,12 @@ const offlineCompany: Company = {
 };
 
 const offlineRememberKey = "sitetracker.offlineMode";
+const localUserKey = "sitetracker.localUser";
+
+const allowedLocalUsers: Record<string, { password: string; fullName: string; role: Role }> = {
+  SAHIL123: { password: "DAVID9529", fullName: "Sahil", role: "admin" },
+  ARBAZ123: { password: "BUCKY1081", fullName: "Arbaz", role: "admin" }
+};
 
 function isOfflineRemembered() {
   return typeof window !== "undefined" && window.localStorage.getItem(offlineRememberKey) === "1";
@@ -51,6 +57,21 @@ function rememberOfflineMode(enabled: boolean) {
   } else {
     window.localStorage.removeItem(offlineRememberKey);
   }
+}
+
+function rememberLocalUser(username: string | null) {
+  if (typeof window === "undefined") return;
+  if (username) {
+    window.localStorage.setItem(localUserKey, username);
+  } else {
+    window.localStorage.removeItem(localUserKey);
+  }
+}
+
+function rememberedLocalUser() {
+  if (typeof window === "undefined") return null;
+  const username = window.localStorage.getItem(localUserKey);
+  return username ? allowedLocalUsers[username] || null : null;
 }
 
 function recordMeta(userId: string | null) {
@@ -139,9 +160,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (isOfflineRemembered()) {
+        const localUser = rememberedLocalUser();
         setOfflineMode(true);
-        setCompany(offlineCompany);
-        setRole("admin");
+        setCompany({ ...offlineCompany, name: "H&H Spaces" });
+        setProfile(localUser ? { id: "offline-user", full_name: localUser.fullName, phone: null, avatar_url: null } : null);
+        setRole(localUser?.role || "admin");
         setLoading(false);
         return;
       }
@@ -162,9 +185,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loadCompany(nextSession).catch(() => undefined);
       } else {
         if (isOfflineRemembered()) {
+          const localUser = rememberedLocalUser();
           setOfflineMode(true);
-          setCompany(offlineCompany);
-          setRole("admin");
+          setCompany({ ...offlineCompany, name: "H&H Spaces" });
+          setProfile(localUser ? { id: "offline-user", full_name: localUser.fullName, phone: null, avatar_url: null } : null);
+          setRole(localUser?.role || "admin");
           return;
         }
         setProfile(null);
@@ -184,14 +209,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       user: session?.user || null,
       profile,
-      company: offlineMode ? offlineCompany : company,
+      company: offlineMode ? company || { ...offlineCompany, name: "H&H Spaces" } : company,
       role,
       loading,
       offlineMode,
       signIn: async (email, password) => {
+        const username = email.trim().toUpperCase();
+        const localUser = allowedLocalUsers[username];
+        if (localUser) {
+          if (password !== localUser.password) throw new Error("Wrong password for this username.");
+          rememberOfflineMode(true);
+          rememberLocalUser(username);
+          setSession(null);
+          setOfflineMode(true);
+          setProfile({ id: "offline-user", full_name: localUser.fullName, phone: null, avatar_url: null });
+          setCompany({ ...offlineCompany, name: "H&H Spaces" });
+          setRole(localUser.role);
+          return;
+        }
+
+        if (!email.includes("@")) {
+          throw new Error("Use ARBAZ123, SAHIL123, or a Supabase email address.");
+        }
+
         const { error } = await requireSupabase().auth.signInWithPassword({ email, password });
         if (error) throw error;
         rememberOfflineMode(false);
+        rememberLocalUser(null);
         setOfflineMode(false);
       },
       signUp: async ({ email, password, companyName, fullName }) => {
@@ -204,6 +248,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         if (error) throw error;
         rememberOfflineMode(false);
+        rememberLocalUser(null);
         setOfflineMode(false);
         const userId = data.user?.id;
         if (!userId) return;
@@ -237,12 +282,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut: async () => {
         if (supabase) await supabase.auth.signOut();
         rememberOfflineMode(false);
+        rememberLocalUser(null);
         setOfflineMode(false);
+        setProfile(null);
+        setCompany(null);
+        setRole("viewer");
       },
       continueOffline: () => {
         rememberOfflineMode(true);
+        rememberLocalUser(null);
         setOfflineMode(true);
-        setCompany(offlineCompany);
+        setCompany({ ...offlineCompany, name: "H&H Spaces" });
         setRole("admin");
       },
       refreshCompany: async () => loadCompany(session)

@@ -85,8 +85,8 @@ export default function LoginPage() {
 
           {mode === "login" ? (
             <form className={styles.form} onSubmit={onLogin}>
-              <FieldShell label="Email" error={loginForm.formState.errors.email?.message}>
-                <TextInput type="email" autoComplete="email" {...loginForm.register("email")} />
+              <FieldShell label="Username or Email" error={loginForm.formState.errors.email?.message}>
+                <TextInput type="text" autoComplete="username" placeholder="Enter username or email" {...loginForm.register("email")} />
               </FieldShell>
               <FieldShell label="Password" error={loginForm.formState.errors.password?.message}>
                 <TextInput type="password" autoComplete="current-password" {...loginForm.register("password")} />

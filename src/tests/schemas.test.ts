@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { expenseSchema, siteSchema } from "@/lib/schemas";
+import { expenseSchema, loginSchema, siteSchema } from "@/lib/schemas";
 
 describe("schemas", () => {
   it("rejects negative money", () => {
@@ -27,5 +27,10 @@ describe("schemas", () => {
       progress_percent: 10
     });
     expect(result.success).toBe(true);
+  });
+
+  it("accepts approved username login as well as email login", () => {
+    expect(loginSchema.safeParse({ email: "ARBAZ123", password: "BUCKY1081" }).success).toBe(true);
+    expect(loginSchema.safeParse({ email: "sahil123", password: "DAVID9529" }).success).toBe(true);
   });
 });
