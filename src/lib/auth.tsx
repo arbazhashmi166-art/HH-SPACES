@@ -45,8 +45,8 @@ const cloudCompanyId = "hh-spaces-company";
 const cloudCompanyName = "H&H Spaces";
 
 const allowedLocalUsers: Record<string, { password: string; fullName: string; role: Role; cloudEmail: string }> = {
-  SAHIL123: { password: "DAVID9529", fullName: "Sahil", role: "admin", cloudEmail: "sahil123@hhspaces.app" },
-  ARBAZ123: { password: "BUCKY1081", fullName: "Arbaz", role: "admin", cloudEmail: "arbaz123@hhspaces.app" }
+  SAHIL123: { password: "DAVID9529", fullName: "Sahil", role: "admin", cloudEmail: "hhspaces.sahil123@gmail.com" },
+  ARBAZ123: { password: "BUCKY1081", fullName: "Arbaz", role: "admin", cloudEmail: "hhspaces.arbaz123@gmail.com" }
 };
 
 function approvedUserForEmail(email?: string | null) {
@@ -267,12 +267,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const cloudEmail = localUser.cloudEmail;
           const login = await requireSupabase().auth.signInWithPassword({ email: cloudEmail, password });
           if (login.error) {
-            const signup = await requireSupabase().auth.signUp({
-              email: cloudEmail,
-              password,
-              options: { data: { full_name: localUser.fullName } }
-            });
-            if (signup.error) throw signup.error;
+          const signup = await requireSupabase().auth.signUp({
+            email: cloudEmail,
+            password,
+            options: { data: { full_name: localUser.fullName } }
+          });
+            if (signup.error) {
+              const message = signup.error.message.toLowerCase();
+              if (message.includes("rate limit")) {
+                throw new Error(
+                  "Supabase is rate-limiting new cloud user creation. In Supabase Auth, create/confirm the approved users once or wait a few minutes, then login again."
+                );
+              }
+              throw signup.error;
+            }
             if (!signup.data.session) {
               throw new Error("Cloud user created, but Supabase email confirmation is ON. Turn off email confirmation in Supabase Auth, then login again.");
             }

@@ -663,7 +663,7 @@ create policy "company_members insert admin" on public.company_members for inser
     and status = 'active'
     and company_id = 'hh-spaces-company'
     and lower(email) = lower(auth.jwt() ->> 'email')
-    and lower(email) in ('arbaz123@hhspaces.app', 'sahil123@hhspaces.app')
+    and lower(email) in ('hhspaces.arbaz123@gmail.com', 'hhspaces.sahil123@gmail.com')
   )
   or (
     user_id = auth.uid()
