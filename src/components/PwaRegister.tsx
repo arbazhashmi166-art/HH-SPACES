@@ -8,23 +8,44 @@ export function PwaRegister() {
 
   useEffect(() => {
     if (!("serviceWorker" in navigator) || process.env.NODE_ENV !== "production") return;
+    let refreshing = false;
+    const onControllerChange = () => {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    };
+
+    navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
+
     navigator.serviceWorker.register(`${basePath || ""}/sw.js`, { scope: `${basePath || ""}/` }).then((registration) => {
+      registration.update().catch(() => undefined);
+      if (registration.waiting) {
+        registration.waiting.postMessage({ type: "SKIP_WAITING" });
+      }
       registration.addEventListener("updatefound", () => {
         const installing = registration.installing;
         installing?.addEventListener("statechange", () => {
           if (installing.state === "installed" && navigator.serviceWorker.controller) {
             setUpdateReady(true);
+            registration.waiting?.postMessage({ type: "SKIP_WAITING" });
           }
         });
       });
     });
+
+    return () => navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
   }, []);
 
   return (
     updateReady ? (
       <button
         type="button"
-        onClick={() => window.location.reload()}
+        onClick={() => {
+          navigator.serviceWorker.getRegistration(`${basePath || ""}/`)?.then((registration) => {
+            registration?.waiting?.postMessage({ type: "SKIP_WAITING" });
+            window.location.reload();
+          });
+        }}
         style={{
           position: "fixed",
           left: 14,

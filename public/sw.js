@@ -1,4 +1,4 @@
-const CACHE_NAME = "sitetracker-pro-v3";
+const CACHE_NAME = "hh-spaces-v4";
 const APP_SHELL = ["./", "./dashboard/", "./login/", "./manifest.json", "./offline.html", "./icons/icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -12,6 +12,10 @@ self.addEventListener("activate", (event) => {
       .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
       .then(() => self.clients.claim())
   );
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("fetch", (event) => {
