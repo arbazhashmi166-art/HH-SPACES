@@ -195,20 +195,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      if (isOfflineRemembered()) {
-        const localUser = rememberedLocalUser();
-        setOfflineMode(true);
-        setCompany({ ...offlineCompany, name: cloudCompanyName });
-        setProfile(localUser ? { id: "offline-user", full_name: localUser.fullName, phone: null, avatar_url: null } : null);
-        setRole(localUser?.role || "admin");
-        setLoading(false);
-        return;
-      }
-
       const { data } = await supabase.auth.getSession();
       if (!mounted) return;
       setSession(data.session);
-      if (data.session) await loadCompany(data.session);
+      if (data.session) {
+        rememberOfflineMode(false);
+        rememberLocalUser(null);
+        setOfflineMode(false);
+        await loadCompany(data.session);
+      } else if (isOfflineRemembered()) {
+        rememberOfflineMode(false);
+        rememberLocalUser(null);
+        setOfflineMode(false);
+      }
       setLoading(false);
     };
     boot().catch(() => setLoading(false));

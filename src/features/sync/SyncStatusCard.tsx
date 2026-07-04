@@ -50,11 +50,11 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
   const subtitle = !cloudReady
     ? "Supabase keys are missing in this GitHub build. Add GitHub Actions secrets or use the connected build."
     : offlineMode
-      ? "Your entries are saving on this phone/browser only. Login with Supabase email to sync laptop and iPhone data."
+      ? "Your entries are saving on this phone/browser only. Logout, then login with ARBAZ123 or SAHIL123 to sync laptop and iPhone data."
       : online
         ? session
           ? "Online. Entries sync through Supabase and pending local entries can be retried."
-          : "Supabase is configured. Login to your account to sync this device."
+          : "Supabase is configured. Login with ARBAZ123 or SAHIL123 to sync this device."
         : "No internet. Entries are saved locally and queued until this device is online.";
   const actionLabel = !cloudReady
     ? "Supabase Not Configured"
@@ -81,7 +81,7 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
             ? `${pending} saved local ${pending === 1 ? "entry is" : "entries are"} waiting for cloud sync.`
             : session
               ? `${pending} local ${pending === 1 ? "entry" : "entries"} waiting to sync.`
-              : "Use Supabase email login when you want the same data on laptop and phone."}
+              : "Use ARBAZ123 or SAHIL123 login when you want the same data on laptop and phone."}
         </p>
       ) : null}
       {!compact ? (

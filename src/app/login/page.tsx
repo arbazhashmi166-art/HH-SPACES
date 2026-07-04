@@ -91,13 +91,13 @@ export default function LoginPage() {
               <FieldShell label="Password" error={loginForm.formState.errors.password?.message}>
                 <TextInput type="password" autoComplete="current-password" {...loginForm.register("password")} />
               </FieldShell>
-              <p className={styles.note}>Username login uses Supabase cloud sync when the cloud setup is active.</p>
+              <p className={styles.note}>Approved username login connects this device to Supabase cloud sync.</p>
               <Button full disabled={loginForm.formState.isSubmitting}>
                 {loginForm.formState.isSubmitting ? "Signing in..." : "Login"}
               </Button>
               {offlineMode ? null : (
                 <Button type="button" full variant="secondary" onClick={offline}>
-                  Continue Offline
+                  Use This Device Only (No Cloud)
                 </Button>
               )}
             </form>
