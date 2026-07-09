@@ -10,7 +10,7 @@ import { syncPendingMutations } from "@/lib/repository";
 import { supabase } from "@/lib/supabase";
 
 export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
-  const { company, offlineMode, session } = useAuth();
+  const { company, offlineMode, session, cloudLoginIssue } = useAuth();
   const [pending, setPending] = useState(0);
   const [syncing, setSyncing] = useState(false);
   const online = typeof navigator === "undefined" ? true : navigator.onLine;
@@ -50,7 +50,7 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
   const subtitle = !cloudReady
     ? "Supabase keys are missing in this GitHub build. Add GitHub Actions secrets or use the connected build."
     : offlineMode
-      ? "Your entries are saving on this phone/browser only. Logout, then login with ARBAZ123 or SAHIL123 to sync laptop and iPhone data."
+      ? cloudLoginIssue || "Your entries are saving on this phone/browser only. Logout, then login with ARBAZ123 or SAHIL123 to sync laptop and iPhone data."
       : online
         ? session
           ? "Online. Entries sync through Supabase and pending local entries can be retried."

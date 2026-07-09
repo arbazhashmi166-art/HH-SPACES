@@ -21,6 +21,7 @@ type AuthState = {
   signOut: () => Promise<void>;
   continueOffline: () => void;
   refreshCompany: () => Promise<void>;
+  cloudLoginIssue: string | null;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -41,6 +42,7 @@ const offlineCompany: Company = {
 
 const offlineRememberKey = "sitetracker.offlineMode";
 const localUserKey = "sitetracker.localUser";
+const cloudLoginIssueKey = "sitetracker.cloudLoginIssue";
 const cloudCompanyId = "hh-spaces-company";
 const cloudCompanyName = "H&H Spaces";
 
@@ -77,6 +79,20 @@ function rememberLocalUser(username: string | null) {
   }
 }
 
+function rememberCloudLoginIssue(issue: string | null) {
+  if (typeof window === "undefined") return;
+  if (issue) {
+    window.localStorage.setItem(cloudLoginIssueKey, issue);
+  } else {
+    window.localStorage.removeItem(cloudLoginIssueKey);
+  }
+}
+
+function rememberedCloudLoginIssue() {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(cloudLoginIssueKey);
+}
+
 function rememberedLocalUser() {
   if (typeof window === "undefined") return null;
   const username = window.localStorage.getItem(localUserKey);
@@ -105,6 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<Role>("viewer");
   const [loading, setLoading] = useState(true);
   const [offlineMode, setOfflineMode] = useState(false);
+  const [cloudLoginIssue, setCloudLoginIssue] = useState<string | null>(null);
 
   const loadCompany = useCallback(async (currentSession: Session | null) => {
     if (!currentSession || !supabase) return;
@@ -191,6 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setOfflineMode(true);
         setCompany(offlineCompany);
         setRole("admin");
+        setCloudLoginIssue("Supabase keys are not configured in this build. Data is saved on this device only.");
         setLoading(false);
         return;
       }
@@ -201,12 +219,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.session) {
         rememberOfflineMode(false);
         rememberLocalUser(null);
+        rememberCloudLoginIssue(null);
+        setCloudLoginIssue(null);
         setOfflineMode(false);
         await loadCompany(data.session);
       } else if (isOfflineRemembered()) {
-        rememberOfflineMode(false);
-        rememberLocalUser(null);
-        setOfflineMode(false);
+        const localUser = rememberedLocalUser();
+        const issue = rememberedCloudLoginIssue();
+        if (localUser && issue) {
+          setOfflineMode(true);
+          setCloudLoginIssue(issue);
+          setCompany({ ...offlineCompany, name: cloudCompanyName });
+          setProfile({ id: "offline-user", full_name: localUser.fullName, phone: null, avatar_url: null });
+          setRole(localUser.role);
+        } else {
+          rememberOfflineMode(false);
+          rememberLocalUser(null);
+          rememberCloudLoginIssue(null);
+          setOfflineMode(false);
+          setCloudLoginIssue(null);
+        }
       }
       setLoading(false);
     };
@@ -216,11 +248,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(nextSession);
       if (nextSession) {
         rememberOfflineMode(false);
+        rememberCloudLoginIssue(null);
+        setCloudLoginIssue(null);
         setOfflineMode(false);
         loadCompany(nextSession).catch(() => undefined);
       } else {
         if (isOfflineRemembered()) {
           const localUser = rememberedLocalUser();
+          const issue = rememberedCloudLoginIssue();
+          setCloudLoginIssue(issue);
           setOfflineMode(true);
           setCompany({ ...offlineCompany, name: cloudCompanyName });
           setProfile(localUser ? { id: "offline-user", full_name: localUser.fullName, phone: null, avatar_url: null } : null);
@@ -248,44 +284,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role,
       loading,
       offlineMode,
+      cloudLoginIssue,
       signIn: async (email, password) => {
         const username = email.trim().toUpperCase();
         const localUser = allowedLocalUsers[username];
         if (localUser) {
           if (password !== localUser.password) throw new Error("Wrong password for this username.");
-          if (!supabase) {
+          const startApprovedOffline = (issue: string) => {
             rememberOfflineMode(true);
             rememberLocalUser(username);
+            rememberCloudLoginIssue(issue);
             setSession(null);
             setOfflineMode(true);
+            setCloudLoginIssue(issue);
             setProfile({ id: "offline-user", full_name: localUser.fullName, phone: null, avatar_url: null });
             setCompany({ ...offlineCompany, name: cloudCompanyName });
             setRole(localUser.role);
+          };
+
+          if (!supabase) {
+            startApprovedOffline("Supabase is not configured in this build. Data is saved on this device only.");
             return;
           }
 
           const cloudEmail = localUser.cloudEmail;
           const login = await requireSupabase().auth.signInWithPassword({ email: cloudEmail, password });
           if (login.error) {
-          const signup = await requireSupabase().auth.signUp({
-            email: cloudEmail,
-            password,
-            options: { data: { full_name: localUser.fullName } }
-          });
+            const signup = await requireSupabase().auth.signUp({
+              email: cloudEmail,
+              password,
+              options: { data: { full_name: localUser.fullName } }
+            });
             if (signup.error) {
               const message = signup.error.message.toLowerCase();
               if (message.includes("rate limit")) {
-                throw new Error(
-                  "Supabase is rate-limiting new cloud user creation. In Supabase Auth, create/confirm the approved users once or wait a few minutes, then login again."
+                startApprovedOffline(
+                  "Supabase is rate-limiting cloud user creation. You can work on this device now; confirm/create the approved Supabase users to enable cloud sync."
                 );
+                return;
+              }
+              if (message.includes("email not confirmed") || message.includes("confirm")) {
+                startApprovedOffline(
+                  "Supabase cloud login is blocked because the approved user email is not confirmed. Data is saved on this device until that Supabase user is confirmed."
+                );
+                return;
               }
               throw signup.error;
             }
             if (!signup.data.session) {
-              throw new Error("Cloud user created, but Supabase email confirmation is ON. Turn off email confirmation in Supabase Auth, then login again.");
+              startApprovedOffline(
+                "Supabase email confirmation is ON. Data is saved on this device until email confirmation is disabled or the approved user is confirmed."
+              );
+              return;
             }
             rememberOfflineMode(false);
             rememberLocalUser(null);
+            rememberCloudLoginIssue(null);
+            setCloudLoginIssue(null);
             setOfflineMode(false);
             setSession(signup.data.session);
             await loadCompany(signup.data.session);
@@ -295,6 +350,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (!login.data.session) throw new Error("Cloud login failed. Check Supabase Auth settings.");
           rememberOfflineMode(false);
           rememberLocalUser(null);
+          rememberCloudLoginIssue(null);
+          setCloudLoginIssue(null);
           setOfflineMode(false);
           setSession(login.data.session);
           await loadCompany(login.data.session);
@@ -309,6 +366,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error) throw error;
         rememberOfflineMode(false);
         rememberLocalUser(null);
+        rememberCloudLoginIssue(null);
+        setCloudLoginIssue(null);
         setOfflineMode(false);
       },
       signUp: async ({ email, password, companyName, fullName }) => {
@@ -322,6 +381,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error) throw error;
         rememberOfflineMode(false);
         rememberLocalUser(null);
+        rememberCloudLoginIssue(null);
+        setCloudLoginIssue(null);
         setOfflineMode(false);
         const userId = data.user?.id;
         if (!userId) return;
@@ -356,6 +417,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (supabase) await supabase.auth.signOut();
         rememberOfflineMode(false);
         rememberLocalUser(null);
+        rememberCloudLoginIssue(null);
+        setCloudLoginIssue(null);
         setOfflineMode(false);
         setProfile(null);
         setCompany(null);
@@ -364,13 +427,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       continueOffline: () => {
         rememberOfflineMode(true);
         rememberLocalUser(null);
+        rememberCloudLoginIssue("You selected device-only mode. Data will not sync to another phone until cloud login is used.");
+        setCloudLoginIssue("You selected device-only mode. Data will not sync to another phone until cloud login is used.");
         setOfflineMode(true);
         setCompany({ ...offlineCompany, name: cloudCompanyName });
         setRole("admin");
       },
       refreshCompany: async () => loadCompany(session)
     }),
-    [company, loadCompany, loading, offlineMode, profile, role, session]
+    [cloudLoginIssue, company, loadCompany, loading, offlineMode, profile, role, session]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
