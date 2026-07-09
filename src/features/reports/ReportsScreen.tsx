@@ -6,6 +6,7 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { useAuth } from "@/lib/auth";
 import { useRecords } from "@/lib/repository";
 import { exportCsv, exportExcel, exportPdf, type ReportRow } from "@/services/export";
+import { automationEngine } from "@/utils/automation-engine";
 import { businessIntelligence } from "@/utils/business-logic";
 import { dashboardMetrics } from "@/utils/calc";
 import { formatMoney } from "@/utils/format";
@@ -30,6 +31,7 @@ export function ReportsScreen() {
   const payments = useRecords("client_payments", company?.id);
   const supplierPayments = useRecords("supplier_payments", company?.id);
   const progress = useRecords("progress_updates", company?.id);
+  const reminders = useRecords("reminders", company?.id);
 
   const metrics = dashboardMetrics({
     sites: sites.data || [],
@@ -53,6 +55,22 @@ export function ReportsScreen() {
         progress: progress.data || []
       }),
     [attendance.data, expenses.data, materials.data, payments.data, progress.data, sites.data, supplierPayments.data]
+  );
+
+  const automation = useMemo(
+    () =>
+      automationEngine({
+        sites: sites.data || [],
+        labour: labour.data || [],
+        attendance: attendance.data || [],
+        materials: materials.data || [],
+        expenses: expenses.data || [],
+        payments: payments.data || [],
+        supplierPayments: supplierPayments.data || [],
+        progress: progress.data || [],
+        reminders: reminders.data || []
+      }),
+    [attendance.data, expenses.data, labour.data, materials.data, payments.data, progress.data, reminders.data, sites.data, supplierPayments.data]
   );
 
   const reports = useMemo<ReportDef[]>(
@@ -184,9 +202,61 @@ export function ReportsScreen() {
           action: item.title,
           details: item.message
         }))
+      },
+      {
+        key: "automation-report",
+        title: "Automation Report",
+        description: "Business autopilot score, cashflow radar, automation rules, and next best actions.",
+        rows: [
+          { section: "Operating score", metric: automation.scoreLabel, value: `${automation.operatingScore}/100` },
+          { section: "Cashflow", metric: "Client pending", value: formatMoney(automation.cashflow.pendingClient) },
+          { section: "Cashflow", metric: "Supplier exposure", value: formatMoney(automation.cashflow.supplierExposure) },
+          { section: "Cashflow", metric: "Labour balance", value: formatMoney(automation.cashflow.labourBalance) },
+          { section: "Cashflow", metric: "Net after payables", value: formatMoney(automation.cashflow.netToCollectAfterPayables) },
+          ...automation.actions.map((item) => ({
+            section: "Next action",
+            metric: item.severity,
+            value: item.title,
+            details: item.description
+          })),
+          ...automation.rules.map((item) => ({
+            section: "Rule",
+            metric: item.status,
+            value: item.title,
+            details: item.description
+          }))
+        ]
+      },
+      {
+        key: "daily-close-checklist",
+        title: "Daily Closing Checklist",
+        description: "End-of-day operating checklist for attendance, costs, progress, payments, and reminders.",
+        rows: automation.checklist.map((item) => ({
+          task: item.title,
+          status: item.done ? "Done" : "Open",
+          details: item.description
+        }))
       }
     ],
-    [expenses.data, intelligence.focusActions, intelligence.siteHealth, labour.data, materials.data, metrics, payments.data, progress.data, sites.data, supplierPayments.data, suppliers.data]
+    [
+      automation.actions,
+      automation.cashflow,
+      automation.checklist,
+      automation.operatingScore,
+      automation.rules,
+      automation.scoreLabel,
+      expenses.data,
+      intelligence.focusActions,
+      intelligence.siteHealth,
+      labour.data,
+      materials.data,
+      metrics,
+      payments.data,
+      progress.data,
+      sites.data,
+      supplierPayments.data,
+      suppliers.data
+    ]
   );
 
   const exportReport = async (report: ReportDef, type: "pdf" | "csv" | "excel") => {

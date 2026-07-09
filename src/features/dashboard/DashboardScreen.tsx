@@ -4,11 +4,13 @@ import { IonIcon } from "@ionic/react";
 import { useRouter } from "next/navigation";
 import { alertCircleOutline, calendarOutline, cubeOutline, receiptOutline, walletOutline } from "ionicons/icons";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { quickActions } from "@/config/routes";
 import { useAuth } from "@/lib/auth";
 import { useRecords } from "@/lib/repository";
+import { automationEngine } from "@/utils/automation-engine";
 import { businessIntelligence } from "@/utils/business-logic";
 import { dashboardMetrics } from "@/utils/calc";
 import { formatMoney } from "@/utils/format";
@@ -25,6 +27,7 @@ export function DashboardScreen() {
   const payments = useRecords("client_payments", company?.id);
   const supplierPayments = useRecords("supplier_payments", company?.id);
   const progress = useRecords("progress_updates", company?.id);
+  const reminders = useRecords("reminders", company?.id);
   const activity = useRecords("activity_logs", company?.id);
 
   const metrics = dashboardMetrics({
@@ -46,6 +49,19 @@ export function DashboardScreen() {
     supplierPayments: supplierPayments.data || [],
     progress: progress.data || []
   });
+
+  const automation = automationEngine({
+    sites: sites.data || [],
+    labour: labour.data || [],
+    attendance: attendance.data || [],
+    materials: materials.data || [],
+    expenses: expenses.data || [],
+    payments: payments.data || [],
+    supplierPayments: supplierPayments.data || [],
+    progress: progress.data || [],
+    reminders: reminders.data || []
+  });
+  const topAutomationAction = automation.actions[0];
 
   const progressAverage =
     (sites.data || []).length > 0
@@ -108,6 +124,42 @@ export function DashboardScreen() {
           <Badge tone="neutral">Other costs</Badge>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader title="Business Autopilot" subtitle="Automatic operating score, cashflow pressure, and next best action." />
+        <div className={styles.autopilot}>
+          <div className={styles.scoreBox}>
+            <span>Score</span>
+            <strong>{automation.operatingScore}/100</strong>
+            <p>{automation.scoreLabel}</p>
+          </div>
+          <div className={styles.cashBox}>
+            <span>Cash Pressure</span>
+            <strong>{automation.cashflow.pressure}</strong>
+            <p>Client pending {formatMoney(automation.cashflow.pendingClient)}</p>
+            <p>Payables {formatMoney(automation.cashflow.supplierExposure + automation.cashflow.labourBalance)}</p>
+          </div>
+        </div>
+        <div className={styles.autopilotAction}>
+          {topAutomationAction ? (
+            <>
+              <div>
+                <strong>{topAutomationAction.title}</strong>
+                <p>{topAutomationAction.description}</p>
+              </div>
+              <Button onClick={() => router.push(topAutomationAction.route)}>{topAutomationAction.primaryAction}</Button>
+            </>
+          ) : (
+            <>
+              <div>
+                <strong>No urgent action</strong>
+                <p>Open automations for cashflow radar, daily checklist, and all active rules.</p>
+              </div>
+              <Button onClick={() => router.push("/automations")}>Open Auto</Button>
+            </>
+          )}
+        </div>
+      </Card>
 
       <Card>
         <CardHeader title="Quick Actions" subtitle="Large touch targets for one-hand daily entry." />

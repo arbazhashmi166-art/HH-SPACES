@@ -89,6 +89,69 @@
   align-content: space-between;
 }
 
+.autopilot {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.scoreBox,
+.cashBox {
+  min-height: 118px;
+  border-radius: 20px;
+  padding: 13px;
+  background: var(--app-surface-2);
+}
+
+.scoreBox {
+  color: #fff;
+  background: linear-gradient(135deg, #111827, #2948ff 58%, #00a7b5);
+}
+
+.scoreBox span,
+.cashBox span {
+  display: block;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  color: var(--app-muted);
+}
+
+.scoreBox span {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.scoreBox strong,
+.cashBox strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.scoreBox p,
+.cashBox p,
+.autopilotAction p {
+  margin: 6px 0 0;
+  color: var(--app-muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.scoreBox p {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.autopilotAction {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  border-radius: 20px;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface);
+  padding: 12px;
+}
+
 .quickGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
