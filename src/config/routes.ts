@@ -56,6 +56,7 @@ export const appRoutes: AppRoute[] = [
   { path: "/progress", label: "Site Progress", shortLabel: "Progress", icon: constructOutline, group: "business", description: "Progress timeline, notes, percentages, and photos." },
   { path: "/reports", label: "Reports", icon: documentTextOutline, group: "business", description: "Daily, weekly, monthly, site, labour, material, payment, and profit reports." },
   { path: "/automations", label: "Automations", shortLabel: "Auto", icon: analyticsOutline, group: "system", description: "Business autopilot, cashflow radar, next actions, and daily closing checklist." },
+  { path: "/market-radar", label: "Market Radar", shortLabel: "Radar", icon: barChartOutline, group: "system", description: "Latest construction-tech capability score and upgrade playbook." },
   { path: "/ai", label: "AI Assistant", shortLabel: "AI", icon: sparklesOutline, group: "system", description: "Ask questions, create drafts, confirm smart entries, and generate summaries." },
   { path: "/memory", label: "Smart Memory", shortLabel: "Memory", icon: heartCircleOutline, group: "system", description: "Business memory, site memory, supplier memory, and AI recall." },
   { path: "/reminders", label: "Reminders", icon: notificationsOutline, group: "system", description: "Payment, attendance, supplier, labour, and custom reminders." },

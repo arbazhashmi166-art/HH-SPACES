@@ -10,6 +10,7 @@ import { automationEngine } from "@/utils/automation-engine";
 import { businessIntelligence } from "@/utils/business-logic";
 import { dashboardMetrics } from "@/utils/calc";
 import { formatMoney } from "@/utils/format";
+import { marketRadar } from "@/utils/market-radar";
 import styles from "./Reports.module.css";
 
 type ReportDef = {
@@ -31,7 +32,9 @@ export function ReportsScreen() {
   const payments = useRecords("client_payments", company?.id);
   const supplierPayments = useRecords("supplier_payments", company?.id);
   const progress = useRecords("progress_updates", company?.id);
+  const progressPhotos = useRecords("progress_photos", company?.id);
   const reminders = useRecords("reminders", company?.id);
+  const aiMessages = useRecords("ai_messages", company?.id);
 
   const metrics = dashboardMetrics({
     sites: sites.data || [],
@@ -71,6 +74,38 @@ export function ReportsScreen() {
         reminders: reminders.data || []
       }),
     [attendance.data, expenses.data, labour.data, materials.data, payments.data, progress.data, reminders.data, sites.data, supplierPayments.data]
+  );
+
+  const radar = useMemo(
+    () =>
+      marketRadar({
+        sites: sites.data || [],
+        labour: labour.data || [],
+        attendance: attendance.data || [],
+        materials: materials.data || [],
+        suppliers: suppliers.data || [],
+        expenses: expenses.data || [],
+        payments: payments.data || [],
+        supplierPayments: supplierPayments.data || [],
+        progress: progress.data || [],
+        progressPhotos: progressPhotos.data || [],
+        reminders: reminders.data || [],
+        aiMessages: aiMessages.data || []
+      }),
+    [
+      aiMessages.data,
+      attendance.data,
+      expenses.data,
+      labour.data,
+      materials.data,
+      payments.data,
+      progress.data,
+      progressPhotos.data,
+      reminders.data,
+      sites.data,
+      supplierPayments.data,
+      suppliers.data
+    ]
   );
 
   const reports = useMemo<ReportDef[]>(
@@ -236,6 +271,26 @@ export function ReportsScreen() {
           status: item.done ? "Done" : "Open",
           details: item.description
         }))
+      },
+      {
+        key: "market-radar-report",
+        title: "Market Radar Report",
+        description: "Latest construction-tech capability score and upgrade priorities for H&H SPACES.",
+        rows: [
+          { section: "Market power", metric: radar.headline, value: `${radar.marketPowerScore}/100` },
+          ...radar.capabilities.map((item) => ({
+            section: "Capability",
+            metric: item.status,
+            value: `${item.powerScore}/100 ${item.title}`,
+            details: item.businessValue
+          })),
+          ...radar.playbook.map((item) => ({
+            section: "Playbook",
+            metric: item.cadence,
+            value: item.title,
+            details: item.description
+          }))
+        ]
       }
     ],
     [
@@ -253,6 +308,10 @@ export function ReportsScreen() {
       metrics,
       payments.data,
       progress.data,
+      radar.capabilities,
+      radar.headline,
+      radar.marketPowerScore,
+      radar.playbook,
       sites.data,
       supplierPayments.data,
       suppliers.data
