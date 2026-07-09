@@ -105,6 +105,20 @@ as $$
   select coalesce(public.user_role_for_company(target_company_id) = 'admin', false)
 $$;
 
+create or replace function public.owns_company(target_company_id text)
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.companies c
+    where c.id = target_company_id
+      and c.owner_id = auth.uid()
+  )
+$$;
+
 create table if not exists public.sites (
   id text primary key,
   company_id text not null references public.companies(id) on delete cascade,
@@ -595,7 +609,7 @@ do $$
 declare
   t text;
 begin
-  foreach t in array[
+  foreach t in array array[
     'profiles','companies','company_members','sites','labour','attendance','labour_payments','suppliers','materials','expenses',
     'client_payments','supplier_payments','progress_updates','progress_photos','reminders','notifications','activity_logs','audit_logs',
     'offline_sync_queue','ai_conversations','ai_messages','ai_memories','ai_memory_links','smart_suggestions','user_preferences','data_health_checks'
@@ -642,7 +656,7 @@ do $$
 declare
   t text;
 begin
-  foreach t in array[
+  foreach t in array array[
     'sites','labour','attendance','labour_payments','suppliers','materials','expenses','client_payments','supplier_payments',
     'progress_updates','progress_photos','reminders','notifications','activity_logs','audit_logs','offline_sync_queue',
     'ai_conversations','ai_messages','ai_memories','ai_memory_links','smart_suggestions','user_preferences','data_health_checks'
@@ -668,12 +682,7 @@ create policy "company_members insert admin" on public.company_members for inser
   or (
     user_id = auth.uid()
     and status = 'active'
-    and exists (
-      select 1
-      from public.companies c
-      where c.id = company_id
-        and c.owner_id = auth.uid()
-    )
+    and public.owns_company(company_id)
   )
 );
 create policy "company_members update admin" on public.company_members for update using (public.is_company_admin(company_id)) with check (public.is_company_admin(company_id));
