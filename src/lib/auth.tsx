@@ -48,7 +48,7 @@ const cloudCompanyName = "H&H Spaces";
 
 const allowedLocalUsers: Record<string, { password: string; fullName: string; role: Role; cloudEmail: string }> = {
   SAHIL123: { password: "DAVID9529", fullName: "Sahil", role: "admin", cloudEmail: "hhspaces.sahil123@gmail.com" },
-  ARBAZ123: { password: "BUCKY1081", fullName: "Arbaz", role: "admin", cloudEmail: "hhspaces.arbaz123@gmail.com" }
+  ARBAZ123: { password: "BUCKY1081", fullName: "Arbaz", role: "admin", cloudEmail: "arbazhashmi166@gmail.com" }
 };
 
 function approvedUserForEmail(email?: string | null) {
@@ -310,6 +310,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const cloudEmail = localUser.cloudEmail;
           const login = await requireSupabase().auth.signInWithPassword({ email: cloudEmail, password });
           if (login.error) {
+            const loginMessage = login.error.message.toLowerCase();
+            if (loginMessage.includes("email not confirmed") || loginMessage.includes("confirm")) {
+              startApprovedOffline(
+                `Supabase cloud login is blocked because ${cloudEmail} is not confirmed in Supabase Auth. Data is saved on this device until that user is confirmed.`
+              );
+              return;
+            }
             const signup = await requireSupabase().auth.signUp({
               email: cloudEmail,
               password,
@@ -326,6 +333,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               if (message.includes("email not confirmed") || message.includes("confirm")) {
                 startApprovedOffline(
                   "Supabase cloud login is blocked because the approved user email is not confirmed. Data is saved on this device until that Supabase user is confirmed."
+                );
+                return;
+              }
+              if (message.includes("already") || message.includes("registered")) {
+                startApprovedOffline(
+                  `Supabase already has ${cloudEmail}, but it is not accepting this app password. Reset that Supabase Auth user's password to this app password, or login with the email and its real Supabase password.`
                 );
                 return;
               }
