@@ -5,6 +5,7 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useAuth } from "@/lib/auth";
 import { useRecords } from "@/lib/repository";
+import { businessIntelligence } from "@/utils/business-logic";
 import { formatMoney } from "@/utils/format";
 
 type HealthItem = {
@@ -21,6 +22,7 @@ export function DataHealthScreen() {
   const expenses = useRecords("expenses", company?.id);
   const payments = useRecords("client_payments", company?.id);
   const supplierPayments = useRecords("supplier_payments", company?.id);
+  const progress = useRecords("progress_updates", company?.id);
 
   const items: HealthItem[] = [];
   const attendanceKeys = new Set<string>();
@@ -55,6 +57,39 @@ export function DataHealthScreen() {
     }
     if (sitePayments === 0 && site.status === "active") {
       items.push({ title: "No payment mapped", message: `${site.name} has no client payment record yet.`, severity: "info" });
+    }
+  }
+
+  const intelligence = businessIntelligence({
+    sites: sites.data || [],
+    attendance: attendance.data || [],
+    materials: materials.data || [],
+    expenses: expenses.data || [],
+    payments: payments.data || [],
+    supplierPayments: supplierPayments.data || [],
+    progress: progress.data || []
+  });
+
+  for (const site of intelligence.siteHealth) {
+    if (site.riskLevel === "critical") {
+      items.push({
+        title: "Critical site risk",
+        message: `${site.siteName} risk is ${site.riskScore}%. Budget used ${site.budgetUsedPercent}%, payment coverage ${site.paymentCoveragePercent}%.`,
+        severity: "critical"
+      });
+    } else if (site.riskLevel === "warning") {
+      items.push({
+        title: "Site risk warning",
+        message: `${site.siteName} risk is ${site.riskScore}%. Check payment, budget, and progress.`,
+        severity: "warning"
+      });
+    }
+    if (site.daysSinceProgress != null && site.daysSinceProgress >= 4) {
+      items.push({
+        title: "Progress update stale",
+        message: `${site.siteName} has no progress update for ${site.daysSinceProgress} days.`,
+        severity: "warning"
+      });
     }
   }
 

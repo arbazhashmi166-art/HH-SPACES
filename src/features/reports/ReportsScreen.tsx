@@ -6,7 +6,8 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { useAuth } from "@/lib/auth";
 import { useRecords } from "@/lib/repository";
 import { exportCsv, exportExcel, exportPdf, type ReportRow } from "@/services/export";
-import { dashboardMetrics, sumBy } from "@/utils/calc";
+import { businessIntelligence } from "@/utils/business-logic";
+import { dashboardMetrics } from "@/utils/calc";
 import { formatMoney } from "@/utils/format";
 import styles from "./Reports.module.css";
 
@@ -39,6 +40,20 @@ export function ReportsScreen() {
     payments: payments.data || [],
     supplierPayments: supplierPayments.data || []
   });
+
+  const intelligence = useMemo(
+    () =>
+      businessIntelligence({
+        sites: sites.data || [],
+        attendance: attendance.data || [],
+        materials: materials.data || [],
+        expenses: expenses.data || [],
+        payments: payments.data || [],
+        supplierPayments: supplierPayments.data || [],
+        progress: progress.data || []
+      }),
+    [attendance.data, expenses.data, materials.data, payments.data, progress.data, sites.data, supplierPayments.data]
+  );
 
   const reports = useMemo<ReportDef[]>(
     () => [
@@ -139,9 +154,39 @@ export function ReportsScreen() {
           percent: `${item.progress_percent}%`,
           description: item.description
         }))
+      },
+      {
+        key: "site-risk-report",
+        title: "Smart Site Risk Report",
+        description: "Budget usage, payment coverage, delay risk, progress age, and calculated site risk score.",
+        rows: intelligence.siteHealth.map((site) => ({
+          site: site.siteName,
+          client: site.clientName,
+          status: site.status,
+          progress: `${site.progressPercent}%`,
+          cost: formatMoney(site.totalCost),
+          received: formatMoney(site.received),
+          pending_client: formatMoney(site.pendingClient),
+          profit: formatMoney(site.profit),
+          budget_used: `${site.budgetUsedPercent}%`,
+          payment_coverage: `${site.paymentCoveragePercent}%`,
+          days_to_due: site.daysUntilDue ?? "",
+          days_since_progress: site.daysSinceProgress ?? "",
+          risk: `${site.riskScore}% ${site.riskLevel}`
+        }))
+      },
+      {
+        key: "today-focus-report",
+        title: "Today Focus Report",
+        description: "Priority actions generated from payment, budget, attendance, delay, and progress logic.",
+        rows: intelligence.focusActions.map((item) => ({
+          priority: item.severity,
+          action: item.title,
+          details: item.message
+        }))
       }
     ],
-    [attendance.data, expenses.data, labour.data, materials.data, metrics, payments.data, progress.data, sites.data, supplierPayments.data, suppliers.data]
+    [expenses.data, intelligence.focusActions, intelligence.siteHealth, labour.data, materials.data, metrics, payments.data, progress.data, sites.data, supplierPayments.data, suppliers.data]
   );
 
   const exportReport = async (report: ReportDef, type: "pdf" | "csv" | "excel") => {

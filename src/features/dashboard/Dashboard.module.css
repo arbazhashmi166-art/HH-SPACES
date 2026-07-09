@@ -122,6 +122,11 @@
   background: rgba(245, 158, 11, 0.12);
 }
 
+.alertCritical {
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.12);
+}
+
 .alert strong {
   display: block;
 }
@@ -137,4 +142,19 @@
 .timelineItem {
   border-left: 3px solid var(--app-primary);
   padding: 2px 0 2px 12px;
+}
+
+.riskItem {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  border-radius: 18px;
+  border: 1px solid var(--app-border);
+  padding: 12px;
+  background: var(--app-surface-2);
+}
+
+.riskItem strong {
+  display: block;
 }
