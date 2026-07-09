@@ -30,7 +30,7 @@ describe("schemas", () => {
   });
 
   it("accepts approved username login as well as email login", () => {
-    expect(loginSchema.safeParse({ email: "ARBAZ123", password: "BUCKY1081" }).success).toBe(true);
+    expect(loginSchema.safeParse({ email: "ARBAZ123", password: "Bucky1081" }).success).toBe(true);
     expect(loginSchema.safeParse({ email: "sahil123", password: "DAVID9529" }).success).toBe(true);
   });
 });

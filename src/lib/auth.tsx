@@ -48,7 +48,7 @@ const cloudCompanyName = "H&H Spaces";
 
 const allowedLocalUsers: Record<string, { password: string; fullName: string; role: Role; cloudEmail: string }> = {
   SAHIL123: { password: "DAVID9529", fullName: "Sahil", role: "admin", cloudEmail: "hhspaces.sahil123@gmail.com" },
-  ARBAZ123: { password: "BUCKY1081", fullName: "Arbaz", role: "admin", cloudEmail: "arbazhashmi166@gmail.com" }
+  ARBAZ123: { password: "Bucky1081", fullName: "Arbaz", role: "admin", cloudEmail: "arbazhashmi166@gmail.com" }
 };
 
 function approvedUserForEmail(email?: string | null) {
