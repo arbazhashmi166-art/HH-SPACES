@@ -6,7 +6,7 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
 import { useAuth } from "@/lib/auth";
-import { syncPendingMutations } from "@/lib/repository";
+import { AUTO_SYNC_EVENT, syncPendingMutations } from "@/lib/repository";
 import { supabase } from "@/lib/supabase";
 
 export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
@@ -24,8 +24,17 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
 
   useEffect(() => {
     refresh().catch(() => undefined);
+    const onSyncRequest = () => refresh().catch(() => undefined);
     const timer = window.setInterval(() => refresh().catch(() => undefined), 4000);
-    return () => window.clearInterval(timer);
+    window.addEventListener(AUTO_SYNC_EVENT, onSyncRequest);
+    window.addEventListener("online", onSyncRequest);
+    window.addEventListener("focus", onSyncRequest);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener(AUTO_SYNC_EVENT, onSyncRequest);
+      window.removeEventListener("online", onSyncRequest);
+      window.removeEventListener("focus", onSyncRequest);
+    };
   }, [refresh]);
 
   const sync = async () => {
@@ -53,7 +62,7 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
       ? cloudLoginIssue || "Your entries are saving on this phone/browser only. Logout, then login with ARBAZ123 or SAHIL123 to sync laptop and iPhone data."
       : online
         ? session
-          ? "Online. Entries sync through Supabase and pending local entries can be retried."
+          ? "Auto-save is on. Entries save instantly on this device and auto-sync to Supabase in the background."
           : "Supabase is configured. Login with ARBAZ123 or SAHIL123 to sync this device."
         : "No internet. Entries are saved locally and queued until this device is online.";
   const actionLabel = !cloudReady
@@ -80,7 +89,9 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
           {offlineMode
             ? `${pending} saved local ${pending === 1 ? "entry is" : "entries are"} waiting for cloud sync.`
             : session
-              ? `${pending} local ${pending === 1 ? "entry" : "entries"} waiting to sync.`
+              ? pending
+                ? `${pending} saved ${pending === 1 ? "entry is" : "entries are"} queued. Auto-sync will retry every few seconds.`
+                : "All saved entries are synced. New entries will auto-save and auto-sync."
               : "Use ARBAZ123 or SAHIL123 login when you want the same data on laptop and phone."}
         </p>
       ) : null}

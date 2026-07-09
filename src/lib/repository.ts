@@ -31,8 +31,15 @@ export const syncableTables: TableName[] = [
   "data_health_checks"
 ];
 
+export const AUTO_SYNC_EVENT = "hh-spaces:auto-sync-request";
+
 function isBrowserOnline() {
   return typeof navigator === "undefined" ? true : navigator.onLine;
+}
+
+function requestAutoSync(companyId: string) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(AUTO_SYNC_EVENT, { detail: { companyId } }));
 }
 
 function nowIso() {
@@ -105,6 +112,7 @@ export async function fetchRecords<T extends TableName>(table: T, companyId: str
 
 export async function queueMutation(mutation: PendingMutation) {
   await db.pendingMutations.put(mutation);
+  requestAutoSync(mutation.companyId);
 }
 
 async function applyLocal<T extends TableName>(table: T, companyId: string, record: EntityMap[T]) {
@@ -134,6 +142,7 @@ export async function createRecord<T extends TableName>(
 
   await applyLocal(table, companyId, record);
 
+  let lastError: string | null = null;
   if (supabase && isBrowserOnline()) {
     const { error } = await requireSupabase().from(table).insert(record);
     if (!error) {
@@ -141,6 +150,7 @@ export async function createRecord<T extends TableName>(
       await applyLocal(table, companyId, syncedRecord);
       return syncedRecord;
     }
+    lastError = error.message;
   }
 
   await queueMutation({
@@ -152,7 +162,7 @@ export async function createRecord<T extends TableName>(
     idempotencyKey,
     payload: record as Record<string, unknown>,
     retryCount: 0,
-    lastError: null,
+    lastError,
     createdAt: nowIso(),
     updatedAt: nowIso()
   });
@@ -183,6 +193,7 @@ export async function updateRecord<T extends TableName>(
 
   await applyLocal(table, companyId, record);
 
+  let lastError: string | null = null;
   if (supabase && isBrowserOnline()) {
     const { error } = await requireSupabase()
       .from(table)
@@ -194,6 +205,7 @@ export async function updateRecord<T extends TableName>(
       await applyLocal(table, companyId, syncedRecord);
       return syncedRecord;
     }
+    lastError = error.message;
   }
 
   await queueMutation({
@@ -205,7 +217,7 @@ export async function updateRecord<T extends TableName>(
     idempotencyKey,
     payload: { ...values, updated_at: record.updated_at },
     retryCount: 0,
-    lastError: null,
+    lastError,
     createdAt: nowIso(),
     updatedAt: nowIso()
   });
@@ -230,6 +242,7 @@ export async function deleteRecord<T extends TableName>(table: T, companyId: str
     } as EntityMap[T]);
   }
 
+  let lastError: string | null = null;
   if (supabase && isBrowserOnline()) {
     const { error } = await requireSupabase()
       .from(table)
@@ -237,6 +250,7 @@ export async function deleteRecord<T extends TableName>(table: T, companyId: str
       .eq("id", recordId)
       .eq("company_id", companyId);
     if (!error) return;
+    lastError = error.message;
   }
 
   await queueMutation({
@@ -248,7 +262,7 @@ export async function deleteRecord<T extends TableName>(table: T, companyId: str
     idempotencyKey: createId("idem"),
     payload: { archived: true, deleted_at: deletedAt, updated_at: deletedAt, updated_by: userId || null },
     retryCount: 0,
-    lastError: null,
+    lastError,
     createdAt: deletedAt,
     updatedAt: deletedAt
   });
