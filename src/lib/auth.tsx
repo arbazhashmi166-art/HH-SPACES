@@ -114,6 +114,20 @@ function recordMeta(userId: string | null) {
   };
 }
 
+function supabaseSetupIssue(error: unknown) {
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "object" && error && "message" in error
+        ? String((error as { message?: unknown }).message)
+        : "";
+  const code = typeof error === "object" && error && "code" in error ? String((error as { code?: unknown }).code) : "";
+  if (code === "PGRST205" || message.toLowerCase().includes("could not find the table")) {
+    return "Supabase login is correct, but the database tables are missing. Run supabase/schema.sql in Supabase SQL Editor, then login again for cloud sync.";
+  }
+  return null;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -356,7 +370,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setCloudLoginIssue(null);
             setOfflineMode(false);
             setSession(signup.data.session);
-            await loadCompany(signup.data.session);
+            try {
+              await loadCompany(signup.data.session);
+            } catch (error) {
+              const issue = supabaseSetupIssue(error);
+              if (!issue) throw error;
+              await requireSupabase().auth.signOut();
+              startApprovedOffline(issue);
+            }
             return;
           }
 
@@ -367,7 +388,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setCloudLoginIssue(null);
           setOfflineMode(false);
           setSession(login.data.session);
-          await loadCompany(login.data.session);
+          try {
+            await loadCompany(login.data.session);
+          } catch (error) {
+            const issue = supabaseSetupIssue(error);
+            if (!issue) throw error;
+            await requireSupabase().auth.signOut();
+            startApprovedOffline(issue);
+          }
           return;
         }
 

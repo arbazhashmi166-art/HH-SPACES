@@ -17,6 +17,14 @@ import styles from "./Login.module.css";
 type LoginValues = z.infer<typeof loginSchema>;
 type SignupValues = z.infer<typeof signUpSchema>;
 
+function errorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && error && "message" in error) {
+    return String((error as { message?: unknown }).message);
+  }
+  return fallback;
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const { signIn, signUp, continueOffline, company, loading, offlineMode } = useAuth();
@@ -38,7 +46,7 @@ export default function LoginPage() {
       await signIn(values.email, values.password);
       router.replace("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed. Check your credentials.");
+      setError(errorMessage(err, "Login failed. Check your credentials."));
     }
   });
 
@@ -48,7 +56,7 @@ export default function LoginPage() {
       await signUp(values);
       router.replace("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Signup failed. Check Supabase settings.");
+      setError(errorMessage(err, "Signup failed. Check Supabase settings."));
     }
   });
 
