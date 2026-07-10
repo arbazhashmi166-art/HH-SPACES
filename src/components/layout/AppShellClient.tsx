@@ -20,7 +20,7 @@ import styles from "./AppShell.module.css";
 export function AppShell({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { company, loading, offlineMode } = useAuth();
+  const { company, loading, offlineMode, session } = useAuth();
   const mode = useUiStore((state) => state.mode);
   const toggleMode = useUiStore((state) => state.toggleMode);
   const [quickOpen, setQuickOpen] = useState(false);
@@ -85,6 +85,17 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
                 <IonIcon icon={mode === "dark" ? sunnyOutline : moonOutline} />
               </button>
             </div>
+          </div>
+          <div className={styles.statusDock} aria-label="Business command shortcuts">
+            <button type="button" onClick={() => go("/automations")}>
+              <span>Autopilot</span>
+            </button>
+            <button type="button" onClick={() => go("/market-radar")}>
+              <span>Market</span>
+            </button>
+            <button type="button" onClick={() => go("/settings#supabase-sync")}>
+              <span>{session && !offlineMode ? "Cloud Sync" : "Local Save"}</span>
+            </button>
           </div>
         </header>
 
