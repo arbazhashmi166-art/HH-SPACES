@@ -10,6 +10,8 @@
   padding: 20px;
   color: #fff;
   background:
+    radial-gradient(circle at 82% 10%, rgba(255, 255, 255, 0.32), transparent 22%),
+    radial-gradient(circle at 10% 88%, rgba(0, 167, 181, 0.34), transparent 28%),
     linear-gradient(135deg, #2f49e8 0%, #7650ff 52%, #00a7b5 100%);
   box-shadow: 0 26px 54px rgba(59, 91, 255, 0.3);
 }
@@ -29,7 +31,30 @@
   margin: 0;
 }
 
+.heroTop {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.heroTop button {
+  min-height: 44px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  padding: 0 12px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.16);
+  font-size: 12px;
+  font-weight: 900;
+  backdrop-filter: blur(14px);
+}
+
 .hero h2 {
+  position: relative;
+  z-index: 1;
   font-size: 34px;
   line-height: 1;
   letter-spacing: 0;
@@ -49,10 +74,106 @@
 }
 
 .heroMini {
+  position: relative;
+  z-index: 1;
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.16);
   padding: 12px;
   backdrop-filter: blur(12px);
+}
+
+.commandCenter {
+  display: grid;
+  gap: 10px;
+}
+
+.commandLead,
+.commandTile,
+.liveRibbon button {
+  border: 1px solid var(--app-border);
+  color: var(--app-text);
+  text-align: left;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease;
+}
+
+.commandLead:active,
+.commandTile:active,
+.liveRibbon button:active,
+.quick:active {
+  transform: scale(0.985);
+}
+
+.commandLead {
+  min-height: 138px;
+  border-radius: 28px;
+  padding: 16px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--app-surface) 86%, transparent), color-mix(in srgb, var(--app-surface-2) 94%, transparent)),
+    radial-gradient(circle at 90% 8%, rgba(59, 91, 255, 0.18), transparent 34%);
+  box-shadow: var(--app-shadow);
+}
+
+.commandLead span,
+.commandTile span,
+.liveRibbon span {
+  display: block;
+  color: var(--app-muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.commandLead strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 22px;
+  line-height: 1.08;
+}
+
+.commandLead p {
+  margin: 8px 0 0;
+  color: var(--app-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.commandGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.commandTile {
+  min-height: 82px;
+  border-radius: 22px;
+  padding: 13px;
+  background: color-mix(in srgb, var(--app-surface), transparent 3%);
+  box-shadow: 0 12px 26px rgba(17, 24, 39, 0.08);
+}
+
+.commandTile strong,
+.liveRibbon strong {
+  display: block;
+  margin-top: 6px;
+  line-height: 1.15;
+}
+
+.liveRibbon {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.liveRibbon button {
+  min-height: 68px;
+  border-radius: 20px;
+  padding: 11px;
+  background: var(--app-surface);
+  box-shadow: 0 10px 22px rgba(17, 24, 39, 0.07);
 }
 
 .heroMini span,
