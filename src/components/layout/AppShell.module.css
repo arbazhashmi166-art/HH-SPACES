@@ -12,10 +12,12 @@
 .appHeader {
   position: relative;
   z-index: 30;
-  padding: calc(8px + env(safe-area-inset-top)) 14px 10px;
+  padding: calc(8px + env(safe-area-inset-top)) 14px 12px;
   border-bottom: 1px solid color-mix(in srgb, var(--app-border) 70%, transparent);
-  background: color-mix(in srgb, var(--app-bg) 92%, transparent);
-  backdrop-filter: blur(18px);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-bg) 94%, transparent), color-mix(in srgb, var(--app-bg) 84%, transparent)),
+    radial-gradient(circle at 88% 0%, rgba(59, 91, 255, 0.12), transparent 34%);
+  backdrop-filter: blur(22px);
 }
 
 .topBar {
@@ -59,11 +61,40 @@
   height: 44px;
   border: 1px solid var(--app-border);
   border-radius: 16px;
-  background: var(--app-surface);
+  background: color-mix(in srgb, var(--app-surface), transparent 6%);
   color: var(--app-text);
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 10px 22px rgba(17, 24, 39, 0.07);
+}
+
+.statusDock {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.statusDock button {
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid var(--app-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--app-surface), transparent 8%);
+  color: var(--app-text);
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 900;
+  box-shadow: 0 10px 22px rgba(17, 24, 39, 0.06);
+}
+
+.statusDock span {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .aiButton {
@@ -119,16 +150,20 @@
   padding: 9px 8px;
   border: 1px solid var(--app-border);
   border-radius: 26px;
-  background: rgba(255, 255, 255, 0.9);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.86)),
+    radial-gradient(circle at 50% 0%, rgba(59, 91, 255, 0.12), transparent 44%);
   box-shadow: 0 -14px 34px rgba(17, 24, 39, 0.13);
-  backdrop-filter: blur(18px);
+  backdrop-filter: blur(22px);
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 4px;
 }
 
 :global(:root[data-theme="dark"]) .bottomNav {
-  background: rgba(17, 24, 39, 0.9);
+  background:
+    linear-gradient(180deg, rgba(17, 24, 39, 0.94), rgba(17, 24, 39, 0.88)),
+    radial-gradient(circle at 50% 0%, rgba(59, 91, 255, 0.16), transparent 44%);
 }
 
 .navButton {
