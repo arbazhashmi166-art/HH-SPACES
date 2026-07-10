@@ -1,9 +1,20 @@
 .card {
   border: 1px solid var(--app-border);
   border-radius: var(--app-radius);
-  background: color-mix(in srgb, var(--app-surface), transparent 4%);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-surface), transparent 3%), color-mix(in srgb, var(--app-surface), transparent 0%)),
+    radial-gradient(circle at 100% 0%, rgba(59, 91, 255, 0.06), transparent 30%);
   box-shadow: var(--app-shadow);
   padding: 16px;
+  backdrop-filter: blur(14px);
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease;
+}
+
+.card:focus-within {
+  border-color: color-mix(in srgb, var(--app-primary) 44%, var(--app-border));
 }
 
 .header {
