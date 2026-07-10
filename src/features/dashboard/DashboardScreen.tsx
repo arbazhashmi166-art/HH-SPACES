@@ -2,6 +2,7 @@
 
 import { IonIcon } from "@ionic/react";
 import { useRouter } from "next/navigation";
+import { useMemo } from "react";
 import { alertCircleOutline, calendarOutline, cubeOutline, receiptOutline, walletOutline } from "ionicons/icons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,65 +31,92 @@ export function DashboardScreen() {
   const reminders = useRecords("reminders", company?.id);
   const activity = useRecords("activity_logs", company?.id);
 
-  const metrics = dashboardMetrics({
-    sites: sites.data || [],
-    attendance: attendance.data || [],
-    materials: materials.data || [],
-    expenses: expenses.data || [],
-    payments: payments.data || [],
-    supplierPayments: supplierPayments.data || [],
-    labour: labour.data || []
-  });
+  const metrics = useMemo(
+    () =>
+      dashboardMetrics({
+        sites: sites.data || [],
+        attendance: attendance.data || [],
+        materials: materials.data || [],
+        expenses: expenses.data || [],
+        payments: payments.data || [],
+        supplierPayments: supplierPayments.data || [],
+        labour: labour.data || []
+      }),
+    [attendance.data, expenses.data, labour.data, materials.data, payments.data, sites.data, supplierPayments.data]
+  );
 
-  const intelligence = businessIntelligence({
-    sites: sites.data || [],
-    attendance: attendance.data || [],
-    materials: materials.data || [],
-    expenses: expenses.data || [],
-    payments: payments.data || [],
-    supplierPayments: supplierPayments.data || [],
-    progress: progress.data || []
-  });
+  const intelligence = useMemo(
+    () =>
+      businessIntelligence({
+        sites: sites.data || [],
+        attendance: attendance.data || [],
+        materials: materials.data || [],
+        expenses: expenses.data || [],
+        payments: payments.data || [],
+        supplierPayments: supplierPayments.data || [],
+        progress: progress.data || []
+      }),
+    [attendance.data, expenses.data, materials.data, payments.data, progress.data, sites.data, supplierPayments.data]
+  );
 
-  const automation = automationEngine({
-    sites: sites.data || [],
-    labour: labour.data || [],
-    attendance: attendance.data || [],
-    materials: materials.data || [],
-    expenses: expenses.data || [],
-    payments: payments.data || [],
-    supplierPayments: supplierPayments.data || [],
-    progress: progress.data || [],
-    reminders: reminders.data || []
-  });
+  const automation = useMemo(
+    () =>
+      automationEngine({
+        sites: sites.data || [],
+        labour: labour.data || [],
+        attendance: attendance.data || [],
+        materials: materials.data || [],
+        expenses: expenses.data || [],
+        payments: payments.data || [],
+        supplierPayments: supplierPayments.data || [],
+        progress: progress.data || [],
+        reminders: reminders.data || []
+      }),
+    [attendance.data, expenses.data, labour.data, materials.data, payments.data, progress.data, reminders.data, sites.data, supplierPayments.data]
+  );
   const topAutomationAction = automation.actions[0];
 
-  const progressAverage =
-    (sites.data || []).length > 0
-      ? Math.round((sites.data || []).reduce((total, site) => total + Number(site.progress_percent || 0), 0) / (sites.data || []).length)
-      : 0;
+  const progressAverage = useMemo(
+    () =>
+      (sites.data || []).length > 0
+        ? Math.round((sites.data || []).reduce((total, site) => total + Number(site.progress_percent || 0), 0) / (sites.data || []).length)
+        : 0,
+    [sites.data]
+  );
 
-  const alerts = [
-    ...intelligence.alerts,
-    metrics.pendingClientPayments > 0
-      ? { title: "Client payment pending", message: `${formatMoney(metrics.pendingClientPayments)} receivable needs follow-up.`, severity: "warning" as const }
-      : null,
-    metrics.pendingSupplierPayments > 0
-      ? { title: "Supplier payment pending", message: `${formatMoney(metrics.pendingSupplierPayments)} supplier balance is open.`, severity: "warning" as const }
-      : null,
-    metrics.labourAdvanceBalance > 0
-      ? { title: "Labour balance pending", message: `${formatMoney(metrics.labourAdvanceBalance)} labour balance remains.`, severity: "warning" as const }
-      : null,
-    metrics.estimatedProfit < 0
-      ? { title: "Monthly loss risk", message: `This month is at ${formatMoney(Math.abs(metrics.estimatedProfit))} negative margin.`, severity: "critical" as const }
-      : null,
-    (attendance.data || []).length === 0 ? { title: "Attendance missing", message: "No attendance entries are saved yet.", severity: "warning" as const } : null
-  ].filter(Boolean).filter((alert, index, list) => list.findIndex((item) => item?.title === alert?.title) === index).slice(0, 8) as Array<{ title: string; message: string; severity: "info" | "warning" | "critical" }>;
+  const alerts = useMemo(
+    () =>
+      [
+        ...intelligence.alerts,
+        metrics.pendingClientPayments > 0
+          ? { title: "Client payment pending", message: `${formatMoney(metrics.pendingClientPayments)} receivable needs follow-up.`, severity: "warning" as const }
+          : null,
+        metrics.pendingSupplierPayments > 0
+          ? { title: "Supplier payment pending", message: `${formatMoney(metrics.pendingSupplierPayments)} supplier balance is open.`, severity: "warning" as const }
+          : null,
+        metrics.labourAdvanceBalance > 0
+          ? { title: "Labour balance pending", message: `${formatMoney(metrics.labourAdvanceBalance)} labour balance remains.`, severity: "warning" as const }
+          : null,
+        metrics.estimatedProfit < 0
+          ? { title: "Monthly loss risk", message: `This month is at ${formatMoney(Math.abs(metrics.estimatedProfit))} negative margin.`, severity: "critical" as const }
+          : null,
+        (attendance.data || []).length === 0 ? { title: "Attendance missing", message: "No attendance entries are saved yet.", severity: "warning" as const } : null
+      ]
+        .filter(Boolean)
+        .filter((alert, index, list) => list.findIndex((item) => item?.title === alert?.title) === index)
+        .slice(0, 8) as Array<{ title: string; message: string; severity: "info" | "warning" | "critical" }>,
+    [attendance.data, intelligence.alerts, metrics.estimatedProfit, metrics.labourAdvanceBalance, metrics.pendingClientPayments, metrics.pendingSupplierPayments]
+  );
 
   return (
     <section className={styles.stack}>
       <div className={styles.hero}>
-        <p>Estimated monthly profit</p>
+        <div className={styles.heroTop}>
+          <p>Estimated monthly profit</p>
+          <button type="button" onClick={() => router.push("/market-radar")}>
+            Market Radar
+          </button>
+        </div>
         <h2>{formatMoney(metrics.estimatedProfit)}</h2>
         <div className={styles.heroGrid}>
           <div className={styles.heroMini}>
@@ -100,6 +128,47 @@ export function DashboardScreen() {
             <strong>{formatMoney(metrics.monthlyExpense)}</strong>
           </div>
         </div>
+      </div>
+
+      <div className={styles.commandCenter}>
+        <button className={styles.commandLead} type="button" onClick={() => router.push("/automations")}>
+          <span>AI-Native Command Center</span>
+          <strong>{automation.operatingScore}/100 Business Control</strong>
+          <p>Cashflow, site risk, reminders, daily checklist, and next best action in one place.</p>
+        </button>
+        <div className={styles.commandGrid}>
+          <button className={styles.commandTile} type="button" onClick={() => router.push("/reports")}>
+            <span>Reports</span>
+            <strong>PDF / Excel</strong>
+          </button>
+          <button className={styles.commandTile} type="button" onClick={() => router.push("/ai")}>
+            <span>Ask AI</span>
+            <strong>Smart Drafts</strong>
+          </button>
+          <button className={styles.commandTile} type="button" onClick={() => router.push("/settings#supabase-sync")}>
+            <span>Cloud</span>
+            <strong>Sync Status</strong>
+          </button>
+          <button className={styles.commandTile} type="button" onClick={() => router.push("/attendance?add=1")}>
+            <span>Daily</span>
+            <strong>Fast Entry</strong>
+          </button>
+        </div>
+      </div>
+
+      <div className={styles.liveRibbon}>
+        <button type="button" onClick={() => router.push("/automations")}>
+          <span>Autopilot</span>
+          <strong>{automation.actions.length} actions</strong>
+        </button>
+        <button type="button" onClick={() => router.push("/data-health")}>
+          <span>Risk</span>
+          <strong>{intelligence.siteHealth.filter((site) => site.riskLevel !== "info").length} sites</strong>
+        </button>
+        <button type="button" onClick={() => router.push("/payments")}>
+          <span>Pending</span>
+          <strong>{formatMoney(metrics.pendingClientPayments)}</strong>
+        </button>
       </div>
 
       <div className={styles.grid}>
