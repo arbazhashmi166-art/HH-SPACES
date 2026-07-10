@@ -1,4 +1,4 @@
-const CACHE_NAME = "hh-spaces-v4";
+const CACHE_NAME = "hh-spaces-v5";
 const APP_SHELL = ["./", "./dashboard/", "./login/", "./manifest.json", "./offline.html", "./icons/icon.svg"];
 
 self.addEventListener("install", (event) => {
