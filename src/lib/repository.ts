@@ -92,17 +92,32 @@ export async function getLocalRecords<T extends TableName>(table: T, companyId: 
 
 export async function cacheRecords<T extends TableName>(table: T, companyId: string, records: EntityMap[T][]) {
   await db.transaction("rw", db.records, async () => {
+    const existingRows = await db.records.where("[table+companyId]").equals([table, companyId]).toArray();
+    const remoteIds = new Set(records.map((record) => record.id));
+    const localOnlyRows = existingRows.filter((row) => {
+      const record = row.record as AnyEntity;
+      return !remoteIds.has(record.id) && ["pending", "failed", "conflict"].includes(record.sync_status);
+    });
     await db.records.where("[table+companyId]").equals([table, companyId]).delete();
     await db.records.bulkPut(
-      records.map((record) => ({
-        key: localRecordKey(table, record.id),
-        table,
-        companyId,
-        record,
-        updatedAt: record.updated_at || nowIso()
-      }))
+      [
+        ...records.map((record) => ({
+          key: localRecordKey(table, record.id),
+          table,
+          companyId,
+          record,
+          updatedAt: record.updated_at || nowIso()
+        })),
+        ...localOnlyRows
+      ]
     );
   });
+}
+
+export function mergeCloudRowsWithLocalPending<T extends TableName>(cloudRows: EntityMap[T][], localRows: EntityMap[T][]) {
+  const cloudIds = new Set(cloudRows.map((row) => row.id));
+  const localPending = localRows.filter((row) => !cloudIds.has(row.id) && ["pending", "failed", "conflict"].includes(row.sync_status));
+  return [...cloudRows, ...localPending].sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
 }
 
 export async function fetchRecords<T extends TableName>(table: T, companyId: string) {
@@ -128,7 +143,7 @@ export async function fetchRecords<T extends TableName>(table: T, companyId: str
 
   const rows = (data || []) as EntityMap[T][];
   await cacheRecords(table, companyId, rows);
-  return rows;
+  return mergeCloudRowsWithLocalPending(rows, localRows);
 }
 
 export async function queueMutation(mutation: PendingMutation) {
