@@ -96,7 +96,7 @@ export async function cacheRecords<T extends TableName>(table: T, companyId: str
     const remoteIds = new Set(records.map((record) => record.id));
     const localOnlyRows = existingRows.filter((row) => {
       const record = row.record as AnyEntity;
-      return !remoteIds.has(record.id) && ["pending", "failed", "conflict"].includes(record.sync_status);
+      return !remoteIds.has(record.id) && !record.deleted_at;
     });
     await db.records.where("[table+companyId]").equals([table, companyId]).delete();
     await db.records.bulkPut(
@@ -116,8 +116,8 @@ export async function cacheRecords<T extends TableName>(table: T, companyId: str
 
 export function mergeCloudRowsWithLocalPending<T extends TableName>(cloudRows: EntityMap[T][], localRows: EntityMap[T][]) {
   const cloudIds = new Set(cloudRows.map((row) => row.id));
-  const localPending = localRows.filter((row) => !cloudIds.has(row.id) && ["pending", "failed", "conflict"].includes(row.sync_status));
-  return [...cloudRows, ...localPending].sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
+  const localOnly = localRows.filter((row) => !cloudIds.has(row.id) && !row.deleted_at);
+  return [...cloudRows, ...localOnly].sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
 }
 
 export async function fetchRecords<T extends TableName>(table: T, companyId: string) {

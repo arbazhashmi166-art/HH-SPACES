@@ -12,14 +12,16 @@ import { supabase } from "@/lib/supabase";
 export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
   const { company, offlineMode, session, cloudLoginIssue } = useAuth();
   const [pending, setPending] = useState(0);
+  const [pendingIssue, setPendingIssue] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const online = typeof navigator === "undefined" ? true : navigator.onLine;
   const cloudReady = Boolean(supabase);
 
   const refresh = useCallback(async () => {
     if (!company?.id) return;
-    const count = await db.pendingMutations.where({ companyId: company.id }).count();
-    setPending(count);
+    const rows = await db.pendingMutations.where({ companyId: company.id }).toArray();
+    setPending(rows.length);
+    setPendingIssue(rows.find((row) => row.lastError)?.lastError || null);
   }, [company?.id]);
 
   useEffect(() => {
@@ -48,13 +50,16 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
     }
   };
 
+  const friendlyIssue = pendingIssue ? explainSyncIssue(pendingIssue) : null;
   const tone = !cloudReady || offlineMode || !online ? "warning" : pending ? "warning" : "success";
   const statusText = !cloudReady
     ? "Not connected"
     : offlineMode
       ? "Saved locally"
-      : session
-        ? "Cloud connected"
+      : pending
+        ? "Saved on phone"
+        : session
+          ? "Cloud synced"
         : "Login needed";
   const subtitle = !cloudReady
     ? "Supabase keys are missing in this GitHub build. Add GitHub Actions secrets or use the connected build."
@@ -62,7 +67,9 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
       ? cloudLoginIssue || "Your entries are saving on this phone/browser only. Logout, then login with ARBAZ123 or SAHIL123 to sync laptop and iPhone data."
       : online
         ? session
-          ? "Auto-save is on. Entries save instantly on this device and auto-sync to Supabase in the background."
+          ? pending
+            ? "Your entries are safe on this phone. They will show on other devices after cloud sync finishes."
+            : "Auto-save is on. Entries save instantly on this device and are synced to Supabase."
           : "Supabase is configured. Login with ARBAZ123 or SAHIL123 to sync this device."
         : "No internet. Entries are saved locally and queued until this device is online.";
   const actionLabel = !cloudReady
@@ -90,7 +97,7 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
             ? `${pending} saved local ${pending === 1 ? "entry is" : "entries are"} waiting for cloud sync.`
             : session
               ? pending
-                ? `${pending} saved ${pending === 1 ? "entry is" : "entries are"} queued. Auto-sync will retry every few seconds.`
+                ? `${pending} saved ${pending === 1 ? "entry is" : "entries are"} on this phone and not on other devices yet. ${friendlyIssue ? `Reason: ${friendlyIssue}` : "Auto-sync will retry every few seconds."}`
                 : "All saved entries are synced. New entries will auto-save and auto-sync."
               : "Use ARBAZ123 or SAHIL123 login when you want the same data on laptop and phone."}
         </p>
@@ -102,4 +109,21 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
       ) : null}
     </Card>
   );
+}
+
+function explainSyncIssue(issue: string) {
+  const lower = issue.toLowerCase();
+  if (lower.includes("row-level security") || lower.includes("violates row level security")) {
+    return "Supabase security rules blocked the upload. Run the latest supabase/schema.sql once, then tap Retry Sync.";
+  }
+  if (lower.includes("could not find the table") || lower.includes("schema cache")) {
+    return "Supabase database tables are missing or outdated. Run supabase/schema.sql in Supabase SQL Editor.";
+  }
+  if (lower.includes("foreign key")) {
+    return "A linked record, like the selected site or supplier, has not synced yet. Retry sync after a few seconds.";
+  }
+  if (lower.includes("duplicate") || lower.includes("unique")) {
+    return "Supabase found a duplicate entry. The app will keep the phone copy and avoid creating another duplicate.";
+  }
+  return issue;
 }

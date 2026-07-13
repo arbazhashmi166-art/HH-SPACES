@@ -30,15 +30,16 @@ function site(id: string, sync_status: Site["sync_status"], updated_at: string):
 }
 
 describe("repository cloud/local merge", () => {
-  it("keeps pending local sites visible when cloud rows do not contain them yet", () => {
+  it("keeps local sites visible when cloud rows do not contain them yet", () => {
     const cloud = [site("cloud-site", "synced", "2026-07-14T09:00:00.000Z")];
     const local = [
       site("cloud-site", "synced", "2026-07-14T08:00:00.000Z"),
-      site("new-local-site", "pending", "2026-07-14T10:00:00.000Z")
+      site("new-local-site", "pending", "2026-07-14T10:00:00.000Z"),
+      site("synced-but-hidden-by-cloud", "synced", "2026-07-14T11:00:00.000Z")
     ];
 
     const result = mergeCloudRowsWithLocalPending(cloud, local);
 
-    expect(result.map((row) => row.id)).toEqual(["new-local-site", "cloud-site"]);
+    expect(result.map((row) => row.id)).toEqual(["synced-but-hidden-by-cloud", "new-local-site", "cloud-site"]);
   });
 });
