@@ -61,7 +61,8 @@ export default function LoginPage() {
   });
 
   const offline = () => {
-    continueOffline();
+    const nextCompany = continueOffline();
+    if (!nextCompany.id) return;
     router.replace("/dashboard");
   };
 
@@ -100,7 +101,7 @@ export default function LoginPage() {
                 <TextInput type="password" autoComplete="current-password" {...loginForm.register("password")} />
               </FieldShell>
               <p className={styles.note}>Approved username login connects this device to Supabase cloud sync.</p>
-              <Button full disabled={loginForm.formState.isSubmitting}>
+              <Button type="submit" full disabled={loginForm.formState.isSubmitting}>
                 {loginForm.formState.isSubmitting ? "Signing in..." : "Login"}
               </Button>
               {offlineMode ? null : (
@@ -123,7 +124,7 @@ export default function LoginPage() {
               <FieldShell label="Password" error={signupForm.formState.errors.password?.message}>
                 <TextInput type="password" autoComplete="new-password" {...signupForm.register("password")} />
               </FieldShell>
-              <Button full disabled={signupForm.formState.isSubmitting}>
+              <Button type="submit" full disabled={signupForm.formState.isSubmitting}>
                 {signupForm.formState.isSubmitting ? "Creating..." : "Create Company"}
               </Button>
             </form>

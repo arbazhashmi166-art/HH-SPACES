@@ -1,20 +1,32 @@
 .card {
-  border: 1px solid var(--app-border);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--app-border) 88%, transparent);
   border-radius: var(--app-radius);
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--app-surface), transparent 3%), color-mix(in srgb, var(--app-surface), transparent 0%)),
-    radial-gradient(circle at 100% 0%, rgba(59, 91, 255, 0.06), transparent 30%);
+    linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 96%, transparent), color-mix(in srgb, var(--app-surface-3) 78%, transparent)),
+    linear-gradient(135deg, color-mix(in srgb, var(--app-primary) 5%, transparent), transparent 48%);
   box-shadow: var(--app-shadow);
-  padding: 16px;
-  backdrop-filter: blur(14px);
+  padding: 17px;
+  backdrop-filter: blur(18px);
   transition:
     transform 160ms ease,
     box-shadow 160ms ease,
     border-color 160ms ease;
 }
 
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--app-primary) 32%, transparent), transparent);
+  pointer-events: none;
+}
+
 .card:focus-within {
   border-color: color-mix(in srgb, var(--app-primary) 44%, var(--app-border));
+  box-shadow: var(--app-shadow-strong);
 }
 
 .header {
@@ -29,6 +41,8 @@
   margin: 0;
   font-size: 18px;
   line-height: 1.2;
+  font-weight: 950;
+  letter-spacing: 0;
 }
 
 .header p {

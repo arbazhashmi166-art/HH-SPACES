@@ -1,4 +1,4 @@
-import type { Attendance, ClientPayment, Expense, Labour, Material, Site, SupplierPayment } from "@/types/domain";
+import type { Attendance, ClientPayment, Expense, ExtraWork, Labour, Material, PartnerDraw, Site, SupplierPayment } from "@/types/domain";
 import { monthKey, todayIso } from "./format";
 
 export function sumBy<T>(rows: T[], read: (row: T) => number | null | undefined) {
@@ -13,6 +13,8 @@ export function dashboardMetrics(input: {
   payments: ClientPayment[];
   supplierPayments?: SupplierPayment[];
   labour?: Labour[];
+  extraWorks?: ExtraWork[];
+  partnerDraws?: PartnerDraw[];
 }) {
   const today = todayIso();
   const month = monthKey();
@@ -48,6 +50,15 @@ export function dashboardMetrics(input: {
   const pendingClientPayments = sumBy(input.payments, (item) => item.pending_amount);
   const pendingSupplierPayments = sumBy(input.supplierPayments || [], (item) => item.pending_amount);
   const labourAdvanceBalance = sumBy(input.labour || [], (item) => item.balance_payment);
+  const approvedExtraWorks = sumBy(
+    (input.extraWorks || []).filter((item) => item.client_approved || item.status === "approved" || item.status === "billed" || item.status === "paid"),
+    (item) => item.amount
+  );
+  const unbilledExtraWorks = sumBy(
+    (input.extraWorks || []).filter((item) => (item.client_approved || item.status === "approved") && item.status !== "billed" && item.status !== "paid"),
+    (item) => item.amount
+  );
+  const partnerDrawsTotal = sumBy(input.partnerDraws || [], (item) => item.amount);
 
   return {
     activeSites,
@@ -59,6 +70,9 @@ export function dashboardMetrics(input: {
     labourAdvanceBalance,
     monthlyIncome,
     monthlyExpense,
-    estimatedProfit: monthlyIncome - monthlyExpense
+    estimatedProfit: monthlyIncome - monthlyExpense,
+    approvedExtraWorks,
+    unbilledExtraWorks,
+    partnerDrawsTotal
   };
 }

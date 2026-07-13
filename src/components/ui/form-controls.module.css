@@ -4,17 +4,18 @@
 }
 
 .label {
-  font-weight: 800;
+  font-weight: 900;
   color: var(--app-text);
   font-size: 14px;
 }
 
 .input {
   width: 100%;
-  min-height: 52px;
-  border-radius: 16px;
-  border: 1px solid var(--app-border);
-  background: var(--app-surface);
+  min-height: 54px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--app-border) 90%, transparent);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 96%, transparent), color-mix(in srgb, var(--app-surface-3) 80%, transparent));
   color: var(--app-text);
   padding: 12px 14px;
   outline: none;
@@ -26,7 +27,9 @@
 
 .input:focus {
   border-color: var(--app-primary);
-  box-shadow: 0 0 0 4px rgba(59, 91, 255, 0.13);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--app-primary) 15%, transparent),
+    0 12px 28px rgba(15, 23, 42, 0.08);
 }
 
 .textarea {

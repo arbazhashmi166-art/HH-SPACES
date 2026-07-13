@@ -1,17 +1,20 @@
 "use client";
 
-import { IonIcon, IonToast } from "@ionic/react";
+import { IonIcon } from "@ionic/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { FieldShell, TextArea, TextInput } from "@/components/ui/form-controls";
+import { ToastMessage } from "@/components/ui/toast-message";
 import { appRoutes } from "@/config/routes";
 import { SyncStatusCard } from "@/features/sync/SyncStatusCard";
 import { useAuth } from "@/lib/auth";
 import { useUiStore } from "@/lib/ui-store";
 import { requireSupabase, supabase } from "@/lib/supabase";
 import styles from "./Settings.module.css";
+
+const localCompanySettingsKey = "sitetracker.offlineCompanySettings";
 
 export function SettingsScreen() {
   const router = useRouter();
@@ -29,13 +32,21 @@ export function SettingsScreen() {
     bank_details: company?.bank_details || ""
   });
   const [toast, setToast] = useState<string | null>(null);
+  const [showSyncHelp, setShowSyncHelp] = useState(false);
 
   const update = (key: keyof typeof form, value: string) => setForm((current) => ({ ...current, [key]: value }));
   const openRoute = (path: string) => {
-    router.push(path);
     const hash = path.split("#")[1];
+    router.push(path, { scroll: false });
     if (hash) {
-      window.setTimeout(() => document.getElementById(hash)?.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
+      window.setTimeout(() => {
+        if (window.location.hash !== `#${hash}`) {
+          window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#${hash}`);
+        }
+        document.getElementById(hash)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 160);
+    } else {
+      window.setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 80);
     }
   };
 
@@ -45,12 +56,32 @@ export function SettingsScreen() {
   };
 
   useEffect(() => {
+    if (!company) return;
+    setForm({
+      name: company.name || "",
+      gst_number: company.gst_number || "",
+      pan_number: company.pan_number || "",
+      phone: company.phone || "",
+      email: company.email || "",
+      upi_id: company.upi_id || "",
+      address: company.address || "",
+      bank_details: company.bank_details || ""
+    });
+  }, [company]);
+
+  useEffect(() => {
     if (window.location.hash !== "#supabase-sync") return;
     window.setTimeout(() => document.getElementById("supabase-sync")?.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
   }, []);
 
   const save = async () => {
     if (!company) return;
+    if (!supabase || !session || offlineMode) {
+      window.localStorage.setItem(localCompanySettingsKey, JSON.stringify(form));
+      await refreshCompany();
+      setToast("Settings saved on this device");
+      return;
+    }
     if (supabase) {
       const { error } = await requireSupabase().from("companies").update(form).eq("id", company.id);
       if (error) {
@@ -95,10 +126,23 @@ export function SettingsScreen() {
           <Button variant="secondary" onClick={openCloudLogin}>
             Login for Supabase Sync
           </Button>
-          <Button variant="ghost" onClick={() => setToast("Supabase Sync is the card above. Pending entries sync automatically when online.")}>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setShowSyncHelp((current) => !current);
+              setToast("Sync help opened");
+            }}
+          >
             What This Means
           </Button>
         </div>
+        {showSyncHelp ? (
+          <div className={styles.helpBox}>
+            <strong>How sync works</strong>
+            <p>Every entry saves on this phone first. When Supabase login is connected and internet is available, pending entries sync automatically so laptop and phone can share the same business data.</p>
+            <p>If this card says Local only, use Login for Supabase Sync and make sure the Supabase SQL schema is installed.</p>
+          </div>
+        ) : null}
       </Card>
 
       <Card>
@@ -137,31 +181,64 @@ export function SettingsScreen() {
       </Card>
 
       <Card>
-        <CardHeader title="Business Defaults" subtitle="Clean grouped settings for phone use instead of one long settings screen." />
+        <CardHeader title="Working Shortcuts" subtitle="Every button below opens a real working module. No hidden pages or dead shortcuts." />
         <div className={styles.grid}>
-          <button className={styles.setting} type="button" onClick={() => router.push("/labour")}>
+          <button className={styles.setting} type="button" aria-label="Open Quick Entry" onClick={() => router.push("/quick-entry")}>
+            <span>Quick Entry</span>
+            <strong>One-tap daily add screen for site work and money</strong>
+          </button>
+          <button className={styles.setting} type="button" aria-label="Open Labour settings and workers" onClick={() => router.push("/labour")}>
             <span>Labour</span>
-            <strong>Default rates, OT, half-day rules</strong>
+            <strong>Rates, workers, advances, balances</strong>
           </button>
-          <button className={styles.setting} type="button" onClick={() => router.push("/payments")}>
-            <span>Billing</span>
-            <strong>Invoice prefix, GST, TDS, terms</strong>
+          <button className={styles.setting} type="button" aria-label="Open Client Payments" onClick={() => router.push("/payments")}>
+            <span>Client Payments</span>
+            <strong>Received, pending, payment history</strong>
           </button>
-          <button className={styles.setting} type="button" onClick={() => router.push("/materials")}>
-            <span>Material</span>
-            <strong>Categories, units, low-stock alerts</strong>
+          <button className={styles.setting} type="button" aria-label="Open Payment Recovery" onClick={() => router.push("/payment-recovery")}>
+            <span>Payment Recovery</span>
+            <strong>Overdue follow-ups and WhatsApp reminders</strong>
           </button>
-          <button className={styles.setting} type="button" onClick={() => document.getElementById("supabase-sync")?.scrollIntoView({ behavior: "smooth" })}>
-            <span>Backup</span>
-            <strong>Supabase sync, export, restore, daily backup</strong>
+          <button className={styles.setting} type="button" aria-label="Open Business Brain" onClick={() => router.push("/business-brain")}>
+            <span>Business Brain</span>
+            <strong>Cash, risk, approvals, and next best actions</strong>
           </button>
-          <button className={styles.setting} type="button" onClick={() => router.push("/reports")}>
-            <span>WhatsApp</span>
-            <strong>Client, supplier, labour report sharing</strong>
+          <button className={styles.setting} type="button" aria-label="Open Cash Flow Forecast" onClick={() => router.push("/cash-flow")}>
+            <span>Cash Flow</span>
+            <strong>7, 15, and 30 day money forecast</strong>
           </button>
-          <button className={styles.setting} type="button" onClick={() => router.push("/expenses")}>
-            <span>Vehicles</span>
-            <strong>Fuel, mileage, service, driver details</strong>
+          <button className={styles.setting} type="button" aria-label="Open Approval Center" onClick={() => router.push("/approval-center")}>
+            <span>Approvals</span>
+            <strong>Approve partner, supplier, extra work, and expense decisions</strong>
+          </button>
+          <button className={styles.setting} type="button" aria-label="Open Bill Scanner" onClick={() => router.push("/bill-scanner")}>
+            <span>Bill Scanner</span>
+            <strong>OCR supplier bills into material or expense entries</strong>
+          </button>
+          <button className={styles.setting} type="button" aria-label="Open Materials" onClick={() => router.push("/materials")}>
+            <span>Materials</span>
+            <strong>Purchases, suppliers, bills, stock history</strong>
+          </button>
+          <button
+            className={styles.setting}
+            type="button"
+            aria-label="Open Cloud Sync status"
+            onClick={() => document.getElementById("supabase-sync")?.scrollIntoView({ behavior: "smooth" })}
+          >
+            <span>Cloud Sync</span>
+            <strong>Supabase status and retry sync</strong>
+          </button>
+          <button className={styles.setting} type="button" aria-label="Open Reports" onClick={() => router.push("/reports")}>
+            <span>Reports</span>
+            <strong>PDF, Excel, CSV exports</strong>
+          </button>
+          <button className={styles.setting} type="button" aria-label="Open Daily Closing" onClick={() => router.push("/daily-closing")}>
+            <span>Daily Closing</span>
+            <strong>End-day checklist and report</strong>
+          </button>
+          <button className={styles.setting} type="button" aria-label="Open Partner Ledger" onClick={() => router.push("/partner-ledger")}>
+            <span>Partner Ledger</span>
+            <strong>Company money taken by each partner</strong>
           </button>
         </div>
       </Card>
@@ -196,7 +273,7 @@ export function SettingsScreen() {
         </div>
       </Card>
 
-      <IonToast isOpen={Boolean(toast)} message={toast || ""} duration={2200} onDidDismiss={() => setToast(null)} />
+      <ToastMessage message={toast} duration={2200} onDismiss={() => setToast(null)} />
     </section>
   );
 }

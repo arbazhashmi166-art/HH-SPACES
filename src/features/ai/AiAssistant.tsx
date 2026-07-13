@@ -1,10 +1,10 @@
 "use client";
 
-import { IonToast } from "@ionic/react";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
+import { ToastMessage } from "@/components/ui/toast-message";
 import { useAuth } from "@/lib/auth";
 import { createRecord } from "@/lib/repository";
 import { useRecords } from "@/lib/repository";
@@ -18,6 +18,8 @@ type Message = { role: "user" | "assistant"; content: string; draft?: AiDraft };
 const prompts = [
   "How much payment is pending?",
   "Bought 20 cement bags at 360 each for Kondhwa site",
+  "Extra work waterproofing 500 sqft at 55",
+  "Arbaz took 10000 emergency money from company",
   "5 labour present today, 700 per day, 1 absent, 1 half day",
   "Client paid 25000 cash for terrace work"
 ];
@@ -40,6 +42,8 @@ export function AiAssistant() {
   const supplierPayments = useRecords("supplier_payments", company?.id);
   const labour = useRecords("labour", company?.id);
   const expenses = useRecords("expenses", company?.id);
+  const extraWorks = useRecords("extra_works", company?.id);
+  const partnerDraws = useRecords("partner_draws", company?.id);
 
   const canSave = useMemo(() => Boolean(draft && draft.intent !== "unknown" && draft.missing_fields.length === 0), [draft]);
 
@@ -54,6 +58,26 @@ export function AiAssistant() {
     if (lower.includes("expense")) {
       const total = (expenses.data || []).reduce((sum, item) => sum + item.amount, 0);
       return `Total expenses from current records are ${formatMoney(total)} across ${expenses.data?.length || 0} entries.`;
+    }
+    if (lower.includes("extra work") || lower.includes("variation") || lower.includes("unbilled")) {
+      const approved = (extraWorks.data || [])
+        .filter((item) => item.client_approved || item.status === "approved" || item.status === "billed" || item.status === "paid")
+        .reduce((sum, item) => sum + item.amount, 0);
+      const unbilled = (extraWorks.data || [])
+        .filter((item) => (item.client_approved || item.status === "approved") && item.status !== "billed" && item.status !== "paid")
+        .reduce((sum, item) => sum + item.amount, 0);
+      return `Extra work summary from current records: approved value ${formatMoney(approved)}, unbilled approved value ${formatMoney(unbilled)} across ${extraWorks.data?.length || 0} extra work entries.`;
+    }
+    if (lower.includes("partner") || lower.includes("money taken") || lower.includes("company money") || lower.includes("profit share") || lower.includes("draw")) {
+      const totals = (partnerDraws.data || []).reduce<Record<string, number>>((items, item) => {
+        items[item.partner_name] = (items[item.partner_name] || 0) + item.amount;
+        return items;
+      }, {});
+      const summary = Object.entries(totals)
+        .sort((a, b) => b[1] - a[1])
+        .map(([name, amount]) => `${name}: ${formatMoney(amount)}`)
+        .join(", ");
+      return `Partner/company money taken summary: ${summary || "No partner draw entries found."} Source records: ${partnerDraws.data?.length || 0} partner draw entries.`;
     }
     if (lower.includes("site") && lower.includes("active")) {
       const active = (sites.data || []).filter((site) => site.status === "active");
@@ -115,9 +139,11 @@ export function AiAssistant() {
       expense: "expenses",
       client_payment: "client_payments",
       supplier_payment: "supplier_payments",
+      partner_draw: "partner_draws",
       progress: "progress_updates",
       labour: "labour",
       reminder: "reminders",
+      extra_work: "extra_works",
       unknown: null
     };
     const table = map[draft.intent];
@@ -200,7 +226,7 @@ export function AiAssistant() {
         </Button>
       </div>
 
-      <IonToast isOpen={Boolean(toast)} message={toast || ""} duration={2400} onDidDismiss={() => setToast(null)} />
+      <ToastMessage message={toast} duration={2400} onDismiss={() => setToast(null)} />
     </section>
   );
 }

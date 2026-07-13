@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { IonIcon, IonToast } from "@ionic/react";
+import { IonIcon } from "@ionic/react";
 import { archiveOutline, createOutline, trashOutline } from "ionicons/icons";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
@@ -13,6 +13,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FieldShell, SelectInput, TextArea, TextInput } from "@/components/ui/form-controls";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ToastMessage } from "@/components/ui/toast-message";
 import { buildLookupFields, resources, type FieldConfig, type LookupContext, type ResourceConfig } from "@/config/resources";
 import { useAuth } from "@/lib/auth";
 import { createRecord, useCreateRecord, useDeleteRecord, useRecords, useUpdateRecord } from "@/lib/repository";
@@ -42,6 +43,20 @@ function duplicateMessage(table: TableName, records: AnyEntity[], values: Record
     const duplicate = active.find((record) => (record as EntityMap["materials"]).bill_number === values.bill_number);
     return duplicate ? "A material bill with this bill number already exists." : null;
   }
+  if (table === "extra_works") {
+    const duplicate = active.find((record) => {
+      const extra = record as EntityMap["extra_works"];
+      return extra.site_id === values.site_id && extra.date === values.date && extra.description.toLowerCase() === safeString(values.description).toLowerCase();
+    });
+    return duplicate ? "A similar extra work entry already exists for this site and date." : null;
+  }
+  if (table === "partner_draws") {
+    const duplicate = active.find((record) => {
+      const draw = record as EntityMap["partner_draws"];
+      return draw.partner_name.toLowerCase() === safeString(values.partner_name).toLowerCase() && draw.date === values.date && draw.amount === Number(values.amount || 0);
+    });
+    return duplicate ? "A similar partner draw already exists for this person, date, and amount." : null;
+  }
   if (table === "labour") {
     const duplicate = active.find((record) => {
       const labour = record as EntityMap["labour"];
@@ -65,6 +80,9 @@ function autoCalculate(table: TableName, values: Record<string, unknown>) {
   }
   if (table === "client_payments") {
     next.pending_amount = Math.max(0, Number(next.contract_amount || 0) - Number(next.received_amount || 0));
+  }
+  if (table === "extra_works") {
+    next.amount = Number(next.quantity || 0) * Number(next.rate || 0);
   }
   return next;
 }
@@ -153,6 +171,12 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
       setOpen(true);
     }
   }, [defaultValues, form, open, pathname, router, searchParams]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.body.classList.toggle("record-sheet-open", open);
+    return () => document.body.classList.remove("record-sheet-open");
+  }, [open]);
 
   const records = (recordsQuery.data || []) as AnyEntity[];
   const filtered = useMemo(() => {
@@ -286,7 +310,7 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
               />
             ))}
             <div className={styles.stickySave}>
-              <Button full disabled={form.formState.isSubmitting || (editing ? !mayUpdate : !mayCreate)}>
+              <Button type="submit" full disabled={form.formState.isSubmitting || (editing ? !mayUpdate : !mayCreate)}>
                 {form.formState.isSubmitting ? "Saving..." : editing ? "Save Changes" : "Save Entry"}
               </Button>
               <Button type="button" full variant="secondary" onClick={() => setOpen(false)}>
@@ -298,7 +322,7 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
         </div>
       ) : null}
 
-      <IonToast isOpen={Boolean(toast)} message={toast || ""} duration={2200} color="success" onDidDismiss={() => setToast(null)} />
+      <ToastMessage message={toast} duration={2200} tone="success" onDismiss={() => setToast(null)} />
     </section>
   );
 }

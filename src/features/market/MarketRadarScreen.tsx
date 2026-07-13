@@ -28,6 +28,7 @@ export function MarketRadarScreen() {
   const payments = useRecords("client_payments", company?.id);
   const supplierPayments = useRecords("supplier_payments", company?.id);
   const progress = useRecords("progress_updates", company?.id);
+  const extraWorks = useRecords("extra_works", company?.id);
   const progressPhotos = useRecords("progress_photos", company?.id);
   const reminders = useRecords("reminders", company?.id);
   const aiMessages = useRecords("ai_messages", company?.id);
@@ -44,6 +45,7 @@ export function MarketRadarScreen() {
         payments: payments.data || [],
         supplierPayments: supplierPayments.data || [],
         progress: progress.data || [],
+        extraWorks: extraWorks.data || [],
         progressPhotos: progressPhotos.data || [],
         reminders: reminders.data || [],
         aiMessages: aiMessages.data || []
@@ -52,6 +54,7 @@ export function MarketRadarScreen() {
       aiMessages.data,
       attendance.data,
       expenses.data,
+      extraWorks.data,
       labour.data,
       materials.data,
       payments.data,

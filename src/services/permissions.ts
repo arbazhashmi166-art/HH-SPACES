@@ -1,6 +1,6 @@
 import type { Role, TableName } from "@/types/domain";
 
-const financialTables: TableName[] = ["materials", "expenses", "client_payments", "supplier_payments", "labour_payments"];
+const financialTables: TableName[] = ["materials", "expenses", "client_payments", "supplier_payments", "partner_draws", "labour_payments", "extra_works"];
 
 export function canCreate(role: Role) {
   return role === "admin" || role === "staff";

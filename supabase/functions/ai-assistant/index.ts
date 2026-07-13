@@ -23,6 +23,55 @@ function todayIso() {
 function localDraft(message: string): Draft {
   const lower = message.toLowerCase();
   const amount = Number(message.match(/(\d+(?:\.\d+)?)/)?.[1] || 0);
+  if (lower.includes("extra work") || lower.includes("variation") || lower.includes("change order") || lower.includes("additional") || lower.includes("increase amount")) {
+    const rate = Number(lower.match(/(?:at|rate|rs|inr)\s*(\d+(?:\.\d+)?)/)?.[1] || 0);
+    return {
+      intent: "extra_work",
+      confidence: amount && rate ? 0.72 : 0.52,
+      missing_fields: ["site_id", amount ? "" : "quantity", rate ? "" : "rate"].filter(Boolean),
+      original_text: message,
+      draft: {
+        date: todayIso(),
+        work_type: lower.includes("waterproofing") ? "waterproofing" : lower.includes("pop") ? "pop" : lower.includes("electrical") ? "electrical" : "other",
+        description: message,
+        quantity: amount,
+        unit: lower.includes("rft") || lower.includes("running") ? "RFT" : lower.includes("point") ? "Nos" : "Sqft",
+        rate,
+        amount: amount * rate,
+        client_approved: false,
+        status: "draft",
+        notes: message
+      },
+      response: "Extra work draft prepared. Select site and approval status before saving."
+    };
+  }
+  if (
+    lower.includes("partner") ||
+    lower.includes("profit share") ||
+    lower.includes("emergency money") ||
+    lower.includes("owner draw") ||
+    lower.includes("withdraw") ||
+    (lower.includes("took") && lower.includes("company"))
+  ) {
+    const partner = lower.includes("arbaz") ? "Arbaz" : lower.includes("sahil") ? "Sahil" : "";
+    return {
+      intent: "partner_draw",
+      confidence: amount && partner ? 0.72 : 0.48,
+      missing_fields: [partner ? "" : "partner_name", amount ? "" : "amount"].filter(Boolean),
+      original_text: message,
+      draft: {
+        partner_name: partner,
+        date: todayIso(),
+        category: lower.includes("profit") ? "profit_share" : lower.includes("emergency") ? "emergency" : lower.includes("advance") ? "advance" : "owner_draw",
+        amount,
+        payment_mode: lower.includes("cash") ? "cash" : lower.includes("bank") ? "bank_transfer" : "upi",
+        site_id: null,
+        approved_by: null,
+        notes: message
+      },
+      response: "Partner draw draft prepared. Confirm person, reason, and amount before saving."
+    };
+  }
   if (lower.includes("cement") || lower.includes("bought") || lower.includes("material")) {
     return {
       intent: "material",
@@ -49,7 +98,7 @@ function localDraft(message: string): Draft {
     missing_fields: ["clear action"],
     original_text: message,
     draft: {},
-    response: "I can answer business questions or create safe drafts for attendance, material, expense, payment, progress, labour, and reminders."
+      response: "I can answer business questions or create safe drafts for attendance, material, expense, extra work, partner draws, payment, progress, labour, and reminders."
   };
 }
 
@@ -64,11 +113,13 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization") || "";
     const supabase = createClient(supabaseUrl, supabaseAnonKey, { global: { headers: { Authorization: authHeader } } });
 
-    const [sites, payments, expenses, materials] = await Promise.all([
+    const [sites, payments, expenses, materials, extraWorks, partnerDraws] = await Promise.all([
       supabase.from("sites").select("id,name,client_name,budget,progress_percent,status").eq("company_id", company_id).limit(50),
       supabase.from("client_payments").select("site_id,received_amount,pending_amount,payment_date").eq("company_id", company_id).limit(100),
       supabase.from("expenses").select("site_id,category,amount,date").eq("company_id", company_id).limit(100),
-      supabase.from("materials").select("site_id,material_name,total,date,payment_status").eq("company_id", company_id).limit(100)
+      supabase.from("materials").select("site_id,material_name,total,date,payment_status").eq("company_id", company_id).limit(100),
+      supabase.from("extra_works").select("site_id,work_type,description,amount,status,client_approved,date").eq("company_id", company_id).limit(100),
+      supabase.from("partner_draws").select("partner_name,category,amount,payment_mode,date,notes").eq("company_id", company_id).limit(100)
     ]);
 
     if (!openAiKey) {
@@ -80,6 +131,7 @@ serve(async (req) => {
     const system = `You are H&H SPACES AI. Use only supplied company records. Return strict JSON with keys:
 intent, confidence, missing_fields, original_text, draft, response.
 Never say data was saved. Never create final records. If site_id is missing for site records, include "site_id" in missing_fields.
+Supported intents include attendance, material, expense, extra_work, partner_draw, client_payment, supplier_payment, progress, labour, reminder, and unknown.
 Money must be numeric INR values. For questions, intent should be "unknown" and response must cite relevant source counts/totals.`;
 
     const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -99,7 +151,9 @@ Money must be numeric INR values. For questions, intent should be "unknown" and 
                 sites: sites.data || [],
                 client_payments: payments.data || [],
                 expenses: expenses.data || [],
-                materials: materials.data || []
+                materials: materials.data || [],
+                extra_works: extraWorks.data || [],
+                partner_draws: partnerDraws.data || []
               }
             })
           }

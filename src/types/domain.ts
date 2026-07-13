@@ -7,6 +7,10 @@ export type PaymentMode = "cash" | "upi" | "bank_transfer" | "cheque";
 export type PaymentStatus = "paid" | "partial" | "unpaid";
 export type ReminderStatus = "open" | "done" | "snoozed";
 export type MoneyCategory = "labour" | "material" | "transport" | "equipment" | "food" | "site" | "office" | "misc";
+export type ExtraWorkStatus = "draft" | "approved" | "rejected" | "billed" | "paid";
+export type PartnerDrawCategory = "owner_draw" | "profit_share" | "emergency" | "advance" | "salary" | "reimbursement" | "other";
+export type ApprovalStatus = "pending" | "approved" | "rejected";
+export type ApprovalCategory = "partner_draw" | "extra_work" | "supplier_payment" | "client_payment" | "expense" | "other";
 
 export type TableName =
   | "sites"
@@ -18,7 +22,11 @@ export type TableName =
   | "expenses"
   | "client_payments"
   | "supplier_payments"
+  | "partner_draws"
+  | "daily_closings"
+  | "approval_requests"
   | "progress_updates"
+  | "extra_works"
   | "progress_photos"
   | "reminders"
   | "notifications"
@@ -183,6 +191,43 @@ export type SupplierPayment = BaseRecord & {
   notes: string | null;
 };
 
+export type PartnerDraw = BaseRecord & {
+  partner_name: string;
+  date: string;
+  category: PartnerDrawCategory;
+  amount: number;
+  payment_mode: PaymentMode;
+  site_id: string | null;
+  approved_by: string | null;
+  notes: string | null;
+};
+
+export type DailyClosing = BaseRecord & {
+  site_id: string | null;
+  date: string;
+  attendance_done: boolean;
+  material_done: boolean;
+  expense_done: boolean;
+  progress_done: boolean;
+  client_followup_done: boolean;
+  report_text: string;
+  notes: string | null;
+};
+
+export type ApprovalRequest = BaseRecord & {
+  site_id: string | null;
+  category: ApprovalCategory;
+  title: string;
+  amount: number;
+  requested_by_name: string | null;
+  approver_name: string | null;
+  status: ApprovalStatus;
+  linked_table: TableName | null;
+  linked_record_id: string | null;
+  decision_notes: string | null;
+  decided_at: string | null;
+};
+
 export type ProgressUpdate = BaseRecord & {
   site_id: string;
   date: string;
@@ -190,6 +235,20 @@ export type ProgressUpdate = BaseRecord & {
   description: string;
   progress_percent: number;
   ai_summary: string | null;
+};
+
+export type ExtraWork = BaseRecord & {
+  site_id: string;
+  date: string;
+  work_type: string;
+  description: string;
+  quantity: number;
+  unit: string;
+  rate: number;
+  amount: number;
+  client_approved: boolean;
+  status: ExtraWorkStatus;
+  notes: string | null;
 };
 
 export type ProgressPhoto = BaseRecord & {
@@ -320,7 +379,11 @@ export type EntityMap = {
   expenses: Expense;
   client_payments: ClientPayment;
   supplier_payments: SupplierPayment;
+  partner_draws: PartnerDraw;
+  daily_closings: DailyClosing;
+  approval_requests: ApprovalRequest;
   progress_updates: ProgressUpdate;
+  extra_works: ExtraWork;
   progress_photos: ProgressPhoto;
   reminders: Reminder;
   notifications: Notification;
@@ -350,4 +413,7 @@ export type DashboardMetrics = {
   monthlyIncome: number;
   monthlyExpense: number;
   estimatedProfit: number;
+  approvedExtraWorks: number;
+  unbilledExtraWorks: number;
+  partnerDrawsTotal: number;
 };

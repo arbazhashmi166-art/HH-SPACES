@@ -23,6 +23,7 @@ export function DataHealthScreen() {
   const payments = useRecords("client_payments", company?.id);
   const supplierPayments = useRecords("supplier_payments", company?.id);
   const progress = useRecords("progress_updates", company?.id);
+  const extraWorks = useRecords("extra_works", company?.id);
 
   const items: HealthItem[] = [];
   const attendanceKeys = new Set<string>();
@@ -67,7 +68,8 @@ export function DataHealthScreen() {
     expenses: expenses.data || [],
     payments: payments.data || [],
     supplierPayments: supplierPayments.data || [],
-    progress: progress.data || []
+    progress: progress.data || [],
+    extraWorks: extraWorks.data || []
   });
 
   for (const site of intelligence.siteHealth) {
@@ -89,6 +91,20 @@ export function DataHealthScreen() {
         title: "Progress update stale",
         message: `${site.siteName} has no progress update for ${site.daysSinceProgress} days.`,
         severity: "warning"
+      });
+    }
+    if (site.unbilledExtraWork > 0) {
+      items.push({
+        title: "Approved extra work not billed",
+        message: `${site.siteName} has ${formatMoney(site.unbilledExtraWork)} approved extra work waiting for billing.`,
+        severity: site.unbilledExtraWork > 50000 ? "critical" : "warning"
+      });
+    }
+    if (site.pendingApprovalExtraWork > 0) {
+      items.push({
+        title: "Extra work needs approval",
+        message: `${site.siteName} has ${formatMoney(site.pendingApprovalExtraWork)} draft extra work waiting for client approval.`,
+        severity: "info"
       });
     }
   }

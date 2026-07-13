@@ -1,0 +1,325 @@
+.stack {
+  display: grid;
+  gap: 15px;
+}
+
+.hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 34px;
+  padding: 22px;
+  color: #fff;
+  background:
+    linear-gradient(120deg, rgba(255, 255, 255, 0.16), transparent 28%, rgba(255, 255, 255, 0.08) 68%, transparent),
+    linear-gradient(145deg, #0d1424 0%, var(--app-primary) 54%, var(--app-primary-2) 78%, var(--app-accent) 100%);
+  box-shadow: 0 30px 72px rgba(49, 87, 255, 0.3);
+}
+
+.hero span,
+.miniCard span,
+.ledgerCard span,
+.closingItem span {
+  display: block;
+  color: var(--app-muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.hero span {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.hero h2 {
+  margin: 10px 0 6px;
+  font-size: 38px;
+  line-height: 1;
+  font-weight: 950;
+}
+
+.hero p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.84);
+  line-height: 1.45;
+  font-weight: 750;
+}
+
+.heroActions,
+.buttonRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 14px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.miniCard,
+.ledgerCard,
+.closingItem,
+.recoveryItem {
+  border: 1px solid color-mix(in srgb, var(--app-border) 88%, transparent);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 96%, transparent), color-mix(in srgb, var(--app-surface-2) 58%, transparent));
+  box-shadow: 0 12px 26px rgba(17, 24, 39, 0.07);
+}
+
+.miniCard {
+  min-height: 96px;
+  padding: 14px;
+  display: grid;
+  align-content: space-between;
+}
+
+.miniCard strong {
+  display: block;
+  margin-top: 7px;
+  font-size: 20px;
+  line-height: 1.05;
+}
+
+.recoveryList,
+.ledgerList,
+.closingList {
+  display: grid;
+  gap: 10px;
+}
+
+.recoveryItem {
+  padding: 14px;
+}
+
+.itemTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.itemTop h3 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.2;
+  font-weight: 950;
+}
+
+.itemTop p,
+.recoveryItem p,
+.ledgerCard p,
+.closingItem p {
+  margin: 5px 0 0;
+  color: var(--app-muted);
+  font-size: 13px;
+  line-height: 1.42;
+}
+
+.ledgerCard {
+  padding: 14px;
+}
+
+.ledgerHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ledgerHeader strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.balanceText {
+  margin-top: 10px;
+  border-radius: 18px;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--app-primary) 9%, transparent);
+  color: var(--app-primary);
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.fieldGrid {
+  display: grid;
+  gap: 12px;
+}
+
+.select,
+.textarea {
+  width: 100%;
+  min-height: 54px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--app-border) 90%, transparent);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 96%, transparent), color-mix(in srgb, var(--app-surface-3) 80%, transparent));
+  color: var(--app-text);
+  padding: 12px 14px;
+  outline: none;
+  font-size: 16px;
+}
+
+.textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+.closingItem {
+  width: 100%;
+  min-height: 88px;
+  padding: 14px;
+  text-align: left;
+  color: var(--app-text);
+}
+
+.closingItem strong {
+  display: block;
+  margin-top: 5px;
+  line-height: 1.25;
+}
+
+.closingItemDone {
+  border-color: rgba(15, 159, 110, 0.25);
+  background: rgba(15, 159, 110, 0.1);
+}
+
+.reportBox {
+  border-radius: 22px;
+  border: 1px solid color-mix(in srgb, var(--app-border) 88%, transparent);
+  background: var(--app-surface-3);
+  padding: 14px;
+  white-space: pre-line;
+  color: var(--app-text);
+  line-height: 1.5;
+  font-size: 14px;
+}
+
+.smartList {
+  display: grid;
+  gap: 10px;
+}
+
+.smartCard {
+  border: 1px solid color-mix(in srgb, var(--app-border) 88%, transparent);
+  border-radius: 24px;
+  padding: 14px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 96%, transparent), color-mix(in srgb, var(--app-surface-2) 58%, transparent));
+  box-shadow: 0 12px 26px rgba(17, 24, 39, 0.07);
+}
+
+.smartCard strong {
+  display: block;
+  line-height: 1.25;
+}
+
+.smartCard p {
+  margin: 6px 0 0;
+  color: var(--app-muted);
+  font-size: 13px;
+  line-height: 1.42;
+}
+
+.input {
+  width: 100%;
+  min-height: 54px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--app-border) 90%, transparent);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 96%, transparent), color-mix(in srgb, var(--app-surface-3) 80%, transparent));
+  color: var(--app-text);
+  padding: 12px 14px;
+  outline: none;
+  font-size: 16px;
+}
+
+.hiddenFileInput {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.captureActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.photoStatus {
+  border-radius: 22px;
+  border: 1px dashed color-mix(in srgb, var(--app-primary) 42%, var(--app-border));
+  background: color-mix(in srgb, var(--app-primary) 8%, transparent);
+  padding: 14px;
+  display: grid;
+  gap: 5px;
+}
+
+.photoStatus strong {
+  color: var(--app-text);
+  font-size: 14px;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.photoStatus span {
+  color: var(--app-muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.scanPreview {
+  width: 100%;
+  max-height: 280px;
+  object-fit: cover;
+  border-radius: 24px;
+  border: 1px solid var(--app-border);
+  box-shadow: var(--app-shadow);
+}
+
+.ocrText {
+  max-height: 220px;
+  overflow: auto;
+  border-radius: 22px;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface-3);
+  padding: 14px;
+  white-space: pre-wrap;
+  color: var(--app-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.forecastBar {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--app-border) 70%, transparent);
+  margin-top: 10px;
+}
+
+.forecastBar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(135deg, var(--app-primary), var(--app-primary-2));
+}
+
+@media (max-width: 380px) {
+  .grid,
+  .heroActions,
+  .buttonRow,
+  .captureActions {
+    grid-template-columns: 1fr;
+  }
+}

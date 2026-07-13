@@ -14,7 +14,8 @@ serve(async (req) => {
     const normalized = text
       .replace(/\brupees\b/gi, "INR")
       .replace(/\bcement bag\b/gi, "cement bags")
-      .replace(/\bhalfday\b/gi, "half day");
+      .replace(/\bhalfday\b/gi, "half day")
+      .replace(/\bvariation work\b/gi, "extra work");
 
     return new Response(
       JSON.stringify({

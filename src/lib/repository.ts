@@ -16,7 +16,11 @@ export const syncableTables: TableName[] = [
   "expenses",
   "client_payments",
   "supplier_payments",
+  "partner_draws",
+  "daily_closings",
+  "approval_requests",
   "progress_updates",
+  "extra_works",
   "progress_photos",
   "reminders",
   "notifications",
@@ -35,6 +39,14 @@ export const AUTO_SYNC_EVENT = "hh-spaces:auto-sync-request";
 
 function isBrowserOnline() {
   return typeof navigator === "undefined" ? true : navigator.onLine;
+}
+
+function isLocalOnlyMode() {
+  return typeof window !== "undefined" && window.localStorage.getItem("sitetracker.offlineMode") === "1";
+}
+
+function canUseCloud() {
+  return Boolean(supabase && isBrowserOnline() && !isLocalOnlyMode());
 }
 
 function requestAutoSync(companyId: string) {
@@ -59,6 +71,14 @@ function baseMeta(companyId: string, userId: string | null, source: SourceType, 
     idempotency_key: idempotencyKey || createId("idem"),
     archived: false,
     deleted_at: null
+  };
+}
+
+function cloudSyncedPayload(payload: Record<string, unknown>) {
+  return {
+    ...payload,
+    sync_status: "synced",
+    updated_at: String(payload.updated_at || nowIso())
   };
 }
 
@@ -88,7 +108,7 @@ export async function cacheRecords<T extends TableName>(table: T, companyId: str
 export async function fetchRecords<T extends TableName>(table: T, companyId: string) {
   const localRows = await getLocalRecords(table, companyId);
 
-  if (!supabase || !isBrowserOnline()) {
+  if (!canUseCloud()) {
     return localRows;
   }
 
@@ -101,6 +121,7 @@ export async function fetchRecords<T extends TableName>(table: T, companyId: str
     .order("updated_at", { ascending: false });
 
   if (error) {
+    if (error.code === "PGRST205" || error.message.toLowerCase().includes("could not find the table")) return localRows;
     if (localRows.length) return localRows;
     throw error;
   }
@@ -143,12 +164,12 @@ export async function createRecord<T extends TableName>(
   await applyLocal(table, companyId, record);
 
   let lastError: string | null = null;
-  if (supabase && isBrowserOnline()) {
-    const { error } = await requireSupabase().from(table).insert(record);
+  if (canUseCloud()) {
+    const cloudRecord = { ...record, sync_status: "synced" } as EntityMap[T];
+    const { error } = await requireSupabase().from(table).insert(cloudRecord);
     if (!error) {
-      const syncedRecord = { ...record, sync_status: "synced" } as EntityMap[T];
-      await applyLocal(table, companyId, syncedRecord);
-      return syncedRecord;
+      await applyLocal(table, companyId, cloudRecord);
+      return cloudRecord;
     }
     lastError = error.message;
   }
@@ -194,10 +215,16 @@ export async function updateRecord<T extends TableName>(
   await applyLocal(table, companyId, record);
 
   let lastError: string | null = null;
-  if (supabase && isBrowserOnline()) {
+  if (canUseCloud()) {
+    const cloudValues = cloudSyncedPayload({
+      ...(values as Record<string, unknown>),
+      updated_at: record.updated_at,
+      updated_by: record.updated_by,
+      source: record.source
+    });
     const { error } = await requireSupabase()
       .from(table)
-      .update(values as Record<string, unknown>)
+      .update(cloudValues)
       .eq("id", recordId)
       .eq("company_id", companyId);
     if (!error) {
@@ -215,7 +242,12 @@ export async function updateRecord<T extends TableName>(
     companyId,
     recordId,
     idempotencyKey,
-    payload: { ...values, updated_at: record.updated_at },
+    payload: cloudSyncedPayload({
+      ...(values as Record<string, unknown>),
+      updated_at: record.updated_at,
+      updated_by: record.updated_by,
+      source: record.source
+    }),
     retryCount: 0,
     lastError,
     createdAt: nowIso(),
@@ -231,22 +263,27 @@ function existingIdempotency(_table: TableName, _recordId: string) {
 
 export async function deleteRecord<T extends TableName>(table: T, companyId: string, recordId: string, userId?: string | null) {
   const deletedAt = nowIso();
+  const deletePayload = {
+    archived: true,
+    deleted_at: deletedAt,
+    updated_at: deletedAt,
+    updated_by: userId || null,
+    sync_status: "synced"
+  };
   const existing = await db.records.get(localRecordKey(table, recordId));
   if (existing) {
     await applyLocal(table, companyId, {
       ...(existing.record as AnyEntity),
-      archived: true,
-      deleted_at: deletedAt,
-      updated_at: deletedAt,
+      ...deletePayload,
       updated_by: userId || (existing.record as AnyEntity).updated_by
     } as EntityMap[T]);
   }
 
   let lastError: string | null = null;
-  if (supabase && isBrowserOnline()) {
+  if (canUseCloud()) {
     const { error } = await requireSupabase()
       .from(table)
-      .update({ archived: true, deleted_at: deletedAt, updated_at: deletedAt, updated_by: userId || null })
+      .update(deletePayload)
       .eq("id", recordId)
       .eq("company_id", companyId);
     if (!error) return;
@@ -260,7 +297,7 @@ export async function deleteRecord<T extends TableName>(table: T, companyId: str
     companyId,
     recordId,
     idempotencyKey: createId("idem"),
-    payload: { archived: true, deleted_at: deletedAt, updated_at: deletedAt, updated_by: userId || null },
+    payload: deletePayload,
     retryCount: 0,
     lastError,
     createdAt: deletedAt,
@@ -269,18 +306,19 @@ export async function deleteRecord<T extends TableName>(table: T, companyId: str
 }
 
 export async function syncPendingMutations(companyId: string) {
-  if (!supabase || !isBrowserOnline()) return { synced: 0 };
+  if (!canUseCloud()) return { synced: 0 };
   const pending = await db.pendingMutations.where({ companyId }).sortBy("createdAt");
   let synced = 0;
 
   for (const item of pending) {
     const client = requireSupabase().from(item.table);
+    const payload = cloudSyncedPayload(item.payload);
     const response =
       item.operationType === "insert"
-        ? await client.upsert(item.payload, { onConflict: "idempotency_key" })
+        ? await client.upsert(payload, { onConflict: "idempotency_key" })
         : item.operationType === "update"
-          ? await client.update(item.payload).eq("id", item.recordId).eq("company_id", companyId)
-          : await client.update(item.payload).eq("id", item.recordId).eq("company_id", companyId);
+          ? await client.update(payload).eq("id", item.recordId).eq("company_id", companyId)
+          : await client.update(payload).eq("id", item.recordId).eq("company_id", companyId);
 
     if (response.error) {
       await db.pendingMutations.update(item.id, {

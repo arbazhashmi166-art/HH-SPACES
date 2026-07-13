@@ -1,13 +1,13 @@
 .button {
-  min-height: 44px;
+  min-height: 48px;
   border: 0;
-  border-radius: 16px;
-  padding: 0 18px;
+  border-radius: 18px;
+  padding: 0 19px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  font-weight: 800;
+  font-weight: 900;
   letter-spacing: 0;
   cursor: pointer;
   transition:
@@ -31,18 +31,23 @@
 
 .primary {
   color: #fff;
-  background: linear-gradient(135deg, var(--app-primary), var(--app-primary-2));
-  box-shadow: 0 14px 30px rgba(59, 91, 255, 0.3);
+  background:
+    linear-gradient(135deg, #101827, var(--app-primary) 54%, var(--app-primary-2)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent);
+  box-shadow: 0 16px 34px rgba(49, 87, 255, 0.32);
 }
 
 .secondary {
   color: var(--app-text);
-  background: var(--app-surface-2);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-surface-2) 96%, transparent), color-mix(in srgb, var(--app-surface) 88%, transparent));
+  border: 1px solid var(--app-border);
 }
 
 .ghost {
   color: var(--app-text);
-  background: transparent;
+  background: color-mix(in srgb, var(--app-surface) 50%, transparent);
+  border: 1px solid color-mix(in srgb, var(--app-border) 74%, transparent);
 }
 
 .danger {

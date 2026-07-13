@@ -1,12 +1,12 @@
 "use client";
 
-import { IonToast } from "@ionic/react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ToastMessage } from "@/components/ui/toast-message";
 import { useAuth } from "@/lib/auth";
 import { useCreateRecord, useRecords } from "@/lib/repository";
 import { automationEngine, nextReminderDate, type AutomationAction } from "@/utils/automation-engine";
@@ -31,6 +31,7 @@ export function AutomationScreen() {
   const payments = useRecords("client_payments", company?.id);
   const supplierPayments = useRecords("supplier_payments", company?.id);
   const progress = useRecords("progress_updates", company?.id);
+  const extraWorks = useRecords("extra_works", company?.id);
   const reminders = useRecords("reminders", company?.id);
   const createReminder = useCreateRecord("reminders", company?.id);
 
@@ -45,9 +46,10 @@ export function AutomationScreen() {
         payments: payments.data || [],
         supplierPayments: supplierPayments.data || [],
         progress: progress.data || [],
+        extraWorks: extraWorks.data || [],
         reminders: reminders.data || []
       }),
-    [attendance.data, expenses.data, labour.data, materials.data, payments.data, progress.data, reminders.data, sites.data, supplierPayments.data]
+    [attendance.data, expenses.data, extraWorks.data, labour.data, materials.data, payments.data, progress.data, reminders.data, sites.data, supplierPayments.data]
   );
 
   const addReminder = async (action: AutomationAction) => {
@@ -104,6 +106,10 @@ export function AutomationScreen() {
           <div>
             <span>7 Day Labour</span>
             <strong>{formatMoney(engine.cashflow.expectedLabour7Days)}</strong>
+          </div>
+          <div>
+            <span>Unbilled Extra</span>
+            <strong>{formatMoney(engine.cashflow.unbilledExtraWorks)}</strong>
           </div>
           <div>
             <span>Daily Burn</span>
@@ -179,7 +185,7 @@ export function AutomationScreen() {
         </div>
       </Card>
 
-      <IonToast isOpen={Boolean(toast)} message={toast || ""} duration={2400} onDidDismiss={() => setToast(null)} />
+      <ToastMessage message={toast} duration={2400} onDismiss={() => setToast(null)} />
     </section>
   );
 }

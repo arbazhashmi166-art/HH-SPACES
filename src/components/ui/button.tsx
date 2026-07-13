@@ -12,9 +12,9 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   icon?: ReactNode;
 };
 
-export function Button({ className, variant = "primary", full, icon, children, ...props }: ButtonProps) {
+export function Button({ className, variant = "primary", full, icon, children, type = "button", ...props }: ButtonProps) {
   return (
-    <button className={cn(styles.button, styles[variant], full && styles.full, className)} {...props}>
+    <button className={cn(styles.button, styles[variant], full && styles.full, className)} type={type} {...props}>
       {icon ? <span className={styles.icon}>{icon}</span> : null}
       <span>{children}</span>
     </button>

@@ -1,29 +1,29 @@
 .stack {
   display: grid;
-  gap: 14px;
+  gap: 15px;
 }
 
 .hero {
   position: relative;
   overflow: hidden;
-  border-radius: 32px;
-  padding: 20px;
+  border-radius: 34px;
+  padding: 22px;
   color: #fff;
   background:
-    radial-gradient(circle at 82% 10%, rgba(255, 255, 255, 0.32), transparent 22%),
-    radial-gradient(circle at 10% 88%, rgba(0, 167, 181, 0.34), transparent 28%),
-    linear-gradient(135deg, #2f49e8 0%, #7650ff 52%, #00a7b5 100%);
-  box-shadow: 0 26px 54px rgba(59, 91, 255, 0.3);
+    linear-gradient(120deg, rgba(255, 255, 255, 0.18), transparent 24%, rgba(255, 255, 255, 0.1) 64%, transparent 100%),
+    linear-gradient(145deg, #0c1424 0%, #3157ff 46%, #8b5cf6 72%, #00a7b5 100%);
+  box-shadow: 0 30px 72px rgba(49, 87, 255, 0.32);
 }
 
 .hero::after {
   content: "";
   position: absolute;
-  inset: auto -40px -70px auto;
-  width: 160px;
-  height: 160px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.2);
+  inset: 0;
+  background:
+    linear-gradient(90deg, transparent 0 34%, rgba(255, 255, 255, 0.12) 34% 35%, transparent 35% 100%),
+    linear-gradient(0deg, transparent 0 62%, rgba(255, 255, 255, 0.1) 62% 63%, transparent 63% 100%);
+  opacity: 0.55;
+  pointer-events: none;
 }
 
 .hero p,
@@ -44,21 +44,21 @@
   min-height: 44px;
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 999px;
-  padding: 0 12px;
+  padding: 0 14px;
   color: #fff;
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.18);
   font-size: 12px;
-  font-weight: 900;
-  backdrop-filter: blur(14px);
+  font-weight: 950;
+  backdrop-filter: blur(16px);
 }
 
 .hero h2 {
   position: relative;
   z-index: 1;
-  font-size: 34px;
+  font-size: 38px;
   line-height: 1;
   letter-spacing: 0;
-  margin-top: 12px;
+  margin-top: 14px;
 }
 
 .hero p {
@@ -70,16 +70,17 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-  margin-top: 18px;
+  margin-top: 20px;
 }
 
 .heroMini {
   position: relative;
   z-index: 1;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.16);
-  padding: 12px;
-  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.14);
+  padding: 13px;
+  backdrop-filter: blur(16px);
 }
 
 .commandCenter {
@@ -107,12 +108,12 @@
 }
 
 .commandLead {
-  min-height: 138px;
-  border-radius: 28px;
-  padding: 16px;
+  min-height: 146px;
+  border-radius: 30px;
+  padding: 17px;
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--app-surface) 86%, transparent), color-mix(in srgb, var(--app-surface-2) 94%, transparent)),
-    radial-gradient(circle at 90% 8%, rgba(59, 91, 255, 0.18), transparent 34%);
+    linear-gradient(135deg, color-mix(in srgb, var(--app-surface) 92%, transparent), color-mix(in srgb, var(--app-surface-2) 92%, transparent)),
+    linear-gradient(120deg, color-mix(in srgb, var(--app-primary) 9%, transparent), transparent 48%);
   box-shadow: var(--app-shadow);
 }
 
@@ -130,7 +131,7 @@
 .commandLead strong {
   display: block;
   margin-top: 8px;
-  font-size: 22px;
+  font-size: 24px;
   line-height: 1.08;
 }
 
@@ -148,10 +149,11 @@
 }
 
 .commandTile {
-  min-height: 82px;
-  border-radius: 22px;
+  min-height: 88px;
+  border-radius: 24px;
   padding: 13px;
-  background: color-mix(in srgb, var(--app-surface), transparent 3%);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 96%, transparent), color-mix(in srgb, var(--app-surface-2) 58%, transparent));
   box-shadow: 0 12px 26px rgba(17, 24, 39, 0.08);
 }
 
@@ -164,15 +166,16 @@
 
 .liveRibbon {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
 .liveRibbon button {
-  min-height: 68px;
-  border-radius: 20px;
-  padding: 11px;
-  background: var(--app-surface);
+  min-height: 72px;
+  border-radius: 22px;
+  padding: 12px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 96%, transparent), color-mix(in srgb, var(--app-surface-2) 52%, transparent));
   box-shadow: 0 10px 22px rgba(17, 24, 39, 0.07);
 }
 
@@ -205,7 +208,7 @@
 }
 
 .metric {
-  min-height: 104px;
+  min-height: 112px;
   display: grid;
   align-content: space-between;
 }
@@ -280,17 +283,25 @@
 }
 
 .quick {
-  min-height: 84px;
-  border: 1px solid var(--app-border);
-  border-radius: 22px;
-  background: var(--app-surface);
+  min-height: 92px;
+  border: 1px solid color-mix(in srgb, var(--app-border) 90%, transparent);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 96%, transparent), color-mix(in srgb, var(--app-surface-2) 58%, transparent));
   color: var(--app-text);
   padding: 13px;
   display: grid;
   align-content: center;
   justify-items: start;
   gap: 8px;
-  font-weight: 900;
+  font-weight: 950;
+  box-shadow: 0 12px 26px rgba(17, 24, 39, 0.07);
+}
+
+.quick ion-icon,
+.commandTile ion-icon {
+  width: 24px;
+  height: 24px;
 }
 
 .alertList,
@@ -300,7 +311,7 @@
 }
 
 .alert {
-  border-radius: 18px;
+  border-radius: 20px;
   border: 1px solid rgba(245, 158, 11, 0.25);
   padding: 12px;
   background: rgba(245, 158, 11, 0.12);
@@ -333,10 +344,11 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
-  border-radius: 18px;
+  border-radius: 20px;
   border: 1px solid var(--app-border);
   padding: 12px;
-  background: var(--app-surface-2);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-surface-2) 90%, transparent), color-mix(in srgb, var(--app-surface) 76%, transparent));
 }
 
 .riskItem strong {

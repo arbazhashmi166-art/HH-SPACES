@@ -104,6 +104,43 @@ export const supplierPaymentSchema = z.object({
   notes: optionalText
 });
 
+export const partnerDrawSchema = z.object({
+  partner_name: requiredText,
+  date: isoDate,
+  category: z.enum(["owner_draw", "profit_share", "emergency", "advance", "salary", "reimbursement", "other"]),
+  amount: money,
+  payment_mode: z.enum(["cash", "upi", "bank_transfer", "cheque"]),
+  site_id: z.string().optional().nullable(),
+  approved_by: optionalText,
+  notes: optionalText
+});
+
+export const dailyClosingSchema = z.object({
+  site_id: z.string().optional().nullable(),
+  date: isoDate,
+  attendance_done: z.preprocess((value) => value === true || value === "true", z.boolean()).default(false),
+  material_done: z.preprocess((value) => value === true || value === "true", z.boolean()).default(false),
+  expense_done: z.preprocess((value) => value === true || value === "true", z.boolean()).default(false),
+  progress_done: z.preprocess((value) => value === true || value === "true", z.boolean()).default(false),
+  client_followup_done: z.preprocess((value) => value === true || value === "true", z.boolean()).default(false),
+  report_text: requiredText,
+  notes: optionalText
+});
+
+export const approvalRequestSchema = z.object({
+  site_id: z.string().optional().nullable(),
+  category: z.enum(["partner_draw", "extra_work", "supplier_payment", "client_payment", "expense", "other"]),
+  title: requiredText,
+  amount: money,
+  requested_by_name: optionalText,
+  approver_name: optionalText,
+  status: z.enum(["pending", "approved", "rejected"]),
+  linked_table: z.string().optional().nullable(),
+  linked_record_id: z.string().optional().nullable(),
+  decision_notes: optionalText,
+  decided_at: z.string().optional().nullable()
+});
+
 export const progressSchema = z.object({
   site_id: requiredText,
   date: isoDate,
@@ -111,6 +148,20 @@ export const progressSchema = z.object({
   description: requiredText,
   progress_percent: percent,
   ai_summary: optionalText
+});
+
+export const extraWorkSchema = z.object({
+  site_id: requiredText,
+  date: isoDate,
+  work_type: requiredText,
+  description: requiredText,
+  quantity: money,
+  unit: requiredText,
+  rate: money,
+  amount: money,
+  client_approved: z.preprocess((value) => value === true || value === "true", z.boolean()).default(false),
+  status: z.enum(["draft", "approved", "rejected", "billed", "paid"]),
+  notes: optionalText
 });
 
 export const reminderSchema = z.object({
@@ -145,7 +196,7 @@ export const signUpSchema = z.object({
 });
 
 export const aiDraftSchema = z.object({
-  intent: z.enum(["attendance", "material", "expense", "client_payment", "supplier_payment", "progress", "labour", "reminder", "unknown"]),
+  intent: z.enum(["attendance", "material", "expense", "client_payment", "supplier_payment", "partner_draw", "progress", "labour", "reminder", "extra_work", "unknown"]),
   confidence: z.number().min(0).max(1),
   missing_fields: z.array(z.string()),
   original_text: requiredText,

@@ -3,6 +3,7 @@ import type {
   Attendance,
   ClientPayment,
   Expense,
+  ExtraWork,
   Labour,
   Material,
   ProgressPhoto,
@@ -66,6 +67,7 @@ export function marketRadar(input: {
   supplierPayments: SupplierPayment[];
   progress: ProgressUpdate[];
   progressPhotos: ProgressPhoto[];
+  extraWorks?: ExtraWork[];
   reminders: Reminder[];
   aiMessages: AiMessage[];
 }): MarketRadarResult {
@@ -75,6 +77,8 @@ export function marketRadar(input: {
   const hasFinancialData = input.payments.length + input.supplierPayments.length + input.expenses.length + input.materials.length > 0;
   const hasSupplierData = input.suppliers.length + input.materials.length + input.supplierPayments.length > 0;
   const hasPhotoProof = input.progressPhotos.length > 0 || input.progress.some((item) => item.description.toLowerCase().includes("photo"));
+  const hasExtraWorkControl = (input.extraWorks || []).length > 0;
+  const unbilledExtraWorks = automation.cashflow.unbilledExtraWorks;
   const highRiskSites = intelligence.siteHealth.filter((site) => site.riskLevel !== "info").length;
   const openAutomationActions = automation.actions.length;
 
@@ -155,11 +159,13 @@ export function marketRadar(input: {
       id: "change-order-control",
       title: "Variation and Change Control",
       marketSignal: "Extra work must be captured early so billing does not leak.",
-      businessValue: "Use progress notes, client payments, reminders, and reports to control extra work until a dedicated variation table is added.",
-      status: statusFromScore(input.progress.length || input.reminders.length ? 52 : 22),
-      powerScore: input.progress.length || input.reminders.length ? 52 : 22,
-      route: "/progress?add=1",
-      actionLabel: "Log Extra Work"
+      businessValue: unbilledExtraWorks
+        ? `Approved unbilled extra work is ${Math.round(unbilledExtraWorks).toLocaleString("en-IN")}.`
+        : "Dedicated extra work tracking is ready for change orders and amount increases.",
+      status: statusFromScore(hasExtraWorkControl ? 86 : 42),
+      powerScore: hasExtraWorkControl ? 86 : 42,
+      route: "/extra-works?add=1",
+      actionLabel: "Add Extra Work"
     }
   ];
 

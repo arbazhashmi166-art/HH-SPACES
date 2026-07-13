@@ -1,4 +1,4 @@
-import type { Attendance, ClientPayment, Expense, Labour, Material, ProgressUpdate, Reminder, Site, SupplierPayment } from "@/types/domain";
+import type { Attendance, ClientPayment, Expense, ExtraWork, Labour, Material, ProgressUpdate, Reminder, Site, SupplierPayment } from "@/types/domain";
 import { businessIntelligence, type SmartSeverity } from "./business-logic";
 import { sumBy } from "./calc";
 import { todayIso } from "./format";
@@ -39,6 +39,8 @@ export type CashflowRadar = {
   supplierExposure: number;
   labourBalance: number;
   unpaidMaterialBills: number;
+  approvedExtraWorks: number;
+  unbilledExtraWorks: number;
   expectedLabour7Days: number;
   averageDailyBurn: number;
   netToCollectAfterPayables: number;
@@ -109,6 +111,7 @@ export function automationEngine(input: {
   payments: ClientPayment[];
   supplierPayments: SupplierPayment[];
   progress: ProgressUpdate[];
+  extraWorks?: ExtraWork[];
   reminders?: Reminder[];
   today?: string;
 }): AutomationEngineResult {
@@ -121,6 +124,7 @@ export function automationEngine(input: {
     payments: input.payments,
     supplierPayments: input.supplierPayments,
     progress: input.progress,
+    extraWorks: input.extraWorks || [],
     today
   });
 
@@ -140,6 +144,18 @@ export function automationEngine(input: {
   );
   const labourBalance = sumBy(input.labour, (item) => item.balance_payment);
   const supplierExposure = supplierPaymentPending + unpaidMaterialBills;
+  const approvedExtraWorks = sumBy(
+    (input.extraWorks || []).filter((item) => item.client_approved || item.status === "approved" || item.status === "billed" || item.status === "paid"),
+    (item) => item.amount
+  );
+  const unbilledExtraWorks = sumBy(
+    (input.extraWorks || []).filter((item) => (item.client_approved || item.status === "approved") && item.status !== "billed" && item.status !== "paid"),
+    (item) => item.amount
+  );
+  const pendingExtraApproval = sumBy(
+    (input.extraWorks || []).filter((item) => !item.client_approved && item.status === "draft"),
+    (item) => item.amount
+  );
 
   const recentAttendance = input.attendance.filter((item) => inLastDays(item.date, today, 14));
   const recentMaterials = input.materials.filter((item) => inLastDays(item.date, today, 14));
@@ -239,6 +255,35 @@ export function automationEngine(input: {
     });
   }
 
+  if (unbilledExtraWorks > 0) {
+    const siteWithExtra = intelligence.siteHealth.find((site) => site.unbilledExtraWork > 0);
+    uniquePush(actions, {
+      id: "extra-work-billing",
+      title: `Bill approved extra work ${moneyText(unbilledExtraWorks)}`,
+      description: siteWithExtra
+        ? `${siteWithExtra.siteName} has ${moneyText(siteWithExtra.unbilledExtraWork)} approved extra work waiting for billing.`
+        : "Approved variation work is waiting for billing.",
+      severity: unbilledExtraWorks > 50000 ? "critical" : "warning",
+      category: "money",
+      route: "/extra-works",
+      primaryAction: "Open Extra Works",
+      reminderTitle: "Bill approved extra work",
+      reminderDescription: `Approved unbilled extra work total is ${moneyText(unbilledExtraWorks)}.`
+    });
+  }
+
+  if (pendingExtraApproval > 0) {
+    uniquePush(actions, {
+      id: "extra-work-approval",
+      title: `Get approval for ${moneyText(pendingExtraApproval)} extra work`,
+      description: "Draft variation work should be approved before it becomes disputed or forgotten.",
+      severity: pendingExtraApproval > 50000 ? "warning" : "info",
+      category: "money",
+      route: "/extra-works",
+      primaryAction: "Review Extra"
+    });
+  }
+
   if (labourBalance > 0) {
     uniquePush(actions, {
       id: "labour-balance",
@@ -291,6 +336,12 @@ export function automationEngine(input: {
       route: "/payments"
     },
     {
+      title: "Extra work billed",
+      description: unbilledExtraWorks > 0 ? `${moneyText(unbilledExtraWorks)} approved extra work is unbilled.` : "No approved extra work waiting for billing.",
+      done: unbilledExtraWorks === 0,
+      route: "/extra-works"
+    },
+    {
       title: "Reminders clear",
       description: overdueReminders.length ? `${overdueReminders.length} reminders are overdue.` : "No overdue reminders.",
       done: overdueReminders.length === 0,
@@ -304,6 +355,7 @@ export function automationEngine(input: {
   score -= checklist.filter((item) => !item.done).length * 5;
   if (pressure === "critical") score -= 15;
   if (pressure === "warning") score -= 8;
+  if (unbilledExtraWorks > 0) score -= 7;
   score = Math.max(0, Math.min(100, score));
 
   const hasMoneyData = pendingClient > 0 || supplierExposure > 0 || input.payments.length > 0 || input.supplierPayments.length > 0;
@@ -349,6 +401,14 @@ export function automationEngine(input: {
       severity: intelligence.siteHealth.some((site) => site.daysUntilDue != null && site.daysUntilDue < 0) ? "critical" : "info"
     },
     {
+      id: "extra-work-recovery",
+      title: "Extra work recovery",
+      description: "Tracks variation work approvals and warns when approved work has not been billed.",
+      category: "money",
+      status: (input.extraWorks || []).length ? "active" : "needs-data",
+      severity: unbilledExtraWorks > 0 ? "warning" : "info"
+    },
+    {
       id: "weekly-profit-pulse",
       title: "Weekly profit pulse",
       description: "Uses income, labour, materials, and expenses to guide profit/loss review.",
@@ -366,6 +426,8 @@ export function automationEngine(input: {
       supplierExposure,
       labourBalance,
       unpaidMaterialBills,
+      approvedExtraWorks,
+      unbilledExtraWorks,
       expectedLabour7Days,
       averageDailyBurn,
       netToCollectAfterPayables,

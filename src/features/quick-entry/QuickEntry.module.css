@@ -1,0 +1,176 @@
+.stack {
+  display: grid;
+  gap: 15px;
+}
+
+.hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 34px;
+  padding: 22px;
+  color: #fff;
+  background:
+    linear-gradient(120deg, rgba(255, 255, 255, 0.16), transparent 30%, rgba(255, 255, 255, 0.1) 70%, transparent),
+    linear-gradient(145deg, #101827 0%, var(--app-primary) 54%, var(--app-primary-2) 78%, var(--app-accent) 100%);
+  box-shadow: 0 30px 72px rgba(49, 87, 255, 0.3);
+}
+
+.hero span,
+.statusCard span,
+.moneyGrid span,
+.suggestion span {
+  display: block;
+  color: var(--app-muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.hero span {
+  color: rgba(255, 255, 255, 0.74);
+}
+
+.hero h2 {
+  margin: 10px 0 6px;
+  font-size: 42px;
+  line-height: 1;
+  font-weight: 950;
+}
+
+.hero p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.84);
+  line-height: 1.45;
+  font-weight: 750;
+}
+
+.heroActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 14px;
+}
+
+.statusGrid,
+.quickGrid,
+.moneyGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.statusCard,
+.quickCard,
+.suggestion,
+.moneyGrid button {
+  border: 1px solid color-mix(in srgb, var(--app-border) 88%, transparent);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 96%, transparent), color-mix(in srgb, var(--app-surface-2) 58%, transparent));
+  color: var(--app-text);
+  box-shadow: 0 12px 26px rgba(17, 24, 39, 0.07);
+}
+
+.statusCard {
+  min-height: 118px;
+  border-radius: 26px;
+  padding: 14px;
+  display: grid;
+  align-content: space-between;
+  justify-items: start;
+  text-align: left;
+}
+
+.statusCard strong,
+.moneyGrid strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 950;
+}
+
+.moneyGrid button {
+  min-height: 104px;
+  border-radius: 24px;
+  padding: 14px;
+  text-align: left;
+}
+
+.suggestionList {
+  display: grid;
+  gap: 10px;
+}
+
+.suggestion {
+  min-height: 106px;
+  border-radius: 24px;
+  padding: 14px;
+  text-align: left;
+}
+
+.suggestion strong {
+  display: block;
+  margin-top: 7px;
+  font-size: 17px;
+  line-height: 1.25;
+}
+
+.suggestion p {
+  margin: 6px 0 0;
+  color: var(--app-muted);
+  font-size: 13px;
+  line-height: 1.42;
+}
+
+.quickCard {
+  min-height: 98px;
+  border-radius: 24px;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+}
+
+.quickCard ion-icon {
+  width: 30px;
+  height: 30px;
+  color: var(--app-primary);
+}
+
+.quickCard strong,
+.quickCard small {
+  display: block;
+}
+
+.quickCard strong {
+  font-size: 15px;
+  line-height: 1.15;
+  font-weight: 950;
+}
+
+.quickCard small {
+  margin-top: 4px;
+  color: var(--app-muted);
+  font-size: 12px;
+  line-height: 1.25;
+  font-weight: 800;
+}
+
+.statusCard:active,
+.quickCard:active,
+.suggestion:active,
+.moneyGrid button:active {
+  transform: scale(0.985);
+}
+
+@media (max-width: 380px) {
+  .heroActions,
+  .statusGrid,
+  .quickGrid,
+  .moneyGrid {
+    grid-template-columns: 1fr;
+  }
+}

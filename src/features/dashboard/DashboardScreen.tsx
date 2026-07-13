@@ -27,7 +27,9 @@ export function DashboardScreen() {
   const expenses = useRecords("expenses", company?.id);
   const payments = useRecords("client_payments", company?.id);
   const supplierPayments = useRecords("supplier_payments", company?.id);
+  const partnerDraws = useRecords("partner_draws", company?.id);
   const progress = useRecords("progress_updates", company?.id);
+  const extraWorks = useRecords("extra_works", company?.id);
   const reminders = useRecords("reminders", company?.id);
   const activity = useRecords("activity_logs", company?.id);
 
@@ -40,9 +42,11 @@ export function DashboardScreen() {
         expenses: expenses.data || [],
         payments: payments.data || [],
         supplierPayments: supplierPayments.data || [],
-        labour: labour.data || []
+        labour: labour.data || [],
+        extraWorks: extraWorks.data || [],
+        partnerDraws: partnerDraws.data || []
       }),
-    [attendance.data, expenses.data, labour.data, materials.data, payments.data, sites.data, supplierPayments.data]
+    [attendance.data, expenses.data, extraWorks.data, labour.data, materials.data, partnerDraws.data, payments.data, sites.data, supplierPayments.data]
   );
 
   const intelligence = useMemo(
@@ -54,9 +58,10 @@ export function DashboardScreen() {
         expenses: expenses.data || [],
         payments: payments.data || [],
         supplierPayments: supplierPayments.data || [],
-        progress: progress.data || []
+        progress: progress.data || [],
+        extraWorks: extraWorks.data || []
       }),
-    [attendance.data, expenses.data, materials.data, payments.data, progress.data, sites.data, supplierPayments.data]
+    [attendance.data, expenses.data, extraWorks.data, materials.data, payments.data, progress.data, sites.data, supplierPayments.data]
   );
 
   const automation = useMemo(
@@ -70,9 +75,10 @@ export function DashboardScreen() {
         payments: payments.data || [],
         supplierPayments: supplierPayments.data || [],
         progress: progress.data || [],
+        extraWorks: extraWorks.data || [],
         reminders: reminders.data || []
       }),
-    [attendance.data, expenses.data, labour.data, materials.data, payments.data, progress.data, reminders.data, sites.data, supplierPayments.data]
+    [attendance.data, expenses.data, extraWorks.data, labour.data, materials.data, payments.data, progress.data, reminders.data, sites.data, supplierPayments.data]
   );
   const topAutomationAction = automation.actions[0];
 
@@ -137,9 +143,33 @@ export function DashboardScreen() {
           <p>Cashflow, site risk, reminders, daily checklist, and next best action in one place.</p>
         </button>
         <div className={styles.commandGrid}>
+          <button className={styles.commandTile} type="button" onClick={() => router.push("/quick-entry")}>
+            <span>Quick Entry</span>
+            <strong>One Tap Add</strong>
+          </button>
           <button className={styles.commandTile} type="button" onClick={() => router.push("/reports")}>
             <span>Reports</span>
             <strong>PDF / Excel</strong>
+          </button>
+          <button className={styles.commandTile} type="button" onClick={() => router.push("/payment-recovery")}>
+            <span>Recovery</span>
+            <strong>Collect Money</strong>
+          </button>
+          <button className={styles.commandTile} type="button" onClick={() => router.push("/business-brain")}>
+            <span>Brain</span>
+            <strong>Control Room</strong>
+          </button>
+          <button className={styles.commandTile} type="button" onClick={() => router.push("/cash-flow")}>
+            <span>Cash Flow</span>
+            <strong>Forecast</strong>
+          </button>
+          <button className={styles.commandTile} type="button" onClick={() => router.push("/approval-center")}>
+            <span>Approvals</span>
+            <strong>Decisions</strong>
+          </button>
+          <button className={styles.commandTile} type="button" onClick={() => router.push("/bill-scanner")}>
+            <span>Bill Scan</span>
+            <strong>OCR Entry</strong>
           </button>
           <button className={styles.commandTile} type="button" onClick={() => router.push("/ai")}>
             <span>Ask AI</span>
@@ -152,6 +182,18 @@ export function DashboardScreen() {
           <button className={styles.commandTile} type="button" onClick={() => router.push("/attendance?add=1")}>
             <span>Daily</span>
             <strong>Fast Entry</strong>
+          </button>
+          <button className={styles.commandTile} type="button" onClick={() => router.push("/daily-closing")}>
+            <span>Closing</span>
+            <strong>End Day</strong>
+          </button>
+          <button className={styles.commandTile} type="button" onClick={() => router.push("/extra-works?add=1")}>
+            <span>Extra Work</span>
+            <strong>Capture Value</strong>
+          </button>
+          <button className={styles.commandTile} type="button" onClick={() => router.push("/partner-draws?add=1")}>
+            <span>Partner Draw</span>
+            <strong>Money Taken</strong>
           </button>
         </div>
       </div>
@@ -168,6 +210,14 @@ export function DashboardScreen() {
         <button type="button" onClick={() => router.push("/payments")}>
           <span>Pending</span>
           <strong>{formatMoney(metrics.pendingClientPayments)}</strong>
+        </button>
+        <button type="button" onClick={() => router.push("/extra-works")}>
+          <span>Unbilled Extra</span>
+          <strong>{formatMoney(metrics.unbilledExtraWorks)}</strong>
+        </button>
+        <button type="button" onClick={() => router.push("/partner-draws")}>
+          <span>Partner Draws</span>
+          <strong>{formatMoney(metrics.partnerDrawsTotal)}</strong>
         </button>
       </div>
 
@@ -192,7 +242,47 @@ export function DashboardScreen() {
           <strong>{formatMoney(metrics.todayExpenses)}</strong>
           <Badge tone="neutral">Other costs</Badge>
         </Card>
+        <Card className={styles.metric}>
+          <span>Approved Extra</span>
+          <strong>{formatMoney(metrics.approvedExtraWorks)}</strong>
+          <Badge tone={metrics.unbilledExtraWorks > 0 ? "warning" : "success"}>{metrics.unbilledExtraWorks > 0 ? "Unbilled" : "Controlled"}</Badge>
+        </Card>
+        <Card className={styles.metric}>
+          <span>Partner Draws</span>
+          <strong>{formatMoney(metrics.partnerDrawsTotal)}</strong>
+          <Badge tone="info">Company cash taken</Badge>
+        </Card>
       </div>
+
+      <Card>
+        <CardHeader title="Partner Money Taken" subtitle="Total company withdrawals by partner, including profit share, emergency, advance, salary, and reimbursement." />
+        {(partnerDraws.data || []).length ? (
+          <div className={styles.timeline}>
+            {Object.entries(
+              (partnerDraws.data || []).reduce<Record<string, number>>((totals, item) => {
+                totals[item.partner_name] = (totals[item.partner_name] || 0) + Number(item.amount || 0);
+                return totals;
+              }, {})
+            )
+              .sort((a, b) => b[1] - a[1])
+              .map(([name, amount]) => (
+                <div className={styles.riskItem} key={name}>
+                  <div>
+                    <strong>{name}</strong>
+                    <p>Company money taken till now</p>
+                  </div>
+                  <Badge tone="info">{formatMoney(amount)}</Badge>
+                </div>
+              ))}
+          </div>
+        ) : (
+          <EmptyState title="No partner draws yet" description="When any partner takes company money, record it here so the final sharing stays clear." />
+        )}
+        <div className={styles.autopilotAction}>
+          <Button onClick={() => router.push("/partner-ledger")}>Open Partner Ledger</Button>
+          <Button variant="secondary" onClick={() => router.push("/partner-draws?add=1")}>Add Money Taken</Button>
+        </div>
+      </Card>
 
       <Card>
         <CardHeader title="Business Autopilot" subtitle="Automatic operating score, cashflow pressure, and next best action." />
@@ -207,6 +297,7 @@ export function DashboardScreen() {
             <strong>{automation.cashflow.pressure}</strong>
             <p>Client pending {formatMoney(automation.cashflow.pendingClient)}</p>
             <p>Payables {formatMoney(automation.cashflow.supplierExposure + automation.cashflow.labourBalance)}</p>
+            <p>Unbilled extra {formatMoney(automation.cashflow.unbilledExtraWorks)}</p>
           </div>
         </div>
         <div className={styles.autopilotAction}>
@@ -284,6 +375,7 @@ export function DashboardScreen() {
                   <strong>{site.siteName}</strong>
                   <p>
                     Cost {formatMoney(site.totalCost)} | Received {formatMoney(site.received)} | Profit {formatMoney(site.profit)}
+                    {site.unbilledExtraWork ? ` | Extra unbilled ${formatMoney(site.unbilledExtraWork)}` : ""}
                   </p>
                 </div>
                 <Badge tone={site.riskLevel === "critical" ? "danger" : site.riskLevel === "warning" ? "warning" : "success"}>{site.riskScore}% risk</Badge>

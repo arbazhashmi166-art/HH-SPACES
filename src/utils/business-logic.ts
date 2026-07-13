@@ -1,4 +1,4 @@
-import type { Attendance, ClientPayment, Expense, Material, ProgressUpdate, Site, SupplierPayment } from "@/types/domain";
+import type { Attendance, ClientPayment, Expense, ExtraWork, Material, ProgressUpdate, Site, SupplierPayment } from "@/types/domain";
 import { sumBy } from "./calc";
 import { todayIso } from "./format";
 
@@ -18,7 +18,11 @@ export type SiteFinancialHealth = {
   received: number;
   pendingClient: number;
   pendingSupplier: number;
+  approvedExtraWork: number;
+  unbilledExtraWork: number;
+  pendingApprovalExtraWork: number;
   profit: number;
+  projectedProfit: number;
   budgetUsedPercent: number;
   paymentCoveragePercent: number;
   daysUntilDue: number | null;
@@ -76,6 +80,7 @@ export function businessIntelligence(input: {
   payments: ClientPayment[];
   supplierPayments: SupplierPayment[];
   progress: ProgressUpdate[];
+  extraWorks?: ExtraWork[];
   today?: string;
 }): BusinessIntelligence {
   const today = input.today || todayIso();
@@ -109,6 +114,7 @@ export function businessIntelligence(input: {
     const sitePayments = input.payments.filter((item) => item.site_id === site.id);
     const siteSupplierPayments = input.supplierPayments.filter((item) => item.site_id === site.id);
     const siteProgress = input.progress.filter((item) => item.site_id === site.id);
+    const siteExtraWorks = (input.extraWorks || []).filter((item) => item.site_id === site.id);
 
     const labourCost = sumBy(siteAttendance, (item) => item.wage_amount);
     const materialCost = sumBy(siteMaterials, (item) => item.total);
@@ -117,7 +123,20 @@ export function businessIntelligence(input: {
     const received = sumBy(sitePayments, (item) => item.received_amount);
     const pendingClient = sumBy(sitePayments, (item) => item.pending_amount);
     const pendingSupplierForSite = sumBy(siteSupplierPayments, (item) => item.pending_amount);
+    const approvedExtraWork = sumBy(
+      siteExtraWorks.filter((item) => item.client_approved || item.status === "approved" || item.status === "billed" || item.status === "paid"),
+      (item) => item.amount
+    );
+    const unbilledExtraWork = sumBy(
+      siteExtraWorks.filter((item) => (item.client_approved || item.status === "approved") && item.status !== "billed" && item.status !== "paid"),
+      (item) => item.amount
+    );
+    const pendingApprovalExtraWork = sumBy(
+      siteExtraWorks.filter((item) => !item.client_approved && item.status === "draft"),
+      (item) => item.amount
+    );
     const profit = received - totalCost;
+    const projectedProfit = received + approvedExtraWork - totalCost;
     const budgetUsedPercent = site.budget > 0 ? Math.round((totalCost / site.budget) * 100) : 0;
     const paymentCoveragePercent = totalCost > 0 ? Math.round((received / totalCost) * 100) : received > 0 ? 100 : 0;
     const daysUntilDue = site.expected_completion_date ? daysBetween(today, site.expected_completion_date) : null;
@@ -131,6 +150,7 @@ export function businessIntelligence(input: {
     else if (budgetUsedPercent >= 85) riskScore += 20;
     if (pendingClient > 0) riskScore += pendingClient > 100000 ? 25 : 12;
     if (profit < 0 && received > 0) riskScore += 15;
+    if (unbilledExtraWork > 0) riskScore += unbilledExtraWork > 50000 ? 15 : 8;
     if (site.status === "active" && (daysSinceProgress == null || daysSinceProgress >= 4)) riskScore += 15;
     if (totalCost > 0 && paymentCoveragePercent < 50) riskScore += 10;
     riskScore = Math.min(100, riskScore);
@@ -149,7 +169,11 @@ export function businessIntelligence(input: {
       received,
       pendingClient,
       pendingSupplier: pendingSupplierForSite,
+      approvedExtraWork,
+      unbilledExtraWork,
+      pendingApprovalExtraWork,
       profit,
+      projectedProfit,
       budgetUsedPercent,
       paymentCoveragePercent,
       daysUntilDue,
@@ -172,6 +196,24 @@ export function businessIntelligence(input: {
         title: `Collect payment from ${site.client_name}`,
         message: `${site.name} has ${pendingClient.toLocaleString("en-IN")} pending.`,
         severity: pendingClient > 100000 ? "critical" : "warning",
+        siteId: site.id
+      });
+    }
+
+    if (unbilledExtraWork > 0) {
+      pushUnique(focusActions, {
+        title: `Bill extra work for ${site.name}`,
+        message: `${unbilledExtraWork.toLocaleString("en-IN")} approved extra work is not billed yet.`,
+        severity: unbilledExtraWork > 50000 ? "critical" : "warning",
+        siteId: site.id
+      });
+    }
+
+    if (pendingApprovalExtraWork > 0) {
+      pushUnique(alerts, {
+        title: `${site.name} extra work approval`,
+        message: `${pendingApprovalExtraWork.toLocaleString("en-IN")} extra work is waiting for client approval.`,
+        severity: pendingApprovalExtraWork > 50000 ? "warning" : "info",
         siteId: site.id
       });
     }

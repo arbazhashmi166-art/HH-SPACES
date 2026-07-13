@@ -31,7 +31,11 @@ export function ReportsScreen() {
   const expenses = useRecords("expenses", company?.id);
   const payments = useRecords("client_payments", company?.id);
   const supplierPayments = useRecords("supplier_payments", company?.id);
+  const partnerDraws = useRecords("partner_draws", company?.id);
+  const dailyClosings = useRecords("daily_closings", company?.id);
+  const approvals = useRecords("approval_requests", company?.id);
   const progress = useRecords("progress_updates", company?.id);
+  const extraWorks = useRecords("extra_works", company?.id);
   const progressPhotos = useRecords("progress_photos", company?.id);
   const reminders = useRecords("reminders", company?.id);
   const aiMessages = useRecords("ai_messages", company?.id);
@@ -43,7 +47,9 @@ export function ReportsScreen() {
     materials: materials.data || [],
     expenses: expenses.data || [],
     payments: payments.data || [],
-    supplierPayments: supplierPayments.data || []
+    supplierPayments: supplierPayments.data || [],
+    extraWorks: extraWorks.data || [],
+    partnerDraws: partnerDraws.data || []
   });
 
   const intelligence = useMemo(
@@ -55,9 +61,10 @@ export function ReportsScreen() {
         expenses: expenses.data || [],
         payments: payments.data || [],
         supplierPayments: supplierPayments.data || [],
-        progress: progress.data || []
+        progress: progress.data || [],
+        extraWorks: extraWorks.data || []
       }),
-    [attendance.data, expenses.data, materials.data, payments.data, progress.data, sites.data, supplierPayments.data]
+    [attendance.data, expenses.data, extraWorks.data, materials.data, payments.data, progress.data, sites.data, supplierPayments.data]
   );
 
   const automation = useMemo(
@@ -71,9 +78,10 @@ export function ReportsScreen() {
         payments: payments.data || [],
         supplierPayments: supplierPayments.data || [],
         progress: progress.data || [],
+        extraWorks: extraWorks.data || [],
         reminders: reminders.data || []
       }),
-    [attendance.data, expenses.data, labour.data, materials.data, payments.data, progress.data, reminders.data, sites.data, supplierPayments.data]
+    [attendance.data, expenses.data, extraWorks.data, labour.data, materials.data, payments.data, progress.data, reminders.data, sites.data, supplierPayments.data]
   );
 
   const radar = useMemo(
@@ -89,6 +97,7 @@ export function ReportsScreen() {
         supplierPayments: supplierPayments.data || [],
         progress: progress.data || [],
         progressPhotos: progressPhotos.data || [],
+        extraWorks: extraWorks.data || [],
         reminders: reminders.data || [],
         aiMessages: aiMessages.data || []
       }),
@@ -96,6 +105,7 @@ export function ReportsScreen() {
       aiMessages.data,
       attendance.data,
       expenses.data,
+      extraWorks.data,
       labour.data,
       materials.data,
       payments.data,
@@ -197,6 +207,51 @@ export function ReportsScreen() {
         ]
       },
       {
+        key: "partner-draws-report",
+        title: "Partner Draws Report",
+        description: "Company money taken by each partner for profit share, emergency, advance, salary, or reimbursement.",
+        rows: [
+          ...Object.entries(
+            (partnerDraws.data || []).reduce<Record<string, number>>((totals, item) => {
+              totals[item.partner_name] = (totals[item.partner_name] || 0) + Number(item.amount || 0);
+              return totals;
+            }, {})
+          ).map(([partner, amount]) => ({
+            section: "Partner total",
+            partner,
+            amount: formatMoney(amount)
+          })),
+          ...(partnerDraws.data || []).map((item) => ({
+            section: "Entry",
+            date: item.date,
+            partner: item.partner_name,
+            reason: item.category.replace("_", " "),
+            amount: formatMoney(item.amount),
+            mode: item.payment_mode,
+            site: sites.data?.find((site) => site.id === item.site_id)?.name || "Company",
+            approved_by: item.approved_by || "",
+            notes: item.notes || ""
+          }))
+        ]
+      },
+      {
+        key: "approval-report",
+        title: "Approval Report",
+        description: "Pending, approved, and rejected business decisions with amount, approver, and notes.",
+        rows: (approvals.data || []).map((item) => ({
+          created: item.created_at ? item.created_at.slice(0, 10) : "",
+          status: item.status,
+          category: item.category.replace("_", " "),
+          title: item.title,
+          amount: formatMoney(item.amount),
+          site: item.site_id ? sites.data?.find((site) => site.id === item.site_id)?.name || "" : "Company",
+          requested_by: item.requested_by_name || "",
+          approver: item.approver_name || "",
+          decided: item.decided_at ? item.decided_at.slice(0, 10) : "",
+          notes: item.decision_notes || ""
+        }))
+      },
+      {
         key: "progress-report",
         title: "Progress Report",
         description: "Progress entries, site mapping, percentage, and notes.",
@@ -206,6 +261,23 @@ export function ReportsScreen() {
           title: item.title,
           percent: `${item.progress_percent}%`,
           description: item.description
+        }))
+      },
+      {
+        key: "extra-work-report",
+        title: "Extra Works Report",
+        description: "Variation work, client approval, amount increase, and unbilled billing status.",
+        rows: (extraWorks.data || []).map((item) => ({
+          date: item.date,
+          site: sites.data?.find((site) => site.id === item.site_id)?.name || "",
+          work_type: item.work_type,
+          description: item.description,
+          quantity: `${item.quantity} ${item.unit}`,
+          rate: formatMoney(item.rate),
+          amount: formatMoney(item.amount),
+          approved: item.client_approved ? "Yes" : "No",
+          status: item.status,
+          notes: item.notes || ""
         }))
       },
       {
@@ -220,7 +292,10 @@ export function ReportsScreen() {
           cost: formatMoney(site.totalCost),
           received: formatMoney(site.received),
           pending_client: formatMoney(site.pendingClient),
+          approved_extra: formatMoney(site.approvedExtraWork),
+          unbilled_extra: formatMoney(site.unbilledExtraWork),
           profit: formatMoney(site.profit),
+          projected_profit: formatMoney(site.projectedProfit),
           budget_used: `${site.budgetUsedPercent}%`,
           payment_coverage: `${site.paymentCoveragePercent}%`,
           days_to_due: site.daysUntilDue ?? "",
@@ -247,6 +322,9 @@ export function ReportsScreen() {
           { section: "Cashflow", metric: "Client pending", value: formatMoney(automation.cashflow.pendingClient) },
           { section: "Cashflow", metric: "Supplier exposure", value: formatMoney(automation.cashflow.supplierExposure) },
           { section: "Cashflow", metric: "Labour balance", value: formatMoney(automation.cashflow.labourBalance) },
+          { section: "Cashflow", metric: "Partner draws", value: formatMoney(metrics.partnerDrawsTotal) },
+          { section: "Cashflow", metric: "Approved extra work", value: formatMoney(automation.cashflow.approvedExtraWorks) },
+          { section: "Cashflow", metric: "Unbilled extra work", value: formatMoney(automation.cashflow.unbilledExtraWorks) },
           { section: "Cashflow", metric: "Net after payables", value: formatMoney(automation.cashflow.netToCollectAfterPayables) },
           ...automation.actions.map((item) => ({
             section: "Next action",
@@ -273,6 +351,22 @@ export function ReportsScreen() {
         }))
       },
       {
+        key: "saved-daily-closings",
+        title: "Saved Daily Closings",
+        description: "Saved end-of-day reports with site scope, checklist status, and notes.",
+        rows: (dailyClosings.data || []).map((item) => ({
+          date: item.date,
+          site: sites.data?.find((site) => site.id === item.site_id)?.name || "All Sites",
+          attendance: item.attendance_done ? "Done" : "Pending",
+          material: item.material_done ? "Done" : "Pending",
+          expense: item.expense_done ? "Done" : "Pending",
+          progress: item.progress_done ? "Done" : "Pending",
+          client_followup: item.client_followup_done ? "Done" : "Pending",
+          notes: item.notes || "",
+          report: item.report_text
+        }))
+      },
+      {
         key: "market-radar-report",
         title: "Market Radar Report",
         description: "Latest construction-tech capability score and upgrade priorities for H&H SPACES.",
@@ -294,18 +388,22 @@ export function ReportsScreen() {
       }
     ],
     [
+      approvals.data,
       automation.actions,
       automation.cashflow,
       automation.checklist,
       automation.operatingScore,
       automation.rules,
       automation.scoreLabel,
+      dailyClosings.data,
       expenses.data,
+      extraWorks.data,
       intelligence.focusActions,
       intelligence.siteHealth,
       labour.data,
       materials.data,
       metrics,
+      partnerDraws.data,
       payments.data,
       progress.data,
       radar.capabilities,
@@ -351,6 +449,10 @@ export function ReportsScreen() {
           <div>
             <span>Profit/Loss</span>
             <strong>{formatMoney(metrics.estimatedProfit)}</strong>
+          </div>
+          <div>
+            <span>Partner Draws</span>
+            <strong>{formatMoney(metrics.partnerDrawsTotal)}</strong>
           </div>
           <div>
             <span>Total Sites</span>

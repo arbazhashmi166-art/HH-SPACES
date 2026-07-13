@@ -30,7 +30,7 @@ export type AppMeta = {
   value: unknown;
 };
 
-class SiteTrackerDb extends Dexie {
+class HHSpacesDb extends Dexie {
   records!: Table<LocalRecord, string>;
   pendingMutations!: Table<PendingMutation, string>;
   meta!: Table<AppMeta, string>;
@@ -55,7 +55,7 @@ class SiteTrackerDb extends Dexie {
   }
 }
 
-export const db = new SiteTrackerDb();
+export const db = new HHSpacesDb();
 
 export function localRecordKey(table: TableName, id: string) {
   return `${table}:${id}`;

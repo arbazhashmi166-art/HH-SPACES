@@ -2,10 +2,12 @@ import type { ZodTypeAny } from "zod";
 import {
   attendanceSchema,
   clientPaymentSchema,
+  extraWorkSchema,
   expenseSchema,
   labourSchema,
   materialSchema,
   memberSchema,
+  partnerDrawSchema,
   progressSchema,
   reminderSchema,
   siteSchema,
@@ -62,7 +64,24 @@ const paymentModes = [
   { label: "Cheque", value: "cheque" }
 ];
 
+const partnerDrawCategories = [
+  { label: "Owner Draw", value: "owner_draw" },
+  { label: "Profit Share", value: "profit_share" },
+  { label: "Emergency", value: "emergency" },
+  { label: "Advance", value: "advance" },
+  { label: "Salary", value: "salary" },
+  { label: "Reimbursement", value: "reimbursement" },
+  { label: "Other", value: "other" }
+];
+
 const siteField: FieldConfig = { name: "site_id", label: "Site", type: "select", required: true, options: [] };
+
+const workTypeOptions = ["waterproofing", "electrical", "pop", "plaster", "tiling", "painting", "furniture", "plumbing", "rcc", "civil", "other"].map((value) => ({
+  label: value.toUpperCase(),
+  value
+}));
+
+const unitOptions = ["Sqft", "RFT", "Nos", "Bags", "Kg", "Ton", "Day", "Lumpsum"].map((value) => ({ label: value, value }));
 
 export const resources = {
   sites: {
@@ -251,6 +270,31 @@ export const resources = {
     searchText: (row) => `${row.bill_reference || ""} ${row.notes || ""}`,
     defaults: () => ({ payment_date: todayIso(), paid_amount: 0, pending_amount: 0, payment_mode: "upi" })
   },
+  partner_draws: {
+    table: "partner_draws",
+    path: "/partner-draws",
+    title: "Partner Draws",
+    subtitle: "Company money taken by partners for profit share, emergency, advance, salary, or reimbursement.",
+    addLabel: "Add Partner Draw",
+    schema: partnerDrawSchema,
+    fields: [
+      { name: "partner_name", label: "Partner Name", type: "text", required: true },
+      { name: "date", label: "Date", type: "date", required: true },
+      { name: "category", label: "Reason", type: "select", required: true, options: partnerDrawCategories },
+      { name: "amount", label: "Amount Taken", type: "number", required: true },
+      { name: "payment_mode", label: "Payment Mode", type: "select", options: paymentModes },
+      { ...siteField, required: false },
+      { name: "approved_by", label: "Approved By", type: "text" },
+      { name: "notes", label: "Details / Notes", type: "textarea", rows: 3 }
+    ],
+    cardTitle: (row) => row.partner_name,
+    cardSubtitle: (row, lookups) =>
+      `${row.date} | ${String(row.category).replace("_", " ")} | ${lookups.sites.find((site) => site.id === row.site_id)?.name || "Company"}`,
+    amount: (row) => row.amount,
+    searchText: (row, lookups) =>
+      `${row.partner_name} ${row.category} ${row.notes || ""} ${row.approved_by || ""} ${lookups.sites.find((site) => site.id === row.site_id)?.name || ""}`,
+    defaults: () => ({ date: todayIso(), category: "owner_draw", amount: 0, payment_mode: "upi", site_id: null })
+  },
   progress_updates: {
     table: "progress_updates",
     path: "/progress",
@@ -271,6 +315,33 @@ export const resources = {
     amount: (row) => row.progress_percent,
     searchText: (row) => `${row.title} ${row.description} ${row.ai_summary || ""}`,
     defaults: () => ({ date: todayIso(), progress_percent: 0 })
+  },
+  extra_works: {
+    table: "extra_works",
+    path: "/extra-works",
+    title: "Extra Works",
+    subtitle: "Variation work, change orders, client approval, billing status, and amount increase control.",
+    addLabel: "Add Extra Work",
+    schema: extraWorkSchema,
+    fields: [
+      siteField,
+      { name: "date", label: "Date", type: "date", required: true },
+      { name: "work_type", label: "Work Type", type: "select", required: true, options: workTypeOptions },
+      { name: "description", label: "Work Description", type: "textarea", rows: 3, required: true },
+      { name: "quantity", label: "Quantity", type: "number", required: true },
+      { name: "unit", label: "Unit", type: "select", required: true, options: unitOptions },
+      { name: "rate", label: "Rate", type: "number", required: true },
+      { name: "amount", label: "Amount", type: "number", required: true },
+      { name: "client_approved", label: "Client Approved", type: "select", options: [{ label: "No", value: "false" }, { label: "Yes", value: "true" }] },
+      { name: "status", label: "Billing Status", type: "select", options: [{ label: "Draft", value: "draft" }, { label: "Approved", value: "approved" }, { label: "Rejected", value: "rejected" }, { label: "Billed", value: "billed" }, { label: "Paid", value: "paid" }] },
+      { name: "notes", label: "Notes", type: "textarea", rows: 3 }
+    ],
+    cardTitle: (row) => row.description,
+    cardSubtitle: (row, lookups) => `${row.date} | ${lookups.sites.find((site) => site.id === row.site_id)?.name || "Site"} | ${row.status}`,
+    amount: (row) => row.amount,
+    searchText: (row, lookups) =>
+      `${row.description} ${row.work_type} ${row.status} ${row.notes || ""} ${lookups.sites.find((site) => site.id === row.site_id)?.name || ""}`,
+    defaults: () => ({ date: todayIso(), work_type: "other", quantity: 0, unit: "Sqft", rate: 0, amount: 0, client_approved: false, status: "draft" })
   },
   reminders: {
     table: "reminders",

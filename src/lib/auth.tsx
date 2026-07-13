@@ -19,7 +19,7 @@ type AuthState = {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (input: { email: string; password: string; companyName: string; fullName: string }) => Promise<void>;
   signOut: () => Promise<void>;
-  continueOffline: () => void;
+  continueOffline: () => Company;
   refreshCompany: () => Promise<void>;
   cloudLoginIssue: string | null;
 };
@@ -43,6 +43,7 @@ const offlineCompany: Company = {
 const offlineRememberKey = "sitetracker.offlineMode";
 const localUserKey = "sitetracker.localUser";
 const cloudLoginIssueKey = "sitetracker.cloudLoginIssue";
+const localCompanySettingsKey = "sitetracker.offlineCompanySettings";
 const cloudCompanyId = "hh-spaces-company";
 const cloudCompanyName = "H&H Spaces";
 
@@ -91,6 +92,27 @@ function rememberCloudLoginIssue(issue: string | null) {
 function rememberedCloudLoginIssue() {
   if (typeof window === "undefined") return null;
   return window.localStorage.getItem(cloudLoginIssueKey);
+}
+
+function localCompany(baseName = cloudCompanyName): Company {
+  if (typeof window === "undefined") return { ...offlineCompany, name: baseName };
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(localCompanySettingsKey) || "{}") as Partial<Company>;
+    return {
+      ...offlineCompany,
+      name: saved.name || baseName,
+      gst_number: saved.gst_number || null,
+      pan_number: saved.pan_number || null,
+      address: saved.address || null,
+      phone: saved.phone || null,
+      email: saved.email || null,
+      bank_details: saved.bank_details || null,
+      upi_id: saved.upi_id || null,
+      logo_url: saved.logo_url || null
+    };
+  } catch {
+    return { ...offlineCompany, name: baseName };
+  }
 }
 
 function rememberedLocalUser() {
@@ -220,7 +242,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const boot = async () => {
       if (!hasSupabaseConfig() || !supabase) {
         setOfflineMode(true);
-        setCompany(offlineCompany);
+        setCompany(localCompany("Offline Company"));
         setRole("admin");
         setCloudLoginIssue("Supabase keys are not configured in this build. Data is saved on this device only.");
         setLoading(false);
@@ -240,12 +262,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else if (isOfflineRemembered()) {
         const localUser = rememberedLocalUser();
         const issue = rememberedCloudLoginIssue();
-        if (localUser && issue) {
+        if (issue) {
           setOfflineMode(true);
           setCloudLoginIssue(issue);
-          setCompany({ ...offlineCompany, name: cloudCompanyName });
-          setProfile({ id: "offline-user", full_name: localUser.fullName, phone: null, avatar_url: null });
-          setRole(localUser.role);
+          setCompany(localCompany(cloudCompanyName));
+          setProfile(localUser ? { id: "offline-user", full_name: localUser.fullName, phone: null, avatar_url: null } : null);
+          setRole(localUser?.role || "admin");
         } else {
           rememberOfflineMode(false);
           rememberLocalUser(null);
@@ -256,7 +278,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setLoading(false);
     };
-    boot().catch(() => setLoading(false));
+    boot().catch(() => {
+      if (isOfflineRemembered()) {
+        const localUser = rememberedLocalUser();
+        const issue = rememberedCloudLoginIssue() || "Cloud login could not start. Data is saved on this device until cloud login works.";
+        setOfflineMode(true);
+        setCloudLoginIssue(issue);
+        setCompany(localCompany(cloudCompanyName));
+        setProfile(localUser ? { id: "offline-user", full_name: localUser.fullName, phone: null, avatar_url: null } : null);
+        setRole(localUser?.role || "admin");
+      }
+      setLoading(false);
+    });
 
     const subscription = supabase?.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
@@ -272,7 +305,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const issue = rememberedCloudLoginIssue();
           setCloudLoginIssue(issue);
           setOfflineMode(true);
-          setCompany({ ...offlineCompany, name: cloudCompanyName });
+          setCompany(localCompany(cloudCompanyName));
           setProfile(localUser ? { id: "offline-user", full_name: localUser.fullName, phone: null, avatar_url: null } : null);
           setRole(localUser?.role || "admin");
           return;
@@ -294,7 +327,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       user: session?.user || null,
       profile,
-      company: offlineMode ? company || { ...offlineCompany, name: cloudCompanyName } : company,
+      company: offlineMode ? company || localCompany(cloudCompanyName) : company,
       role,
       loading,
       offlineMode,
@@ -312,7 +345,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setOfflineMode(true);
             setCloudLoginIssue(issue);
             setProfile({ id: "offline-user", full_name: localUser.fullName, phone: null, avatar_url: null });
-            setCompany({ ...offlineCompany, name: cloudCompanyName });
+            setCompany(localCompany(cloudCompanyName));
             setRole(localUser.role);
           };
 
@@ -466,15 +499,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRole("viewer");
       },
       continueOffline: () => {
+        const nextCompany = localCompany(cloudCompanyName);
         rememberOfflineMode(true);
         rememberLocalUser(null);
         rememberCloudLoginIssue("You selected device-only mode. Data will not sync to another phone until cloud login is used.");
         setCloudLoginIssue("You selected device-only mode. Data will not sync to another phone until cloud login is used.");
         setOfflineMode(true);
-        setCompany({ ...offlineCompany, name: cloudCompanyName });
+        setCompany(nextCompany);
         setRole("admin");
+        return nextCompany;
       },
-      refreshCompany: async () => loadCompany(session)
+      refreshCompany: async () => {
+        if (session && !offlineMode) {
+          await loadCompany(session);
+          return;
+        }
+        setCompany(localCompany(company?.name || cloudCompanyName));
+      }
     }),
     [cloudLoginIssue, company, loadCompany, loading, offlineMode, profile, role, session]
   );

@@ -318,6 +318,76 @@ create table if not exists public.supplier_payments (
   deleted_at timestamptz
 );
 
+create table if not exists public.partner_draws (
+  id text primary key,
+  company_id text not null references public.companies(id) on delete cascade,
+  partner_name text not null,
+  date date not null,
+  category text not null default 'owner_draw' check (category in ('owner_draw', 'profit_share', 'emergency', 'advance', 'salary', 'reimbursement', 'other')),
+  amount numeric(14,2) not null default 0 check (amount >= 0),
+  payment_mode text not null check (payment_mode in ('cash', 'upi', 'bank_transfer', 'cheque')),
+  site_id text references public.sites(id) on delete set null,
+  approved_by text,
+  notes text,
+  created_by uuid,
+  updated_by uuid,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  source text not null default 'manual' check (source in ('manual', 'ai', 'voice', 'offline_sync', 'import')),
+  sync_status text not null default 'synced' check (sync_status in ('synced', 'pending', 'failed', 'conflict')),
+  idempotency_key text not null unique,
+  archived boolean not null default false,
+  deleted_at timestamptz
+);
+
+create table if not exists public.daily_closings (
+  id text primary key,
+  company_id text not null references public.companies(id) on delete cascade,
+  site_id text references public.sites(id) on delete set null,
+  date date not null,
+  attendance_done boolean not null default false,
+  material_done boolean not null default false,
+  expense_done boolean not null default false,
+  progress_done boolean not null default false,
+  client_followup_done boolean not null default false,
+  report_text text not null,
+  notes text,
+  created_by uuid,
+  updated_by uuid,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  source text not null default 'manual' check (source in ('manual', 'ai', 'voice', 'offline_sync', 'import')),
+  sync_status text not null default 'synced' check (sync_status in ('synced', 'pending', 'failed', 'conflict')),
+  idempotency_key text not null unique,
+  archived boolean not null default false,
+  deleted_at timestamptz
+);
+
+create table if not exists public.approval_requests (
+  id text primary key,
+  company_id text not null references public.companies(id) on delete cascade,
+  site_id text references public.sites(id) on delete set null,
+  category text not null default 'other' check (category in ('partner_draw', 'extra_work', 'supplier_payment', 'client_payment', 'expense', 'other')),
+  title text not null,
+  amount numeric(14,2) not null default 0 check (amount >= 0),
+  requested_by_name text,
+  approver_name text,
+  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  linked_table text,
+  linked_record_id text,
+  decision_notes text,
+  decided_at timestamptz,
+  created_by uuid,
+  updated_by uuid,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  source text not null default 'manual' check (source in ('manual', 'ai', 'voice', 'offline_sync', 'import')),
+  sync_status text not null default 'synced' check (sync_status in ('synced', 'pending', 'failed', 'conflict')),
+  idempotency_key text not null unique,
+  archived boolean not null default false,
+  deleted_at timestamptz
+);
+
 create table if not exists public.progress_updates (
   id text primary key,
   company_id text not null references public.companies(id) on delete cascade,
@@ -327,6 +397,31 @@ create table if not exists public.progress_updates (
   description text not null,
   progress_percent numeric(5,2) not null default 0 check (progress_percent >= 0 and progress_percent <= 100),
   ai_summary text,
+  created_by uuid,
+  updated_by uuid,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  source text not null default 'manual' check (source in ('manual', 'ai', 'voice', 'offline_sync', 'import')),
+  sync_status text not null default 'synced' check (sync_status in ('synced', 'pending', 'failed', 'conflict')),
+  idempotency_key text not null unique,
+  archived boolean not null default false,
+  deleted_at timestamptz
+);
+
+create table if not exists public.extra_works (
+  id text primary key,
+  company_id text not null references public.companies(id) on delete cascade,
+  site_id text not null references public.sites(id) on delete restrict,
+  date date not null,
+  work_type text not null,
+  description text not null,
+  quantity numeric(14,3) not null default 0 check (quantity >= 0),
+  unit text not null,
+  rate numeric(14,2) not null default 0 check (rate >= 0),
+  amount numeric(14,2) not null default 0 check (amount >= 0),
+  client_approved boolean not null default false,
+  status text not null default 'draft' check (status in ('draft', 'approved', 'rejected', 'billed', 'paid')),
+  notes text,
   created_by uuid,
   updated_by uuid,
   created_at timestamptz not null default now(),
@@ -602,6 +697,10 @@ create index if not exists materials_company_date_idx on public.materials(compan
 create index if not exists expenses_company_date_idx on public.expenses(company_id, date, site_id);
 create index if not exists client_payments_company_site_idx on public.client_payments(company_id, site_id, payment_date);
 create index if not exists supplier_payments_company_supplier_idx on public.supplier_payments(company_id, supplier_id, payment_date);
+create index if not exists partner_draws_company_partner_idx on public.partner_draws(company_id, partner_name, date);
+create index if not exists daily_closings_company_date_idx on public.daily_closings(company_id, date, site_id);
+create index if not exists approval_requests_company_status_idx on public.approval_requests(company_id, status, category, created_at);
+create index if not exists extra_works_company_site_status_idx on public.extra_works(company_id, site_id, status, date);
 create index if not exists ai_memories_company_site_idx on public.ai_memories(company_id, site_id, memory_type);
 create index if not exists ai_memories_embedding_idx on public.ai_memories using ivfflat (embedding vector_cosine_ops) with (lists = 100);
 
@@ -611,8 +710,8 @@ declare
 begin
   foreach t in array array[
     'profiles','companies','company_members','sites','labour','attendance','labour_payments','suppliers','materials','expenses',
-    'client_payments','supplier_payments','progress_updates','progress_photos','reminders','notifications','activity_logs','audit_logs',
-    'offline_sync_queue','ai_conversations','ai_messages','ai_memories','ai_memory_links','smart_suggestions','user_preferences','data_health_checks'
+    'client_payments','supplier_payments','partner_draws','daily_closings','approval_requests','progress_updates','progress_photos','reminders','notifications','activity_logs','audit_logs',
+    'extra_works','offline_sync_queue','ai_conversations','ai_messages','ai_memories','ai_memory_links','smart_suggestions','user_preferences','data_health_checks'
   ]
   loop
     execute format('drop trigger if exists set_%I_updated_at on public.%I', t, t);
@@ -657,8 +756,8 @@ declare
   t text;
 begin
   foreach t in array array[
-    'sites','labour','attendance','labour_payments','suppliers','materials','expenses','client_payments','supplier_payments',
-    'progress_updates','progress_photos','reminders','notifications','activity_logs','audit_logs','offline_sync_queue',
+    'sites','labour','attendance','labour_payments','suppliers','materials','expenses','client_payments','supplier_payments','partner_draws','daily_closings','approval_requests',
+    'progress_updates','extra_works','progress_photos','reminders','notifications','activity_logs','audit_logs','offline_sync_queue',
     'ai_conversations','ai_messages','ai_memories','ai_memory_links','smart_suggestions','user_preferences','data_health_checks'
   ]
   loop

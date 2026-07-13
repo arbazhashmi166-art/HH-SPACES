@@ -1,7 +1,7 @@
 import { todayIso } from "@/utils/format";
 
 export type AiDraft = {
-  intent: "attendance" | "material" | "expense" | "client_payment" | "supplier_payment" | "progress" | "labour" | "reminder" | "unknown";
+  intent: "attendance" | "material" | "expense" | "client_payment" | "supplier_payment" | "partner_draw" | "progress" | "labour" | "reminder" | "extra_work" | "unknown";
   confidence: number;
   missing_fields: string[];
   original_text: string;
@@ -30,6 +30,63 @@ export function parseLocalAiDraft(input: string): AiDraft {
 
   if (!text) {
     return { intent: "unknown", confidence: 0, missing_fields: ["message"], original_text: input, draft: {}, response: "Type what you want to record." };
+  }
+
+  if (lower.includes("extra work") || lower.includes("variation") || lower.includes("change order") || lower.includes("additional") || lower.includes("increase amount")) {
+    const quantity = firstNumber(text);
+    const rateMatch = lower.match(/(?:at|rate|rs|inr)\s*(\d+(?:\.\d+)?)/);
+    const rate = rateMatch ? Number(rateMatch[1]) : 0;
+    const workType =
+      ["waterproofing", "electrical", "pop", "plaster", "tiling", "painting", "furniture", "plumbing", "rcc"].find((value) => lower.includes(value)) || "other";
+    return {
+      intent: "extra_work",
+      confidence: quantity && rate ? 0.78 : 0.58,
+      missing_fields: ["site_id", quantity ? "" : "quantity", rate ? "" : "rate"].filter(Boolean),
+      original_text: input,
+      draft: {
+        date,
+        work_type: workType,
+        description: text,
+        quantity,
+        unit: lower.includes("rft") || lower.includes("running") ? "RFT" : lower.includes("point") ? "Nos" : "Sqft",
+        rate,
+        amount: quantity * rate,
+        client_approved: false,
+        status: "draft",
+        notes: text
+      },
+      response: "I prepared an extra work draft. Select the site and confirm client approval before saving."
+    };
+  }
+
+  if (
+    lower.includes("partner") ||
+    lower.includes("profit share") ||
+    lower.includes("emergency money") ||
+    lower.includes("owner draw") ||
+    lower.includes("withdraw") ||
+    (lower.includes("took") && lower.includes("company"))
+  ) {
+    const amount = firstNumber(text);
+    const partner = lower.includes("arbaz") ? "Arbaz" : lower.includes("sahil") ? "Sahil" : afterWords(text, ["partner ", "by ", "for "]) || "";
+    const category = lower.includes("profit") ? "profit_share" : lower.includes("emergency") ? "emergency" : lower.includes("advance") ? "advance" : lower.includes("salary") ? "salary" : "owner_draw";
+    return {
+      intent: "partner_draw",
+      confidence: amount && partner ? 0.78 : amount ? 0.55 : 0.35,
+      missing_fields: [partner ? "" : "partner_name", amount ? "" : "amount"].filter(Boolean),
+      original_text: input,
+      draft: {
+        partner_name: partner,
+        date,
+        category,
+        amount,
+        payment_mode: lower.includes("cash") ? "cash" : lower.includes("bank") ? "bank_transfer" : "upi",
+        site_id: null,
+        approved_by: null,
+        notes: text
+      },
+      response: "I prepared a partner draw draft. Confirm who took the money, reason, and amount before saving."
+    };
   }
 
   if (lower.includes("cement") || lower.includes("bag") || lower.includes("material") || lower.includes("bought")) {
@@ -141,6 +198,6 @@ export function parseLocalAiDraft(input: string): AiDraft {
     original_text: input,
     draft: {},
     response:
-      "I can answer business questions and create drafts for attendance, material, expense, client payment, supplier payment, progress, labour, and reminders. Add site/client/material details for a stronger draft."
+      "I can answer business questions and create drafts for attendance, material, expense, extra work, partner draws, client payment, supplier payment, progress, labour, and reminders. Add site/client/material details for a stronger draft."
   };
 }
