@@ -84,10 +84,24 @@ function cloudSyncedPayload(payload: Record<string, unknown>) {
 
 export async function getLocalRecords<T extends TableName>(table: T, companyId: string) {
   const rows = await db.records.where("[table+companyId]").equals([table, companyId]).toArray();
-  return rows
+  const storedRows = rows
     .map((row) => row.record as EntityMap[T])
     .filter((row) => !row.deleted_at)
     .sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
+  const queuedRows = await getQueuedInsertRecords(table, companyId);
+  return mergeRowsById([...queuedRows, ...storedRows]);
+}
+
+export async function getQueuedInsertRecords<T extends TableName>(table: T, companyId: string) {
+  const pending = await db.pendingMutations.where({ companyId }).toArray();
+  return queuedInsertPayloadsAsRecords(pending, table, companyId);
+}
+
+export function queuedInsertPayloadsAsRecords<T extends TableName>(pending: PendingMutation[], table: T, companyId: string) {
+  return pending
+    .filter((item) => item.table === table && item.operationType === "insert")
+    .map((item) => item.payload as Partial<EntityMap[T]>)
+    .filter((row): row is EntityMap[T] => Boolean(row.id && row.company_id === companyId && !row.deleted_at));
 }
 
 export async function cacheRecords<T extends TableName>(table: T, companyId: string, records: EntityMap[T][]) {
@@ -117,7 +131,15 @@ export async function cacheRecords<T extends TableName>(table: T, companyId: str
 export function mergeCloudRowsWithLocalPending<T extends TableName>(cloudRows: EntityMap[T][], localRows: EntityMap[T][]) {
   const cloudIds = new Set(cloudRows.map((row) => row.id));
   const localOnly = localRows.filter((row) => !cloudIds.has(row.id) && !row.deleted_at);
-  return [...cloudRows, ...localOnly].sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
+  return mergeRowsById([...cloudRows, ...localOnly]);
+}
+
+export function mergeRowsById<T extends TableName>(rows: EntityMap[T][]) {
+  const byId = new Map<string, EntityMap[T]>();
+  for (const row of rows) {
+    if (!row.deleted_at && !byId.has(row.id)) byId.set(row.id, row);
+  }
+  return [...byId.values()].sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
 }
 
 export async function fetchRecords<T extends TableName>(table: T, companyId: string) {

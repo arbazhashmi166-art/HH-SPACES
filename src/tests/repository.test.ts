@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { mergeCloudRowsWithLocalPending } from "@/lib/repository";
+import { mergeCloudRowsWithLocalPending, queuedInsertPayloadsAsRecords } from "@/lib/repository";
+import type { PendingMutation } from "@/lib/db";
 import type { Site } from "@/types/domain";
 
 function site(id: string, sync_status: Site["sync_status"], updated_at: string): Site {
@@ -41,5 +42,40 @@ describe("repository cloud/local merge", () => {
     const result = mergeCloudRowsWithLocalPending(cloud, local);
 
     expect(result.map((row) => row.id)).toEqual(["synced-but-hidden-by-cloud", "new-local-site", "cloud-site"]);
+  });
+
+  it("recovers visible site rows from queued insert payloads", () => {
+    const pending: PendingMutation[] = [
+      {
+        id: "mutation-1",
+        table: "sites",
+        operationType: "insert",
+        companyId: "company",
+        recordId: "queued-site",
+        idempotencyKey: "idem-queued-site",
+        payload: site("queued-site", "pending", "2026-07-14T12:00:00.000Z"),
+        retryCount: 1,
+        lastError: "network retry",
+        createdAt: "2026-07-14T12:00:00.000Z",
+        updatedAt: "2026-07-14T12:00:00.000Z"
+      },
+      {
+        id: "mutation-2",
+        table: "sites",
+        operationType: "update",
+        companyId: "company",
+        recordId: "update-only",
+        idempotencyKey: "idem-update",
+        payload: { name: "Only changed field" },
+        retryCount: 0,
+        lastError: null,
+        createdAt: "2026-07-14T12:01:00.000Z",
+        updatedAt: "2026-07-14T12:01:00.000Z"
+      }
+    ];
+
+    const result = queuedInsertPayloadsAsRecords(pending, "sites", "company");
+
+    expect(result.map((row) => row.id)).toEqual(["queued-site"]);
   });
 });
