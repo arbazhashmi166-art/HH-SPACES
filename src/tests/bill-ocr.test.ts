@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseBillText } from "@/services/bill-ocr";
+import { parseBillItems, parseBillText } from "@/services/bill-ocr";
 
 describe("bill OCR parser", () => {
   it("extracts supplier, bill number, GSTIN, item, quantity, rate, and grand total", () => {
@@ -24,5 +24,22 @@ describe("bill OCR parser", () => {
     expect(draft.unit).toBe("Bag");
     expect(draft.rate).toBe("360");
     expect(draft.total).toBe("8496");
+  });
+
+  it("extracts multiple material rows from one bill", () => {
+    const items = parseBillItems(`
+      OM HARDWARE STORE
+      Bill No: OH-88
+      Cement 20 Bag 360 7200
+      M Sand 3 Ton 1400 4200
+      Primer 5 Litre 220 1100
+      Grand Total 12500
+    `);
+
+    expect(items).toHaveLength(3);
+    expect(items.map((item) => item.description)).toEqual(["Cement", "M Sand", "Primer"]);
+    expect(items[0]?.amount).toBe("7200");
+    expect(items[1]?.unit).toBe("Ton");
+    expect(items[2]?.quantity).toBe("5");
   });
 });

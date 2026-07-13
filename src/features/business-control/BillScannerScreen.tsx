@@ -9,7 +9,7 @@ import { ToastMessage } from "@/components/ui/toast-message";
 import { useAuth } from "@/lib/auth";
 import { createRecord, useCreateRecord, useRecords } from "@/lib/repository";
 import { scanBillWithAi } from "@/services/ai-bill-ocr";
-import { scanBillImage, type BillOcrPass } from "@/services/bill-ocr";
+import { scanBillImage, type BillOcrLineItem, type BillOcrPass, type BillOcrResult } from "@/services/bill-ocr";
 import { createBillPhotoReference } from "@/services/photo-storage";
 import { formatMoney, todayIso } from "@/utils/format";
 import styles from "./BusinessControl.module.css";
@@ -29,7 +29,12 @@ type BillDraft = {
   notes: string;
 };
 
-const units = ["Bag", "Kg", "Ton", "Sqft", "RFT", "Nos", "Box", "Litre"];
+type BillItemDraft = BillOcrLineItem & {
+  id: string;
+  selected: boolean;
+};
+
+const units = ["Bag", "Kg", "Ton", "Sqft", "RFT", "Nos", "Box", "Litre", "Sheet", "Cum"];
 
 function blankDraft(): BillDraft {
   return {
@@ -48,12 +53,51 @@ function blankDraft(): BillDraft {
   };
 }
 
+function makeItemId() {
+  return `bill_item_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function itemFromDraft(draft: Partial<BillDraft>): BillItemDraft | null {
+  if (!draft.material_name || Number(draft.total || 0) <= 0) return null;
+  return {
+    id: makeItemId(),
+    selected: true,
+    description: draft.material_name,
+    quantity: String(draft.quantity || "1"),
+    unit: String(draft.unit || "Nos"),
+    rate: String(draft.rate || "0"),
+    amount: String(draft.total || "0"),
+    gst_percent: "0",
+    confidence: 72
+  };
+}
+
+function normalizeItemsForUi(items: BillOcrLineItem[], fallbackDraft: Partial<BillDraft>): BillItemDraft[] {
+  const normalized = items
+    .map((item) => ({
+      id: makeItemId(),
+      selected: true,
+      description: item.description || "",
+      quantity: String(item.quantity || "1"),
+      unit: item.unit || "Nos",
+      rate: String(item.rate || "0"),
+      amount: String(item.amount || "0"),
+      gst_percent: String(item.gst_percent || "0"),
+      confidence: Number(item.confidence || 70)
+    }))
+    .filter((item) => item.description.trim() && Number(item.amount || 0) > 0);
+
+  const fallback = itemFromDraft(fallbackDraft);
+  return normalized.length ? normalized : fallback ? [fallback] : [];
+}
+
 export function BillScannerScreen() {
   const { company, user, session, offlineMode } = useAuth();
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [ocrText, setOcrText] = useState("");
   const [draft, setDraft] = useState<BillDraft>(() => blankDraft());
+  const [lineItems, setLineItems] = useState<BillItemDraft[]>([]);
   const [scanning, setScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState("Ready");
   const [scanProgress, setScanProgress] = useState(0);
@@ -79,7 +123,12 @@ export function BillScannerScreen() {
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
-  const amount = useMemo(() => Number(draft.total || 0), [draft.total]);
+  const selectedItems = useMemo(() => lineItems.filter((item) => item.selected), [lineItems]);
+  const selectedItemsTotal = useMemo(
+    () => selectedItems.reduce((sum, item) => sum + Number(item.amount || 0), 0),
+    [selectedItems]
+  );
+  const amount = useMemo(() => selectedItemsTotal || Number(draft.total || 0), [draft.total, selectedItemsTotal]);
   const canUploadPhoto = Boolean(company?.id && session && !offlineMode);
   const canUseAiOcr = Boolean(session && !offlineMode);
 
@@ -93,6 +142,7 @@ export function BillScannerScreen() {
     }
     setFile(selected);
     setOcrText("");
+    setLineItems([]);
     setScanConfidence(null);
     setScanPasses([]);
     setScanWarnings([]);
@@ -113,13 +163,15 @@ export function BillScannerScreen() {
     });
   };
 
-  const applyScanResult = (result: Awaited<ReturnType<typeof scanBillImage>>, successMessage: string) => {
+  const applyScanResult = (result: BillOcrResult, successMessage: string) => {
     const text = result.text || "";
+    const nextDraft = { ...draft, ...result.draft };
     setOcrText(text);
     setScanConfidence(result.confidence);
     setScanPasses(result.passes);
     setScanWarnings(result.warnings);
-    setDraft((current) => ({ ...current, ...result.draft }));
+    setDraft(nextDraft);
+    setLineItems(normalizeItemsForUi(result.items || [], nextDraft));
     setToast(text.trim() ? successMessage : "Scan finished, but text was not clear.");
   };
 
@@ -181,6 +233,42 @@ export function BillScannerScreen() {
       setScanProgress(0);
       setScanning(false);
     }
+  };
+
+  const updateLineItem = <K extends keyof BillItemDraft>(id: string, key: K, value: BillItemDraft[K]) => {
+    setLineItems((current) =>
+      current.map((item) => {
+        if (item.id !== id) return item;
+        const next = { ...item, [key]: value };
+        if (key === "quantity" || key === "rate") {
+          const quantity = Number(key === "quantity" ? value : next.quantity);
+          const rate = Number(key === "rate" ? value : next.rate);
+          if (Number.isFinite(quantity) && Number.isFinite(rate)) next.amount = String(Math.round(quantity * rate * 100) / 100);
+        }
+        return next;
+      })
+    );
+  };
+
+  const addLineItem = () => {
+    setLineItems((current) => [
+      ...current,
+      {
+        id: makeItemId(),
+        selected: true,
+        description: "",
+        quantity: "1",
+        unit: "Nos",
+        rate: "0",
+        amount: "0",
+        gst_percent: "0",
+        confidence: 0
+      }
+    ]);
+  };
+
+  const removeLineItem = (id: string) => {
+    setLineItems((current) => current.filter((item) => item.id !== id));
   };
 
   const saveMaterial = async () => {
@@ -248,6 +336,85 @@ export function BillScannerScreen() {
     setToast("Material saved from bill");
   };
 
+  const saveSelectedMaterials = async () => {
+    if (!company?.id) {
+      setToast("Company not loaded yet");
+      return;
+    }
+    if (!draft.site_id) {
+      setToast("Select site before saving bill items");
+      return;
+    }
+    const rows = selectedItems.filter((item) => item.description.trim() && Number(item.amount || 0) > 0);
+    if (!rows.length) {
+      setToast("Select at least one valid bill item");
+      return;
+    }
+
+    setSavingPhoto(true);
+    let billPhotoUrl: string | null = null;
+    try {
+      billPhotoUrl = await createBillPhotoReference(file, {
+        companyId: company.id,
+        folder: "bills",
+        canUseCloud: canUploadPhoto
+      });
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Could not save bill photo");
+      setSavingPhoto(false);
+      return;
+    } finally {
+      setSavingPhoto(false);
+    }
+
+    const savedRows = [];
+    for (const item of rows) {
+      const saved = await createMaterial.mutateAsync({
+        values: {
+          site_id: draft.site_id,
+          supplier_id: null,
+          date: draft.date,
+          material_name: item.description.trim(),
+          quantity: Number(item.quantity || 0),
+          unit: item.unit || "Nos",
+          rate: Number(item.rate || 0),
+          total: Number(item.amount || 0),
+          supplier_name: draft.supplier_name || null,
+          supplier_mobile: draft.supplier_mobile || null,
+          bill_number: draft.bill_number || null,
+          bill_photo_url: billPhotoUrl,
+          payment_status: "unpaid",
+          notes: [
+            "Saved from AI Bill Scanner item row",
+            draft.gst_number ? `GSTIN: ${draft.gst_number}` : "",
+            item.gst_percent && Number(item.gst_percent) > 0 ? `GST %: ${item.gst_percent}` : "",
+            draft.notes || ""
+          ]
+            .filter(Boolean)
+            .join("\n")
+        },
+        userId: user?.id || null,
+        source: "manual"
+      });
+      savedRows.push(saved);
+    }
+
+    await createRecord(
+      "activity_logs",
+      company.id,
+      {
+        site_id: draft.site_id,
+        entity_table: "materials",
+        entity_id: savedRows[0]?.id,
+        action: "create",
+        description: `Saved ${savedRows.length} material rows from bill scanner: ${formatMoney(rows.reduce((sum, item) => sum + Number(item.amount || 0), 0))}`
+      },
+      { userId: user?.id || null }
+    );
+
+    setToast(`${savedRows.length} material items saved from bill`);
+  };
+
   const saveExpense = async () => {
     if (!company?.id) {
       setToast("Company not loaded yet");
@@ -307,7 +474,7 @@ export function BillScannerScreen() {
       <div className={styles.hero}>
         <span>Bill Scanner</span>
         <h2>{formatMoney(amount)}</h2>
-        <p>Capture a supplier bill, clean the image, run smart OCR, then save it as material or expense after checking the draft.</p>
+        <p>Capture a supplier bill, extract every item row with AI/local OCR, then save checked rows as material entries.</p>
         <div className={styles.scanMeta}>
           <span>{scanStatus}</span>
           <strong>{scanConfidence === null ? "OCR ready" : `${scanConfidence}% confidence`}</strong>
@@ -318,7 +485,7 @@ export function BillScannerScreen() {
           <Button variant="secondary" onClick={scanLocal} disabled={scanning}>{scanning ? "Scanning..." : "Local Scan"}</Button>
         </div>
         <div className={styles.heroActions}>
-          <Button variant="secondary" onClick={() => { setDraft(blankDraft()); setFile(null); setOcrText(""); setScanConfidence(null); setScanPasses([]); setScanWarnings([]); setScanStatus("Ready"); }}>Reset</Button>
+          <Button variant="secondary" onClick={() => { setDraft(blankDraft()); setLineItems([]); setFile(null); setOcrText(""); setScanConfidence(null); setScanPasses([]); setScanWarnings([]); setScanStatus("Ready"); }}>Reset</Button>
           <Button variant="secondary" onClick={() => browseInputRef.current?.click()}>Choose Photo</Button>
         </div>
         <p className={styles.aiOcrNotice}>AI Scan uses OpenAI Vision securely from Supabase Edge Function. Local Scan works without AI as backup.</p>
@@ -342,6 +509,50 @@ export function BillScannerScreen() {
             <span>{canUploadPhoto ? "Photo will upload to Supabase Storage when saved." : "Photo will save locally with the entry until cloud sync is available."}</span>
           </div>
           {previewUrl ? <img className={styles.scanPreview} src={previewUrl} alt="Selected bill preview" /> : <EmptyState title="No bill photo selected" description="Take a clear photo with supplier name, date, items, and total visible." />}
+        </div>
+      </Card>
+
+      <Card>
+        <CardHeader
+          title="Bill Items"
+          subtitle={lineItems.length ? `${lineItems.length} item rows detected. Select the rows you want to save.` : "AI/local OCR item rows will appear here."}
+          action={<Badge tone={lineItems.length ? "success" : "neutral"}>{formatMoney(selectedItemsTotal)}</Badge>}
+        />
+        <div className={styles.itemEditorList}>
+          {lineItems.length ? (
+            lineItems.map((item, index) => (
+              <div className={styles.billItemCard} key={item.id}>
+                <div className={styles.billItemTop}>
+                  <label className={styles.checkLine}>
+                    <input type="checkbox" checked={item.selected} onChange={(event) => updateLineItem(item.id, "selected", event.target.checked)} />
+                    <span>Item {index + 1}</span>
+                  </label>
+                  <Badge tone={item.confidence >= 80 ? "success" : item.confidence >= 55 ? "warning" : "neutral"}>{item.confidence ? `${item.confidence}%` : "Manual"}</Badge>
+                </div>
+                <input className={styles.input} value={item.description} onChange={(event) => updateLineItem(item.id, "description", event.target.value)} placeholder="Item description" />
+                <div className={styles.grid}>
+                  <input className={styles.input} type="number" inputMode="decimal" value={item.quantity} onChange={(event) => updateLineItem(item.id, "quantity", event.target.value)} placeholder="Qty" />
+                  <select className={styles.select} value={item.unit} onChange={(event) => updateLineItem(item.id, "unit", event.target.value)}>
+                    {units.map((unit) => <option value={unit} key={unit}>{unit}</option>)}
+                  </select>
+                </div>
+                <div className={styles.grid}>
+                  <input className={styles.input} type="number" inputMode="decimal" value={item.rate} onChange={(event) => updateLineItem(item.id, "rate", event.target.value)} placeholder="Rate" />
+                  <input className={styles.input} type="number" inputMode="decimal" value={item.amount} onChange={(event) => updateLineItem(item.id, "amount", event.target.value)} placeholder="Amount" />
+                </div>
+                <div className={styles.grid}>
+                  <input className={styles.input} type="number" inputMode="decimal" value={item.gst_percent} onChange={(event) => updateLineItem(item.id, "gst_percent", event.target.value)} placeholder="GST %" />
+                  <Button type="button" variant="secondary" onClick={() => removeLineItem(item.id)}>Remove Row</Button>
+                </div>
+              </div>
+            ))
+          ) : (
+            <EmptyState title="No item rows yet" description="Use AI Scan for best row extraction, or add rows manually." />
+          )}
+          <div className={styles.buttonRow}>
+            <Button type="button" variant="secondary" onClick={addLineItem}>Add Row</Button>
+            <Button type="button" onClick={saveSelectedMaterials} disabled={createMaterial.isPending || savingPhoto || !lineItems.length}>{savingPhoto ? "Saving Photo..." : "Save Selected Items"}</Button>
+          </div>
         </div>
       </Card>
 

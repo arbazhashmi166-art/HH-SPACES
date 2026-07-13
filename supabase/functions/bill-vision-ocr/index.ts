@@ -40,13 +40,14 @@ Extract bill data from the image. Return only valid JSON with this exact shape:
     "notes": "short verification notes with tax/discount/other readable details"
   },
   "items": [
-    { "description": string, "quantity": number, "unit": string, "rate": number, "amount": number, "gst_percent": number }
+    { "description": string, "quantity": number, "unit": string, "rate": number, "amount": number, "gst_percent": number, "confidence": number }
   ],
   "warnings": string[]
 }
 Rules:
 - Prefer the final payable/grand total, not phone numbers, GSTIN, date, HSN, or invoice numbers.
-- If multiple items exist, choose the highest value construction material/work as material_name, but include all readable items in notes.
+- Extract every readable material/work row into items. Do not hide item rows only inside notes.
+- If multiple items exist, choose the highest value construction material/work as material_name.
 - Do not invent missing values. Use empty string or 0 and add a warning.
 - Money must be numeric INR values without currency symbols.
 - Dates must be normalized to YYYY-MM-DD when readable.
@@ -135,14 +136,15 @@ serve(async (req) => {
                   items: {
                     type: "object",
                     additionalProperties: false,
-                    required: ["description", "quantity", "unit", "rate", "amount", "gst_percent"],
+                    required: ["description", "quantity", "unit", "rate", "amount", "gst_percent", "confidence"],
                     properties: {
                       description: { type: "string" },
                       quantity: { type: "number" },
                       unit: { type: "string" },
                       rate: { type: "number" },
                       amount: { type: "number" },
-                      gst_percent: { type: "number" }
+                      gst_percent: { type: "number" },
+                      confidence: { type: "number", minimum: 0, maximum: 100 }
                     }
                   }
                 },
@@ -169,8 +171,9 @@ serve(async (req) => {
       "{}";
     const parsed = safeJson(outputText);
     const draft = normalizeDraft(parsed.draft || {});
-    const itemNotes = Array.isArray(parsed.items) && parsed.items.length
-      ? `\nItems:\n${parsed.items.map((item: Record<string, unknown>) => `- ${item.description || "Item"}: ${item.quantity || 0} ${item.unit || ""} x ${item.rate || 0} = ${item.amount || 0}`).join("\n")}`
+    const items = normalizeItems(parsed.items || []);
+    const itemNotes = items.length
+      ? `\nItems:\n${items.map((item) => `- ${item.description || "Item"}: ${item.quantity || 0} ${item.unit || ""} x ${item.rate || 0} = ${item.amount || 0}`).join("\n")}`
       : "";
 
     return json({
@@ -181,7 +184,7 @@ serve(async (req) => {
         notes: `${draft.notes || ""}${itemNotes}`.trim()
       },
       warnings: Array.isArray(parsed.warnings) ? parsed.warnings.map(String) : [],
-      items: parsed.items || [],
+      items,
       source: "openai-vision",
       model: openAiModel
     });
@@ -222,6 +225,28 @@ function normalizeDraft(input: AiDraft) {
     total: String(toMoney(input.total)),
     notes: String(input.notes || "").slice(0, 1500)
   };
+}
+
+function normalizeItems(input: Array<Record<string, unknown>>) {
+  return Array.isArray(input)
+    ? input
+        .map((item) => {
+          const quantity = toMoney(item.quantity);
+          const rate = toMoney(item.rate);
+          const amount = toMoney(item.amount) || quantity * rate;
+          return {
+            description: String(item.description || "").trim().slice(0, 90),
+            quantity,
+            unit: String(item.unit || "Nos").trim() || "Nos",
+            rate,
+            amount: Math.round(amount * 100) / 100,
+            gst_percent: toMoney(item.gst_percent),
+            confidence: clampNumber(item.confidence, 0, 100)
+          };
+        })
+        .filter((item) => item.description && item.amount > 0)
+        .slice(0, 30)
+    : [];
 }
 
 function toMoney(value: unknown) {

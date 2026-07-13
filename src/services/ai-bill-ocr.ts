@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import type { BillOcrDraft, BillOcrPass, BillOcrResult } from "@/services/bill-ocr";
+import type { BillOcrDraft, BillOcrLineItem, BillOcrPass, BillOcrResult } from "@/services/bill-ocr";
 
 type AiBillOcrResponse = {
   draft?: Partial<BillOcrDraft>;
@@ -8,6 +8,7 @@ type AiBillOcrResponse = {
   warnings?: string[];
   source?: string;
   model?: string;
+  items?: Array<Partial<BillOcrLineItem>>;
   raw?: unknown;
   error?: string;
 };
@@ -42,11 +43,37 @@ export async function scanBillWithAi(file: File, localText = ""): Promise<BillOc
     text: data.text || "",
     confidence: Math.round(data.confidence || 0),
     draft: data.draft || {},
+    items: normalizeItems(data.items || []),
     passes: [pass],
     warnings: data.warnings || [],
     model: data.model,
     source: data.source
   };
+}
+
+function normalizeItems(items: Array<Partial<BillOcrLineItem>>): BillOcrLineItem[] {
+  return items
+    .map((item) => {
+      const quantity = toMoney(item.quantity);
+      const rate = toMoney(item.rate);
+      const amount = toMoney(item.amount) || quantity * rate;
+      return {
+        description: String(item.description || "").trim().slice(0, 90),
+        quantity: String(quantity || 1),
+        unit: String(item.unit || "Nos").trim() || "Nos",
+        rate: String(rate),
+        amount: String(Math.round(amount * 100) / 100),
+        gst_percent: String(toMoney(item.gst_percent)),
+        confidence: Math.max(0, Math.min(100, Math.round(Number(item.confidence || 82))))
+      };
+    })
+    .filter((item) => item.description && Number(item.amount) > 0)
+    .slice(0, 30);
+}
+
+function toMoney(value: unknown) {
+  const number = Number(String(value ?? "0").replace(/[^\d.-]/g, ""));
+  return Number.isFinite(number) && number > 0 ? Math.round(number * 100) / 100 : 0;
 }
 
 async function prepareAiImage(file: File) {

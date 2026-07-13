@@ -21,10 +21,21 @@ export type BillOcrPass = {
   textLength: number;
 };
 
+export type BillOcrLineItem = {
+  description: string;
+  quantity: string;
+  unit: string;
+  rate: string;
+  amount: string;
+  gst_percent: string;
+  confidence: number;
+};
+
 export type BillOcrResult = {
   text: string;
   confidence: number;
   draft: Partial<BillOcrDraft>;
+  items: BillOcrLineItem[];
   passes: BillOcrPass[];
   warnings: string[];
 };
@@ -54,6 +65,8 @@ type NumberToken = {
 
 const materialPatterns = [
   { pattern: /\bcement\b/i, name: "Cement", unit: "Bag" },
+  { pattern: /\bm[\s.-]?sand\b/i, name: "M Sand", unit: "Ton" },
+  { pattern: /\bpsand|p[\s.-]?sand\b/i, name: "P Sand", unit: "Ton" },
   { pattern: /\bsand\b/i, name: "Sand", unit: "Ton" },
   { pattern: /\b(pop|p\.o\.p|plaster of paris)\b/i, name: "POP", unit: "Bag" },
   { pattern: /\btile|tiles\b/i, name: "Tiles", unit: "Box" },
@@ -90,7 +103,18 @@ export function parseBillText(rawText: string): Partial<BillOcrDraft> {
   const text = normalizeOcrText(rawText);
   const lines = getCleanLines(text);
   const total = extractTotal(lines);
-  const item = extractItem(lines, total);
+  const items = parseBillItems(text);
+  const highestItem = items
+    .slice()
+    .sort((left, right) => Number(right.amount || 0) - Number(left.amount || 0))[0];
+  const item = highestItem
+    ? {
+        materialName: highestItem.description,
+        quantity: Number(highestItem.quantity || 0),
+        rate: Number(highestItem.rate || 0),
+        unit: highestItem.unit
+      }
+    : extractItem(lines, total);
   const materialGuess = extractMaterial(text);
   const supplier = extractSupplier(lines);
   const supplierMobile = extractMobile(text);
@@ -123,6 +147,24 @@ export function parseBillText(rawText: string): Partial<BillOcrDraft> {
     total: String(roundMoney(total || (quantity && rate ? quantity * rate : 0))),
     notes
   };
+}
+
+export function parseBillItems(rawText: string): BillOcrLineItem[] {
+  const text = normalizeOcrText(rawText);
+  const lines = getCleanLines(text);
+  const ignored = /\b(total|subtotal|grand|net|gstin|gst\s*no|pan|phone|mobile|contact|invoice\s*no|bill\s*no|date|tax|cgst|sgst|igst|round|balance|payable|discount|freight|transport|loading|unloading)\b/i;
+  const items = lines
+    .filter((line) => !ignored.test(line))
+    .map((line) => buildLineItem(line))
+    .filter((item): item is BillOcrLineItem => Boolean(item))
+    .filter((item) => Number(item.amount) > 0 && Number(item.quantity) > 0)
+    .filter((item, index, rows) => {
+      const signature = `${item.description.toLowerCase()}|${item.quantity}|${item.rate}|${item.amount}`;
+      return rows.findIndex((row) => `${row.description.toLowerCase()}|${row.quantity}|${row.rate}|${row.amount}` === signature) === index;
+    })
+    .slice(0, 24);
+
+  return items;
 }
 
 export async function scanBillImage(file: File, options: ScanOptions = {}): Promise<BillOcrResult> {
@@ -177,7 +219,8 @@ export async function scanBillImage(file: File, options: ScanOptions = {}): Prom
   const best = passResults.sort((left, right) => right.score - left.score)[0];
   const bestText = best?.text || "";
   const draft = parseBillText(bestText);
-  const warnings = buildWarnings(bestText, draft, passResults);
+  const items = parseBillItems(bestText);
+  const warnings = buildWarnings(bestText, draft, passResults, items);
 
   options.onProgress?.({ status: "Draft ready", progress: 1, passName: best?.name });
 
@@ -185,6 +228,7 @@ export async function scanBillImage(file: File, options: ScanOptions = {}): Prom
     text: bestText,
     confidence: Math.round(best?.confidence || 0),
     draft,
+    items,
     passes: passResults.map(({ name, confidence, score, textLength }) => ({
       name,
       confidence: Math.round(confidence),
@@ -319,6 +363,35 @@ function extractItem(lines: string[], total: number) {
   };
 }
 
+function buildLineItem(line: string): BillOcrLineItem | null {
+  const numbers = extractNumbers(line).filter(plausibleAmount).map((item) => item.value);
+  const unit = extractUnit(line);
+  const material = extractMaterial(line);
+  const hasConstructionWord = Boolean(material.name || unit || /\b(cement|sand|tile|paint|steel|wire|brick|block|pop|putty|primer|pipe|ply|rcc|waterproof|chemical|aggregate|sheet|bag|box|nos|sqft|rft|kg|ton|litre)\b/i.test(line));
+  if (!hasConstructionWord || numbers.length < 2) return null;
+
+  const description = material.name || cleanMaterialName(line);
+  if (!description || description.length < 2) return null;
+
+  const amount = numbers[numbers.length - 1] || 0;
+  const quantity = numbers.find((value) => value > 0 && value < 100_000 && value !== amount) || 1;
+  const rate =
+    numbers.find((value) => value > 0 && value !== quantity && value !== amount) ||
+    (quantity ? amount / quantity : 0);
+  const gstPercent = Number(line.match(/\b(5|12|18|28)\s*%/)?.[1] || 0);
+  const confidence = Math.min(96, 48 + (material.name ? 18 : 0) + (unit ? 14 : 0) + Math.min(numbers.length, 4) * 5);
+
+  return {
+    description,
+    quantity: String(roundMoney(quantity)),
+    unit: unit || material.unit || "Nos",
+    rate: String(roundMoney(rate)),
+    amount: String(roundMoney(amount || quantity * rate)),
+    gst_percent: String(gstPercent),
+    confidence
+  };
+}
+
 function cleanMaterialName(line: string) {
   const cleaned = line
     .replace(rupeeAmount, " ")
@@ -412,13 +485,15 @@ function scoreOcrText(text: string, confidence: number) {
   return Math.min(100, confidence * 0.48 + lengthScore + (hasTotal ? 14 : 0) + (hasSupplier ? 8 : 0) + (hasDate ? 6 : 0) + (hasMaterial ? 5 : 0) + (hasGst ? 4 : 0));
 }
 
-function buildWarnings(text: string, draft: Partial<BillOcrDraft>, passes: BillOcrPass[]) {
+function buildWarnings(text: string, draft: Partial<BillOcrDraft>, passes: BillOcrPass[], items: BillOcrLineItem[]) {
   const warnings: string[] = [];
   if (!text.trim()) warnings.push("No readable text found. Take the photo closer and avoid glare.");
   if (!draft.total || Number(draft.total) <= 0) warnings.push("Total amount was not detected. Enter it manually before saving.");
   if (!draft.supplier_name) warnings.push("Supplier name was not clear.");
   if (!draft.material_name) warnings.push("Material name was not clear.");
   if (!draft.bill_number) warnings.push("Bill number was not detected.");
+  if (items.length > 1) warnings.push(`${items.length} bill items detected. Check rows before saving all materials.`);
+  if (!items.length && text.trim()) warnings.push("No item rows were detected. Use Add Row or save the editable draft.");
   if (passes.length > 1) warnings.push("Multiple OCR passes were used because the first read was weak.");
   return warnings;
 }

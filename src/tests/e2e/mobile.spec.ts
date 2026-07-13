@@ -34,6 +34,10 @@ test("power screens stay usable on iPhone width", async ({ page }) => {
       await expect(page.getByTestId("ask-ai-button")).toHaveCount(0);
       await expect(page.getByRole("button", { name: "Capture Photo" })).toBeVisible();
       await expect(page.getByRole("button", { name: "Browse Image" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "AI Scan" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Local Scan" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Add Row" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Save Selected Items" })).toBeVisible();
     } else {
       await expect(page.getByTestId("ask-ai-button")).toBeVisible();
     }

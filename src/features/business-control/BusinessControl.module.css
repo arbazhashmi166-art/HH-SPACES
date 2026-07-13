@@ -275,6 +275,45 @@
   line-height: 1.42;
 }
 
+.itemEditorList {
+  display: grid;
+  gap: 12px;
+}
+
+.billItemCard {
+  display: grid;
+  gap: 10px;
+  border-radius: 24px;
+  border: 1px solid color-mix(in srgb, var(--app-border) 86%, transparent);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 98%, transparent), color-mix(in srgb, var(--app-surface-3) 78%, transparent));
+  box-shadow: 0 12px 26px rgba(17, 24, 39, 0.07);
+  padding: 12px;
+}
+
+.billItemTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.checkLine {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--app-text);
+  font-size: 14px;
+  font-weight: 950;
+}
+
+.checkLine input {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--app-primary);
+}
+
 .input {
   width: 100%;
   min-height: 54px;
