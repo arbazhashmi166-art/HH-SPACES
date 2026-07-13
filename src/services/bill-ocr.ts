@@ -97,7 +97,7 @@ const unitPatterns = [
   { pattern: /\bcum|cubic\s*meter\b/i, unit: "Cum" }
 ];
 
-const rupeeAmount = /(?:rs\.?|inr|₹)?\s*(\d{1,3}(?:,\d{2,3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)/gi;
+const rupeeAmount = /(?:rs\.?|inr|\u20b9)?\s*(\d{1,3}(?:,\d{2,3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)/gi;
 
 export function parseBillText(rawText: string): Partial<BillOcrDraft> {
   const text = normalizeOcrText(rawText);
@@ -243,8 +243,8 @@ function normalizeOcrText(text: string) {
   return text
     .replace(/\u00a0/g, " ")
     .replace(/[|]{2,}/g, " ")
-    .replace(/[“”]/g, "\"")
-    .replace(/[‘’]/g, "'")
+    .replace(/[\u201c\u201d]/g, "\"")
+    .replace(/[\u2018\u2019]/g, "'")
     .replace(/\bRs\s*[:.-]/gi, "Rs ")
     .replace(/\s+\n/g, "\n")
     .replace(/[ \t]{2,}/g, " ")
@@ -327,7 +327,7 @@ function extractQuantity(text: string) {
 }
 
 function extractRate(text: string) {
-  const match = text.match(/\b(?:rate|price|@|at|each)\s*(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)/i);
+  const match = text.match(/\b(?:rate|price|@|at|each)\s*(?:rs\.?|inr|\u20b9)?\s*(\d+(?:\.\d+)?)/i);
   return match?.[1] ? Number(match[1]) : 0;
 }
 
