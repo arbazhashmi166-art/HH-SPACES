@@ -199,33 +199,38 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
     setOpen(true);
   };
 
-  const submit = form.handleSubmit(async (raw) => {
-    const values = autoCalculate(table, raw);
-    const duplicate = duplicateMessage(table, records, values, editing?.id);
-    if (duplicate && !warning) {
-      setWarning(`${duplicate} Submit again only if this is intentional.`);
-      return;
-    }
-
-    if (editing) {
-      await updateMutation.mutateAsync({ id: editing.id, values: values as never, userId: user?.id || null });
-      setToast(`${config.title} updated`);
-    } else {
-      const saved = await createMutation.mutateAsync({ values: values as never, userId: user?.id || null, source: "manual" });
-      if (company?.id) {
-        await createRecord("activity_logs", company.id, {
-          site_id: safeString(values.site_id) || null,
-          entity_table: table,
-          entity_id: (saved as { id: string }).id,
-          action: "create",
-          description: `${config.title} entry created`
-        } as never, { userId: user?.id || null });
+  const submit = form.handleSubmit(
+    async (raw) => {
+      const values = autoCalculate(table, raw);
+      const duplicate = duplicateMessage(table, records, values, editing?.id);
+      if (duplicate && !warning) {
+        setWarning(`${duplicate} Submit again only if this is intentional.`);
+        return;
       }
-      setToast(`${config.title} saved`);
+
+      if (editing) {
+        await updateMutation.mutateAsync({ id: editing.id, values: values as never, userId: user?.id || null });
+        setToast(`${config.title} updated`);
+      } else {
+        const saved = await createMutation.mutateAsync({ values: values as never, userId: user?.id || null, source: "manual" });
+        if (company?.id) {
+          await createRecord("activity_logs", company.id, {
+            site_id: safeString(values.site_id) || null,
+            entity_table: table,
+            entity_id: (saved as { id: string }).id,
+            action: "create",
+            description: `${config.title} entry created`
+          } as never, { userId: user?.id || null });
+        }
+        setToast(`${config.title} saved`);
+      }
+      setWarning(null);
+      setOpen(false);
+    },
+    () => {
+      setToast("Check the highlighted fields and try again");
     }
-    setWarning(null);
-    setOpen(false);
-  });
+  );
 
   const archive = async (record: AnyEntity) => {
     if (!window.confirm(`Archive this ${config.title} record?`)) return;

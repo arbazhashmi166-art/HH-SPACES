@@ -93,10 +93,10 @@ export const resources = {
     schema: siteSchema,
     fields: [
       { name: "name", label: "Site Name", type: "text", required: true },
-      { name: "client_name", label: "Client Name", type: "text", required: true },
+      { name: "client_name", label: "Client Name", type: "text" },
       { name: "client_mobile", label: "Client Mobile", type: "tel" },
-      { name: "address", label: "Site Address", type: "textarea", rows: 3, required: true },
-      { name: "work_type", label: "Work Type", type: "text", required: true },
+      { name: "address", label: "Site Address", type: "textarea", rows: 3 },
+      { name: "work_type", label: "Work Type", type: "text" },
       { name: "start_date", label: "Start Date", type: "date", required: true },
       { name: "expected_completion_date", label: "Expected Completion", type: "date" },
       { name: "status", label: "Status", type: "select", required: true, options: statusOptions },
@@ -108,7 +108,7 @@ export const resources = {
     cardSubtitle: (row) => `${row.client_name} • ${row.work_type} • ${row.progress_percent}%`,
     amount: (row) => row.budget,
     searchText: (row) => `${row.name} ${row.client_name} ${row.client_mobile || ""} ${row.address} ${row.work_type}`,
-    defaults: () => ({ start_date: todayIso(), expected_completion_date: todayIso(), status: "active", budget: 0, progress_percent: 0 })
+    defaults: () => ({ client_name: "", address: "", work_type: "", start_date: todayIso(), expected_completion_date: todayIso(), status: "active", budget: 0, progress_percent: 0 })
   },
   labour: {
     table: "labour",

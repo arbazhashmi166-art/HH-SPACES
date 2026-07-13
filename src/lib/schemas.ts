@@ -3,6 +3,7 @@ import { z } from "zod";
 export const money = z.coerce.number().min(0, "Money values cannot be negative").finite("Enter a valid amount");
 export const percent = z.coerce.number().min(0, "Minimum 0%").max(100, "Maximum 100%");
 export const requiredText = z.string().trim().min(1, "Required");
+export const defaultText = (fallback: string) => z.string().trim().optional().nullable().transform((value) => value || fallback);
 export const optionalText = z.string().trim().optional().nullable().transform((value) => value || null);
 export const mobile = z
   .string()
@@ -15,10 +16,10 @@ export const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a valid date
 
 export const siteSchema = z.object({
   name: requiredText,
-  client_name: requiredText,
+  client_name: defaultText("Client"),
   client_mobile: mobile,
-  address: requiredText,
-  work_type: requiredText,
+  address: defaultText("Address not added"),
+  work_type: defaultText("general"),
   start_date: isoDate,
   expected_completion_date: z.string().optional().nullable(),
   status: z.enum(["active", "paused", "completed"]),

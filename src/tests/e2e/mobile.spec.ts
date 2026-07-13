@@ -54,12 +54,6 @@ test("site add flow keeps new site visible and available in scanner dropdown", a
   await page.goto("/sites/");
   await page.getByRole("button", { name: "Add Site" }).click();
   await page.getByLabel("Site Name").fill("Kondhwa Test Site");
-  await page.getByLabel("Client Name").fill("Kumar Client");
-  await page.getByLabel("Client Mobile").fill("9876543210");
-  await page.getByLabel("Site Address").fill("Kondhwa, Pune");
-  await page.getByLabel("Work Type").fill("Waterproofing");
-  await page.getByLabel("Budget").fill("150000");
-  await page.getByLabel("Progress %").fill("15");
   await page.getByRole("button", { name: "Save Entry" }).click();
 
   await expect(page.getByText("Kondhwa Test Site")).toBeVisible();
