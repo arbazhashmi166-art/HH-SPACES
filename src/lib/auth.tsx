@@ -336,7 +336,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const username = email.trim().toUpperCase();
         const localUser = allowedLocalUsers[username];
         if (localUser) {
-          if (password !== localUser.password) throw new Error("Wrong password for this username.");
+          const passwordMatchesAppLogin = password === localUser.password;
           const startApprovedOffline = (issue: string) => {
             rememberOfflineMode(true);
             rememberLocalUser(username);
@@ -350,12 +350,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           };
 
           if (!supabase) {
+            if (!passwordMatchesAppLogin) throw new Error("Wrong password for this username.");
             startApprovedOffline("Supabase is not configured in this build. Data is saved on this device only.");
             return;
           }
 
           const cloudEmail = localUser.cloudEmail;
           const login = await requireSupabase().auth.signInWithPassword({ email: cloudEmail, password });
+          if (!login.error) {
+            if (!login.data.session) throw new Error("Cloud login failed. Check Supabase Auth settings.");
+            rememberOfflineMode(false);
+            rememberLocalUser(null);
+            rememberCloudLoginIssue(null);
+            setCloudLoginIssue(null);
+            setOfflineMode(false);
+            setSession(login.data.session);
+            try {
+              await loadCompany(login.data.session);
+            } catch (error) {
+              const issue = supabaseSetupIssue(error);
+              if (!issue) throw error;
+              await requireSupabase().auth.signOut();
+              if (!passwordMatchesAppLogin) throw new Error(issue);
+              startApprovedOffline(issue);
+            }
+            return;
+          }
+
+          if (!passwordMatchesAppLogin) {
+            throw new Error("Wrong password for this username. Use the app password or the real Supabase password for the approved email.");
+          }
+
           if (login.error) {
             const loginMessage = login.error.message.toLowerCase();
             if (loginMessage.includes("email not confirmed") || loginMessage.includes("confirm")) {
@@ -413,23 +438,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
             return;
           }
-
-          if (!login.data.session) throw new Error("Cloud login failed. Check Supabase Auth settings.");
-          rememberOfflineMode(false);
-          rememberLocalUser(null);
-          rememberCloudLoginIssue(null);
-          setCloudLoginIssue(null);
-          setOfflineMode(false);
-          setSession(login.data.session);
-          try {
-            await loadCompany(login.data.session);
-          } catch (error) {
-            const issue = supabaseSetupIssue(error);
-            if (!issue) throw error;
-            await requireSupabase().auth.signOut();
-            startApprovedOffline(issue);
-          }
-          return;
         }
 
         if (!email.includes("@")) {
