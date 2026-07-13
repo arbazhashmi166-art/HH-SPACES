@@ -12,7 +12,7 @@ Built with Next.js App Router, React 19, TypeScript strict mode, Ionic React mob
 - Sites, labour, attendance, materials, suppliers, expenses, client payments, supplier payments, progress, reminders, staff
 - Dashboard with active sites, daily costs, pending payments, labour balance, monthly profit/loss, alerts, and activity
 - Reports with PDF, CSV, and Excel-compatible export
-- AI assistant through Supabase Edge Functions, with local fallback parser and confirmation before saving
+- AI assistant and AI bill OCR through Supabase Edge Functions, with local fallback parser/OCR and confirmation before saving
 - Smart memory, notifications, audit logs, and data health screens
 - Dexie offline local database and retryable sync queue
 - Supabase SQL schema with RLS, indexes, duplicate-prevention constraints, storage policies, and pgvector memory table
@@ -57,6 +57,7 @@ Only use the Supabase anon/public key in the frontend. Do not put service role k
 ```bash
 supabase functions deploy ai-assistant
 supabase functions deploy voice-parser
+supabase functions deploy bill-vision-ocr
 ```
 
 4. Add Edge Function secrets:
@@ -64,9 +65,33 @@ supabase functions deploy voice-parser
 ```bash
 supabase secrets set OPENAI_API_KEY=your_key
 supabase secrets set OPENAI_MODEL=gpt-4.1-mini
+supabase secrets set OPENAI_VISION_MODEL=gpt-4.1
 ```
 
 The AI functions use the logged-in user's JWT and RLS-protected queries. The app never exposes the OpenAI key.
+
+### AI Bill OCR
+
+The Bill Scanner has two OCR modes:
+
+- `AI Scan`: sends a compressed bill image to the `bill-vision-ocr` Supabase Edge Function. The function calls OpenAI Vision and returns structured bill JSON.
+- `Local Scan`: uses browser OCR as a backup when cloud login, internet, or OpenAI secrets are not available.
+
+The AI OCR function extracts supplier name, supplier mobile, GSTIN, bill number, date, material/item, quantity, unit, rate, total, readable text, confidence, and warnings. It only prepares an editable draft; it never saves records without the user pressing Save.
+
+If you do not have the Supabase CLI locally, deploy functions from GitHub:
+
+1. Add repository secrets:
+
+```text
+SUPABASE_ACCESS_TOKEN
+SUPABASE_PROJECT_ID
+```
+
+2. Open GitHub `Actions`.
+3. Run `Deploy Supabase Functions`.
+
+Then add the OpenAI secrets in Supabase Dashboard under `Edge Functions > Secrets`.
 
 ## GitHub Pages Deployment
 

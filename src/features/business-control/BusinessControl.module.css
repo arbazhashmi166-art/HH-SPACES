@@ -45,12 +45,59 @@
   font-weight: 750;
 }
 
+.aiOcrNotice {
+  margin-top: 12px !important;
+  font-size: 12px;
+  font-weight: 850;
+}
+
 .heroActions,
 .buttonRow {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 9px;
   margin-top: 14px;
+}
+
+.scanMeta {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-radius: 18px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.scanMeta span,
+.scanMeta strong {
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.scanMeta strong {
+  text-align: right;
+  color: #fff;
+}
+
+.progressTrack {
+  height: 8px;
+  margin-top: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.progressTrack span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #fff, #fbbf24);
+  transition: width 180ms ease;
 }
 
 .grid {
@@ -298,6 +345,37 @@
   color: var(--app-muted);
   font-size: 13px;
   line-height: 1.45;
+}
+
+.scanPasses,
+.warningList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.scanPasses span,
+.warningList span {
+  border-radius: 999px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.scanPasses span {
+  color: var(--app-primary);
+  background: color-mix(in srgb, var(--app-primary) 10%, transparent);
+}
+
+.warningList span {
+  color: #8a4d00;
+  background: rgba(251, 191, 36, 0.18);
+}
+
+[data-theme="dark"] .warningList span {
+  color: #facc15;
 }
 
 .forecastBar {

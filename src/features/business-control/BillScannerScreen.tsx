@@ -8,6 +8,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ToastMessage } from "@/components/ui/toast-message";
 import { useAuth } from "@/lib/auth";
 import { createRecord, useCreateRecord, useRecords } from "@/lib/repository";
+import { scanBillWithAi } from "@/services/ai-bill-ocr";
+import { scanBillImage, type BillOcrPass } from "@/services/bill-ocr";
 import { createBillPhotoReference } from "@/services/photo-storage";
 import { formatMoney, todayIso } from "@/utils/format";
 import styles from "./BusinessControl.module.css";
@@ -16,6 +18,9 @@ type BillDraft = {
   site_id: string;
   date: string;
   supplier_name: string;
+  supplier_mobile: string;
+  bill_number: string;
+  gst_number: string;
   material_name: string;
   quantity: string;
   unit: string;
@@ -24,7 +29,6 @@ type BillDraft = {
   notes: string;
 };
 
-const materialWords = ["cement", "sand", "pop", "tile", "paint", "steel", "wire", "waterproof", "brick", "aggregate", "putty", "primer"];
 const units = ["Bag", "Kg", "Ton", "Sqft", "RFT", "Nos", "Box", "Litre"];
 
 function blankDraft(): BillDraft {
@@ -32,59 +36,15 @@ function blankDraft(): BillDraft {
     site_id: "",
     date: todayIso(),
     supplier_name: "",
+    supplier_mobile: "",
+    bill_number: "",
+    gst_number: "",
     material_name: "",
     quantity: "1",
     unit: "Nos",
     rate: "0",
     total: "0",
     notes: ""
-  };
-}
-
-function numberMatches(text: string) {
-  return (text.match(/\d[\d,]*(?:\.\d+)?/g) || [])
-    .map((value) => Number(value.replace(/,/g, "")))
-    .filter((value) => Number.isFinite(value));
-}
-
-function normalizeDate(text: string) {
-  const match = text.match(/\b(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})\b/);
-  if (!match) return todayIso();
-  const [, rawDay = "", rawMonth = "", rawYear = ""] = match;
-  const day = rawDay.padStart(2, "0");
-  const month = rawMonth.padStart(2, "0");
-  const year = rawYear.length === 2 ? `20${rawYear}` : rawYear;
-  return `${year}-${month}-${day}`;
-}
-
-function parseBillText(text: string): Partial<BillDraft> {
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-  const lower = text.toLowerCase();
-  const totalLine = lines.find((line) => /(grand\s*)?total|net\s*amount|amount\s*due|invoice\s*value/i.test(line));
-  const totalNumbers = totalLine ? numberMatches(totalLine) : [];
-  const allNumbers = numberMatches(text);
-  const total = totalNumbers.length ? Math.max(...totalNumbers) : allNumbers.length ? Math.max(...allNumbers.filter((value) => value < 10_000_000)) : 0;
-  const quantityLine = lines.find((line) => /qty|quantity/i.test(line));
-  const rateLine = lines.find((line) => /rate|price/i.test(line));
-  const quantity = quantityLine ? numberMatches(quantityLine)[0] || 1 : 1;
-  const rate = rateLine ? numberMatches(rateLine)[0] || (quantity ? total / quantity : 0) : quantity && total ? total / quantity : 0;
-  const material = materialWords.find((word) => lower.includes(word));
-  const supplier =
-    lines.find((line) => /enterprise|traders|supplier|hardware|cement|steel|store|agency/i.test(line)) ||
-    lines.find((line) => /^[a-z0-9 .&-]{4,}$/i.test(line)) ||
-    "";
-
-  return {
-    date: normalizeDate(text),
-    supplier_name: supplier.slice(0, 80),
-    material_name: material ? `${material.charAt(0).toUpperCase()}${material.slice(1)}` : "",
-    quantity: String(quantity || 1),
-    rate: String(Math.round(rate || 0)),
-    total: String(Math.round(total || 0)),
-    notes: text.slice(0, 900)
   };
 }
 
@@ -95,6 +55,11 @@ export function BillScannerScreen() {
   const [ocrText, setOcrText] = useState("");
   const [draft, setDraft] = useState<BillDraft>(() => blankDraft());
   const [scanning, setScanning] = useState(false);
+  const [scanStatus, setScanStatus] = useState("Ready");
+  const [scanProgress, setScanProgress] = useState(0);
+  const [scanConfidence, setScanConfidence] = useState<number | null>(null);
+  const [scanPasses, setScanPasses] = useState<BillOcrPass[]>([]);
+  const [scanWarnings, setScanWarnings] = useState<string[]>([]);
   const [savingPhoto, setSavingPhoto] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
@@ -116,6 +81,7 @@ export function BillScannerScreen() {
 
   const amount = useMemo(() => Number(draft.total || 0), [draft.total]);
   const canUploadPhoto = Boolean(company?.id && session && !offlineMode);
+  const canUseAiOcr = Boolean(session && !offlineMode);
 
   const chooseFile = (event: ChangeEvent<HTMLInputElement>) => {
     const selected = event.target.files?.[0] || null;
@@ -127,6 +93,11 @@ export function BillScannerScreen() {
     }
     setFile(selected);
     setOcrText("");
+    setScanConfidence(null);
+    setScanPasses([]);
+    setScanWarnings([]);
+    setScanStatus("Photo ready");
+    setScanProgress(0);
     setToast("Bill photo selected. Tap Scan Bill to read it.");
   };
 
@@ -142,25 +113,72 @@ export function BillScannerScreen() {
     });
   };
 
-  const scan = async () => {
+  const applyScanResult = (result: Awaited<ReturnType<typeof scanBillImage>>, successMessage: string) => {
+    const text = result.text || "";
+    setOcrText(text);
+    setScanConfidence(result.confidence);
+    setScanPasses(result.passes);
+    setScanWarnings(result.warnings);
+    setDraft((current) => ({ ...current, ...result.draft }));
+    setToast(text.trim() ? successMessage : "Scan finished, but text was not clear.");
+  };
+
+  const scanLocal = async () => {
     if (!file) {
       setToast("Choose or capture a bill photo first");
       return;
     }
     setScanning(true);
+    setScanStatus("Preparing bill photo");
+    setScanProgress(0.04);
+    setScanWarnings([]);
     try {
-      const { createWorker } = await import("tesseract.js");
-      const worker = await createWorker("eng");
-      const result = await worker.recognize(file);
-      await worker.terminate();
-      const text = result.data.text || "";
-      setOcrText(text);
-      const parsed = parseBillText(text);
-      setDraft((current) => ({ ...current, ...parsed }));
-      setToast(text.trim() ? "Bill scanned. Check the draft before saving." : "Scan finished, but text was not clear.");
+      const result = await scanBillImage(file, {
+        onProgress: (progress) => {
+          setScanStatus(progress.passName ? `${progress.status} (${progress.passName})` : progress.status);
+          setScanProgress(progress.progress);
+        }
+      });
+      applyScanResult(result, "Local OCR finished. Check the draft before saving.");
     } catch (error) {
       setToast(error instanceof Error ? error.message : "Could not scan this bill");
+      setScanStatus("Scan failed");
     } finally {
+      setScanProgress(0);
+      setScanning(false);
+    }
+  };
+
+  const scanAi = async () => {
+    if (!file) {
+      setToast("Choose or capture a bill photo first");
+      return;
+    }
+    if (!canUseAiOcr) {
+      setToast("Login with Supabase cloud sync to use AI OCR. Use Local Scan for this device.");
+      return;
+    }
+    setScanning(true);
+    setScanStatus("AI Vision reading bill");
+    setScanProgress(0.18);
+    setScanWarnings([]);
+    try {
+      const result = await scanBillWithAi(file, ocrText);
+      setScanStatus(result.model ? `AI OCR complete (${result.model})` : "AI OCR complete");
+      setScanProgress(1);
+      applyScanResult(result, "AI OCR finished. Check every amount before saving.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "AI OCR failed";
+      setToast(`${message}. Running local OCR backup.`);
+      const fallback = await scanBillImage(file, {
+        onProgress: (progress) => {
+          setScanStatus(progress.passName ? `Backup ${progress.status} (${progress.passName})` : `Backup ${progress.status}`);
+          setScanProgress(progress.progress);
+        }
+      });
+      applyScanResult(fallback, "AI was unavailable, so local OCR backup prepared the draft.");
+    } finally {
+      setScanProgress(0);
       setScanning(false);
     }
   };
@@ -204,8 +222,8 @@ export function BillScannerScreen() {
         rate: Number(draft.rate || 0),
         total: amount,
         supplier_name: draft.supplier_name || null,
-        supplier_mobile: null,
-        bill_number: null,
+        supplier_mobile: draft.supplier_mobile || null,
+        bill_number: draft.bill_number || null,
         bill_photo_url: billPhotoUrl,
         payment_status: "unpaid",
         notes: draft.notes ? `OCR bill scan:\n${draft.notes}` : "Saved from Bill Scanner"
@@ -261,7 +279,7 @@ export function BillScannerScreen() {
         category: "material",
         amount,
         payment_mode: "cash",
-        notes: `${draft.supplier_name || "Bill"} ${draft.material_name || "expense"}${draft.notes ? `\n${draft.notes}` : ""}`,
+        notes: `${draft.supplier_name || "Bill"} ${draft.material_name || "expense"}${draft.bill_number ? `\nBill No: ${draft.bill_number}` : ""}${draft.gst_number ? `\nGSTIN: ${draft.gst_number}` : ""}${draft.notes ? `\n${draft.notes}` : ""}`,
         receipt_photo_url: receiptPhotoUrl
       },
       userId: user?.id || null,
@@ -289,11 +307,21 @@ export function BillScannerScreen() {
       <div className={styles.hero}>
         <span>Bill Scanner</span>
         <h2>{formatMoney(amount)}</h2>
-        <p>Capture a supplier bill, read text with OCR, then save it as material or expense after checking the draft.</p>
-        <div className={styles.heroActions}>
-          <Button onClick={scan} disabled={scanning}>{scanning ? "Scanning..." : "Scan Bill"}</Button>
-          <Button variant="secondary" onClick={() => { setDraft(blankDraft()); setFile(null); setOcrText(""); }}>Reset</Button>
+        <p>Capture a supplier bill, clean the image, run smart OCR, then save it as material or expense after checking the draft.</p>
+        <div className={styles.scanMeta}>
+          <span>{scanStatus}</span>
+          <strong>{scanConfidence === null ? "OCR ready" : `${scanConfidence}% confidence`}</strong>
         </div>
+        {scanning ? <div className={styles.progressTrack}><span style={{ width: `${Math.round(scanProgress * 100)}%` }} /></div> : null}
+        <div className={styles.heroActions}>
+          <Button onClick={scanAi} disabled={scanning}>{scanning ? "Scanning..." : "AI Scan"}</Button>
+          <Button variant="secondary" onClick={scanLocal} disabled={scanning}>{scanning ? "Scanning..." : "Local Scan"}</Button>
+        </div>
+        <div className={styles.heroActions}>
+          <Button variant="secondary" onClick={() => { setDraft(blankDraft()); setFile(null); setOcrText(""); setScanConfidence(null); setScanPasses([]); setScanWarnings([]); setScanStatus("Ready"); }}>Reset</Button>
+          <Button variant="secondary" onClick={() => browseInputRef.current?.click()}>Choose Photo</Button>
+        </div>
+        <p className={styles.aiOcrNotice}>AI Scan uses OpenAI Vision securely from Supabase Edge Function. Local Scan works without AI as backup.</p>
       </div>
 
       <Card>
@@ -328,6 +356,11 @@ export function BillScannerScreen() {
           </select>
           <input className={styles.input} type="date" value={draft.date} onChange={(event) => updateDraft("date", event.target.value)} />
           <input className={styles.input} value={draft.supplier_name} onChange={(event) => updateDraft("supplier_name", event.target.value)} placeholder="Supplier name" />
+          <input className={styles.input} value={draft.supplier_mobile} onChange={(event) => updateDraft("supplier_mobile", event.target.value)} placeholder="Supplier mobile" />
+          <div className={styles.grid}>
+            <input className={styles.input} value={draft.bill_number} onChange={(event) => updateDraft("bill_number", event.target.value)} placeholder="Bill / invoice number" />
+            <input className={styles.input} value={draft.gst_number} onChange={(event) => updateDraft("gst_number", event.target.value)} placeholder="GSTIN" />
+          </div>
           <input className={styles.input} value={draft.material_name} onChange={(event) => updateDraft("material_name", event.target.value)} placeholder="Material / expense name" />
           <div className={styles.grid}>
             <input className={styles.input} type="number" inputMode="decimal" value={draft.quantity} onChange={(event) => updateDraft("quantity", event.target.value)} placeholder="Quantity" />
@@ -349,6 +382,18 @@ export function BillScannerScreen() {
 
       <Card>
         <CardHeader title="OCR Text" subtitle="Original extracted text is kept here so you can verify the draft." action={<Badge tone={ocrText ? "success" : "neutral"}>{ocrText ? "Read" : "Empty"}</Badge>} />
+        {scanPasses.length ? (
+          <div className={styles.scanPasses}>
+            {scanPasses.map((pass) => (
+              <span key={pass.name}>{pass.name}: {pass.score}/100</span>
+            ))}
+          </div>
+        ) : null}
+        {scanWarnings.length ? (
+          <div className={styles.warningList}>
+            {scanWarnings.map((warning) => <span key={warning}>{warning}</span>)}
+          </div>
+        ) : null}
         {ocrText ? <pre className={styles.ocrText}>{ocrText}</pre> : <EmptyState title="No scanned text yet" description="Tap Scan Bill after selecting a photo." />}
       </Card>
 
