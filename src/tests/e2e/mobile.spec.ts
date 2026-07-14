@@ -112,6 +112,28 @@ test("site cards include a working delete site option", async ({ page }) => {
   await expect(page.locator("select option", { hasText: siteName })).toHaveCount(0);
 });
 
+test("site cards copy a WhatsApp-ready summary without breaking mobile layout", async ({ page }) => {
+  await loginDeviceOnly(page, "site-summary-qa");
+  const suffix = Date.now().toString().slice(-6);
+  const siteName = `Summary Site ${suffix}`;
+  const clientName = `Summary Client ${suffix}`;
+
+  const dialog = await openAddSheet(page, "/sites/", "Add Site");
+  await dialog.getByLabel("Site Name").fill(siteName);
+  await dialog.getByLabel("Client Name").fill(clientName);
+  await dialog.getByLabel("Budget").fill("75000");
+  await dialog.getByLabel("Progress %").fill("25");
+  await saveAndExpect(page, dialog, siteName);
+
+  const siteCard = page.locator('[class*="__record"]').filter({ hasText: siteName });
+  await expect(siteCard).toHaveCount(1);
+  await siteCard.getByRole("button", { name: "Copy Summary" }).click();
+  await expect(page.getByText("Site summary copied")).toBeVisible();
+
+  const hasNoHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 2);
+  expect(hasNoHorizontalOverflow).toBeTruthy();
+});
+
 test("long client names stay readable on iPhone site cards", async ({ page }) => {
   await loginDeviceOnly(page, "client-name-layout-qa");
   const suffix = Date.now().toString().slice(-6);

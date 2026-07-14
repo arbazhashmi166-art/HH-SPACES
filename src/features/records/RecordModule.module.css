@@ -114,6 +114,14 @@
   gap: 8px;
 }
 
+.siteActions {
+  grid-template-columns: 1fr 1fr;
+}
+
+.copyAction {
+  grid-column: 1 / -1;
+}
+
 .sheetOverlay {
   position: fixed;
   inset: 0;

@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { IonIcon } from "@ionic/react";
-import { archiveOutline, createOutline, trashOutline } from "ionicons/icons";
+import { archiveOutline, copyOutline, createOutline, trashOutline } from "ionicons/icons";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useForm, type FieldValues, type UseFormRegister } from "react-hook-form";
@@ -85,6 +85,35 @@ function autoCalculate(table: TableName, values: Record<string, unknown>) {
     next.amount = Number(next.quantity || 0) * Number(next.rate || 0);
   }
   return next;
+}
+
+function siteSummary(site: EntityMap["sites"], companyName?: string) {
+  return [
+    companyName || "H&H SPACES",
+    `Site: ${site.name}`,
+    `Client: ${site.client_name || "Client"}`,
+    `Status: ${toTitle(site.status || "active")}`,
+    `Budget: ${formatMoney(site.budget)}`,
+    `Progress: ${Number(site.progress_percent || 0)}%`,
+    `Work: ${site.work_type || "General"}`,
+    `Address: ${site.address || "Not added"}`
+  ].join("\n");
+}
+
+async function copyText(text: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const element = document.createElement("textarea");
+  element.value = text;
+  element.setAttribute("readonly", "true");
+  element.style.position = "fixed";
+  element.style.left = "-9999px";
+  document.body.appendChild(element);
+  element.select();
+  document.execCommand("copy");
+  document.body.removeChild(element);
 }
 
 function FieldInput({ field, register, error }: { field: FieldConfig; register: UseFormRegister<FieldValues>; error?: string }) {
@@ -242,6 +271,16 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
     setToast(isSite ? "Site deleted" : "Record archived");
   };
 
+  const copySummary = async (record: AnyEntity) => {
+    if (table !== "sites") return;
+    try {
+      await copyText(siteSummary(record as EntityMap["sites"], company?.name));
+      setToast("Site summary copied");
+    } catch {
+      setToast("Could not copy summary");
+    }
+  };
+
   const mayCreate = canCreate(role);
   const mayUpdate = canUpdate(role);
   const mayArchive = canArchive(role, table);
@@ -286,7 +325,12 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
                   {status ? <Badge tone={status.includes("paid") || status === "active" || status === "present" ? "success" : status.includes("over") || status === "absent" ? "danger" : "info"}>{toTitle(status)}</Badge> : null}
                   <Badge tone={(row as AnyEntity).sync_status === "pending" ? "warning" : "neutral"}>{toTitle((row as AnyEntity).sync_status)}</Badge>
                 </div>
-                <div className={styles.actions}>
+                <div className={`${styles.actions} ${table === "sites" ? styles.siteActions : ""}`}>
+                  {table === "sites" ? (
+                    <Button variant="success" className={styles.copyAction} onClick={() => copySummary(row)} icon={<IonIcon icon={copyOutline} />}>
+                      Copy Summary
+                    </Button>
+                  ) : null}
                   <Button variant="secondary" onClick={() => startEdit(row)} disabled={!mayUpdate} icon={<IonIcon icon={createOutline} />}>
                     Edit
                   </Button>
