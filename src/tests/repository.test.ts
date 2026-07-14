@@ -78,4 +78,39 @@ describe("repository cloud/local merge", () => {
 
     expect(result.map((row) => row.id)).toEqual(["queued-site"]);
   });
+
+  it("does not recover queued inserts that also have a queued delete", () => {
+    const pending: PendingMutation[] = [
+      {
+        id: "mutation-1",
+        table: "sites",
+        operationType: "insert",
+        companyId: "company",
+        recordId: "deleted-before-sync",
+        idempotencyKey: "idem-deleted-before-sync",
+        payload: site("deleted-before-sync", "pending", "2026-07-14T12:00:00.000Z"),
+        retryCount: 0,
+        lastError: null,
+        createdAt: "2026-07-14T12:00:00.000Z",
+        updatedAt: "2026-07-14T12:00:00.000Z"
+      },
+      {
+        id: "mutation-2",
+        table: "sites",
+        operationType: "delete",
+        companyId: "company",
+        recordId: "deleted-before-sync",
+        idempotencyKey: "idem-delete",
+        payload: { archived: true, deleted_at: "2026-07-14T12:05:00.000Z" },
+        retryCount: 0,
+        lastError: null,
+        createdAt: "2026-07-14T12:05:00.000Z",
+        updatedAt: "2026-07-14T12:05:00.000Z"
+      }
+    ];
+
+    const result = queuedInsertPayloadsAsRecords(pending, "sites", "company");
+
+    expect(result).toEqual([]);
+  });
 });

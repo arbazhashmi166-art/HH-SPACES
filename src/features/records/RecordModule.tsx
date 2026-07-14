@@ -233,9 +233,13 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
   );
 
   const archive = async (record: AnyEntity) => {
-    if (!window.confirm(`Archive this ${config.title} record?`)) return;
+    const isSite = table === "sites";
+    const confirmMessage = isSite
+      ? "Delete this site from the active site list? Old linked entries stay safe for reports."
+      : `Archive this ${config.title} record?`;
+    if (!window.confirm(confirmMessage)) return;
     await deleteMutation.mutateAsync({ id: record.id, userId: user?.id || null });
-    setToast("Record archived");
+    setToast(isSite ? "Site deleted" : "Record archived");
   };
 
   const mayCreate = canCreate(role);
@@ -286,8 +290,13 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
                   <Button variant="secondary" onClick={() => startEdit(row)} disabled={!mayUpdate} icon={<IonIcon icon={createOutline} />}>
                     Edit
                   </Button>
-                  <Button variant="ghost" onClick={() => archive(row)} disabled={!mayArchive} icon={<IonIcon icon={mayArchive ? archiveOutline : trashOutline} />}>
-                    Archive
+                  <Button
+                    variant={table === "sites" ? "danger" : "ghost"}
+                    onClick={() => archive(row)}
+                    disabled={!mayArchive}
+                    icon={<IonIcon icon={table === "sites" ? trashOutline : mayArchive ? archiveOutline : trashOutline} />}
+                  >
+                    {table === "sites" ? "Delete Site" : "Archive"}
                   </Button>
                 </div>
               </Card>

@@ -98,8 +98,13 @@ export async function getQueuedInsertRecords<T extends TableName>(table: T, comp
 }
 
 export function queuedInsertPayloadsAsRecords<T extends TableName>(pending: PendingMutation[], table: T, companyId: string) {
+  const deletedQueuedRecords = new Set(
+    pending
+      .filter((item) => item.table === table && item.companyId === companyId && item.operationType === "delete")
+      .map((item) => item.recordId)
+  );
   return pending
-    .filter((item) => item.table === table && item.operationType === "insert")
+    .filter((item) => item.table === table && item.companyId === companyId && item.operationType === "insert" && !deletedQueuedRecords.has(item.recordId))
     .map((item) => item.payload as Partial<EntityMap[T]>)
     .filter((row): row is EntityMap[T] => Boolean(row.id && row.company_id === companyId && !row.deleted_at));
 }
@@ -314,6 +319,17 @@ export async function deleteRecord<T extends TableName>(table: T, companyId: str
       ...deletePayload,
       updated_by: userId || (existing.record as AnyEntity).updated_by
     } as EntityMap[T]);
+  }
+
+  const pendingForRecord = await db.pendingMutations.where({ companyId, recordId }).toArray();
+  const hasPendingInsert = pendingForRecord.some((item) => item.table === table && item.operationType === "insert");
+  for (const item of pendingForRecord) {
+    if (item.table === table && (item.operationType === "insert" || item.operationType === "update")) {
+      await db.pendingMutations.delete(item.id);
+    }
+  }
+  if (hasPendingInsert) {
+    return;
   }
 
   let lastError: string | null = null;

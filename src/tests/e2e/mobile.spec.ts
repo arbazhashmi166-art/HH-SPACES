@@ -88,6 +88,30 @@ test("site add flow keeps new site visible and available in scanner dropdown", a
   await expect(page.locator("select option", { hasText: "Kondhwa Test Site" })).toHaveCount(1);
 });
 
+test("site cards include a working delete site option", async ({ page }) => {
+  await loginDeviceOnly(page, "site-delete-qa");
+  const suffix = Date.now().toString().slice(-6);
+  const siteName = `Delete Site QA ${suffix}`;
+
+  const dialog = await openAddSheet(page, "/sites/", "Add Site");
+  await dialog.getByLabel("Site Name").fill(siteName);
+  await dialog.getByLabel("Client Name").fill(`Delete Client ${suffix}`);
+  await saveAndExpect(page, dialog, siteName);
+
+  page.once("dialog", async (confirmDialog) => {
+    expect(confirmDialog.message()).toContain("Delete this site");
+    await confirmDialog.accept();
+  });
+  const siteCard = page.locator('[class*="__record"]').filter({ hasText: siteName });
+  await expect(siteCard).toHaveCount(1);
+  await siteCard.getByRole("button", { name: "Delete Site" }).click();
+  await expect(page.getByText("Site deleted")).toBeVisible();
+  await expect(page.getByText(siteName)).toHaveCount(0);
+
+  await page.goto("/bill-scanner/");
+  await expect(page.locator("select option", { hasText: siteName })).toHaveCount(0);
+});
+
 test("long client names stay readable on iPhone site cards", async ({ page }) => {
   await loginDeviceOnly(page, "client-name-layout-qa");
   const suffix = Date.now().toString().slice(-6);
