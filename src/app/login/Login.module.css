@@ -16,7 +16,7 @@
   width: min(100%, 440px);
   margin: 0 auto;
   display: grid;
-  gap: 12px;
+  gap: 10px;
   padding: 2px 0;
 }
 
@@ -42,7 +42,7 @@
 
 .headline {
   margin: 0;
-  font-size: clamp(30px, 8.5vw, 46px);
+  font-size: clamp(28px, 8vw, 42px);
   line-height: 1;
   letter-spacing: 0;
   font-weight: 950;
@@ -55,16 +55,74 @@
   font-size: 14px;
 }
 
+.benefits {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.benefits span {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border-radius: 18px;
+  padding: 8px 7px;
+  color: var(--app-text);
+  font-size: 12px;
+  font-weight: 900;
+  background: color-mix(in srgb, var(--app-surface) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--app-border) 76%, transparent);
+}
+
+.formHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.formHeader h2 {
+  margin: 2px 0 0;
+  font-size: 22px;
+  line-height: 1.05;
+  font-weight: 950;
+  letter-spacing: 0;
+}
+
+.kicker {
+  margin: 0;
+  color: var(--app-muted);
+  font-size: 12px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.trustBadge {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  border-radius: 999px;
+  padding: 8px 10px;
+  color: color-mix(in srgb, var(--app-success) 72%, var(--app-text));
+  background: color-mix(in srgb, var(--app-success) 10%, var(--app-surface));
+  border: 1px solid color-mix(in srgb, var(--app-success) 22%, var(--app-border));
+  font-size: 12px;
+  font-weight: 950;
+}
+
 .form {
   display: grid;
-  gap: 12px;
+  gap: 11px;
   border: 1px solid color-mix(in srgb, var(--app-border) 88%, transparent);
   border-radius: 30px;
-  padding: 14px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 96%, transparent), color-mix(in srgb, var(--app-surface-3) 82%, transparent));
+  padding: 13px;
+  background: color-mix(in srgb, var(--app-surface) 96%, transparent);
   box-shadow: var(--app-shadow-strong);
-  backdrop-filter: blur(20px);
 }
 
 @media (max-height: 760px) {
@@ -123,10 +181,166 @@
   font-size: 13px;
 }
 
+.success {
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--app-success) 12%, var(--app-surface));
+  color: color-mix(in srgb, var(--app-success) 78%, var(--app-text));
+  font-weight: 900;
+  font-size: 13px;
+}
+
 .note {
   margin: -2px 0 0;
   color: var(--app-muted);
   font-size: 13px;
   font-weight: 800;
   line-height: 1.45;
+}
+
+.passwordWrap {
+  position: relative;
+  min-width: 0;
+}
+
+.passwordInput {
+  padding-right: 54px;
+}
+
+.passwordButton {
+  position: absolute;
+  right: 5px;
+  top: 5px;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 15px;
+  display: grid;
+  place-items: center;
+  color: var(--app-muted);
+  background: transparent;
+}
+
+.passwordButton:focus-visible,
+.linkButton:focus-visible,
+.secondaryLinks button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--app-primary) 28%, transparent);
+  outline-offset: 3px;
+}
+
+.loginTools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.checkboxLine {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--app-muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.checkboxLine input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--app-primary);
+}
+
+.linkButton,
+.secondaryLinks button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 14px;
+  color: var(--app-primary);
+  background: transparent;
+  font-weight: 950;
+}
+
+.resetBox {
+  display: grid;
+  gap: 10px;
+  border-radius: 22px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--app-surface-2) 74%, transparent);
+  border: 1px solid color-mix(in srgb, var(--app-border) 72%, transparent);
+}
+
+.secondaryLinks {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.secondaryLinks button {
+  width: 100%;
+  padding: 0 12px;
+  text-align: center;
+  color: var(--app-muted);
+  background: color-mix(in srgb, var(--app-surface-2) 54%, transparent);
+  border: 1px solid color-mix(in srgb, var(--app-border) 72%, transparent);
+}
+
+.secondaryLinks .activeLink {
+  color: var(--app-text);
+  background: color-mix(in srgb, var(--app-primary) 10%, var(--app-surface));
+  border-color: color-mix(in srgb, var(--app-primary) 24%, var(--app-border));
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  align-items: end;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.modal {
+  width: min(100%, 440px);
+  margin: 0 auto;
+  display: grid;
+  gap: 13px;
+  border-radius: 30px;
+  padding: 18px;
+  color: var(--app-text);
+  background: var(--app-surface);
+  border: 1px solid color-mix(in srgb, var(--app-border) 90%, transparent);
+  box-shadow: 0 -18px 60px rgba(15, 23, 42, 0.24);
+}
+
+.modal h2 {
+  margin: 0;
+  font-size: 23px;
+  font-weight: 950;
+  letter-spacing: 0;
+}
+
+.modal p {
+  margin: 0;
+  color: var(--app-muted);
+  font-size: 14px;
+  line-height: 1.45;
+  font-weight: 800;
+}
+
+.modalActions {
+  display: grid;
+  gap: 10px;
+}
+
+@media (max-width: 360px) {
+  .formHeader {
+    display: grid;
+  }
+
+  .trustBadge {
+    width: max-content;
+  }
 }

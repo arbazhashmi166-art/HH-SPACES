@@ -2,7 +2,8 @@ import { expect, test } from "@playwright/test";
 
 async function loginDeviceOnly(page: import("@playwright/test").Page, marker: string) {
   await page.goto(`/login?${marker}=1`);
-  await page.getByRole("button", { name: "Use This Device Only (No Cloud)" }).click();
+  await page.getByRole("button", { name: "Continue Offline" }).click();
+  await page.getByRole("button", { name: "I Understand, Continue Offline" }).click();
   await expect(page.getByRole("heading", { name: "Home" })).toBeVisible();
 }
 
@@ -30,8 +31,10 @@ async function saveAndExpect(page: import("@playwright/test").Page, dialog: impo
 
 test("mobile app shell opens login and offline dashboard", async ({ page }) => {
   await page.goto("/login");
-  await expect(page.getByText("Contractor OS")).toBeVisible();
-  await page.getByRole("button", { name: "Use This Device Only (No Cloud)" }).click();
+  await expect(page.getByText("Run every construction site")).toBeVisible();
+  await page.getByRole("button", { name: "Continue Offline" }).click();
+  await expect(page.getByRole("dialog", { name: "Continue offline?" })).toBeVisible();
+  await page.getByRole("button", { name: "I Understand, Continue Offline" }).click();
   await expect(page.getByRole("heading", { name: "Home" })).toBeVisible();
   await expect(page.getByTestId("ask-ai-button")).toBeVisible();
 
@@ -44,7 +47,8 @@ test("mobile app shell opens login and offline dashboard", async ({ page }) => {
 
 test("power screens stay usable on iPhone width", async ({ page }) => {
   await page.goto("/login?mobile-power-qa=1");
-  await page.getByRole("button", { name: "Use This Device Only (No Cloud)" }).click();
+  await page.getByRole("button", { name: "Continue Offline" }).click();
+  await page.getByRole("button", { name: "I Understand, Continue Offline" }).click();
   await expect(page.getByRole("heading", { name: "Home" })).toBeVisible();
 
   const routes = [

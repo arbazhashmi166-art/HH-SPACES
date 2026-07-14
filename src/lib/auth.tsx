@@ -3,7 +3,7 @@
 import type { Session, User } from "@supabase/supabase-js";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { createId } from "./id";
-import { hasSupabaseConfig } from "./env";
+import { basePath, hasSupabaseConfig } from "./env";
 import { migrateLocalCompanyRecords, syncPendingMutations } from "./repository";
 import { requireSupabase, supabase } from "./supabase";
 import type { Company, Profile, Role } from "@/types/domain";
@@ -18,6 +18,7 @@ type AuthState = {
   offlineMode: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (input: { email: string; password: string; companyName: string; fullName: string }) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
   continueOffline: () => Company;
   refreshCompany: () => Promise<void>;
@@ -350,7 +351,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           };
 
           if (!supabase) {
-            if (!passwordMatchesAppLogin) throw new Error("Wrong password for this username.");
+            if (!passwordMatchesAppLogin) throw new Error("Incorrect username or password.");
             startApprovedOffline("Supabase is not configured in this build. Data is saved on this device only.");
             return;
           }
@@ -378,7 +379,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
 
           if (!passwordMatchesAppLogin) {
-            throw new Error("Wrong password for this username. Use the app password or the real Supabase password for the approved email.");
+            throw new Error("Incorrect username or password.");
           }
 
           if (login.error) {
@@ -441,7 +442,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         if (!email.includes("@")) {
-          throw new Error("Use ARBAZ123, SAHIL123, or a Supabase email address.");
+          throw new Error("Use your approved username or your Supabase email address.");
         }
 
         const { error } = await requireSupabase().auth.signInWithPassword({ email, password });
@@ -495,6 +496,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           ...recordMeta(userId)
         });
       },
+      resetPassword: async (email) => {
+        const redirectTo = typeof window === "undefined" ? undefined : `${window.location.origin}${basePath}/login`;
+        const { error } = await requireSupabase().auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo });
+        if (error) throw error;
+      },
       signOut: async () => {
         if (supabase) await supabase.auth.signOut();
         rememberOfflineMode(false);
@@ -510,8 +516,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const nextCompany = localCompany(cloudCompanyName);
         rememberOfflineMode(true);
         rememberLocalUser(null);
-        rememberCloudLoginIssue("You selected device-only mode. Data will not sync to another phone until cloud login is used.");
-        setCloudLoginIssue("You selected device-only mode. Data will not sync to another phone until cloud login is used.");
+        rememberCloudLoginIssue("Offline mode is active. Your records are saved only on this device until you connect cloud sync.");
+        setCloudLoginIssue("Offline mode is active. Your records are saved only on this device until you connect cloud sync.");
         setOfflineMode(true);
         setCompany(nextCompany);
         setRole("admin");
