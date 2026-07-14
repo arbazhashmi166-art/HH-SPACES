@@ -8,7 +8,7 @@ async function loginDeviceOnly(page: import("@playwright/test").Page, marker: st
 
 async function openAddSheet(page: import("@playwright/test").Page, path: string, buttonName: string) {
   await page.goto(path);
-  const addButton = page.getByRole("button", { name: buttonName });
+  const addButton = page.getByRole("button", { name: buttonName }).first();
   await expect(addButton).toBeVisible();
   await addButton.click();
   const dialog = page.getByRole("dialog");
@@ -25,7 +25,7 @@ async function selectFirstOption(dialog: import("@playwright/test").Locator, fie
 async function saveAndExpect(page: import("@playwright/test").Page, dialog: import("@playwright/test").Locator, text: string) {
   await dialog.getByRole("button", { name: "Save Entry" }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page.getByText(text).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: text }).first()).toBeVisible();
 }
 
 test("mobile app shell opens login and offline dashboard", async ({ page }) => {
@@ -78,14 +78,38 @@ test("site add flow keeps new site visible and available in scanner dropdown", a
   await loginDeviceOnly(page, "site-add-qa");
 
   await page.goto("/sites/");
-  await page.getByRole("button", { name: "Add Site" }).click();
+  await page.getByRole("button", { name: "Add Site" }).first().click();
   await page.getByLabel("Site Name").fill("Kondhwa Test Site");
   await page.getByRole("button", { name: "Save Entry" }).click();
 
-  await expect(page.getByText("Kondhwa Test Site")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Kondhwa Test Site" })).toBeVisible();
   await page.goto("/bill-scanner/");
   await expect(page.getByRole("heading", { name: "Bill Scanner" })).toBeVisible();
-  await expect(page.locator("select option", { hasText: "Kondhwa Test Site" })).toHaveCount(1);
+  await expect(page.locator("select option", { hasText: "Kondhwa Test Site" }).first()).toHaveText(/Kondhwa Test Site/);
+});
+
+test("permanent site selector defaults quick entry forms to the current site", async ({ page }) => {
+  await loginDeviceOnly(page, "site-selector-qa");
+  const suffix = Date.now().toString().slice(-6);
+  const siteName = `Selector Site ${suffix}`;
+
+  let dialog = await openAddSheet(page, "/sites/", "Add Site");
+  await dialog.getByLabel("Site Name").fill(siteName);
+  await dialog.getByLabel("Client Name").fill(`Selector Client ${suffix}`);
+  await saveAndExpect(page, dialog, siteName);
+
+  await page.getByLabel("Select current site").selectOption({ label: `${siteName} - Selector Client ${suffix}` });
+  await expect(page.getByText("Current Site")).toBeVisible();
+  await expect(page.getByText(siteName).first()).toBeVisible();
+
+  await expect(page.getByRole("navigation", { name: "Main navigation" }).getByRole("button", { name: "Add", exact: true })).toBeVisible();
+  await page.goto("/quick-entry/");
+  await expect(page.getByText("Daily Add", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Add Expense" }).first().click();
+  dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('select[name="site_id"]')).toHaveValue(/.+/);
+  await expect(dialog.locator('select[name="site_id"] option:checked')).toHaveText(new RegExp(siteName));
 });
 
 test("site cards include a working delete site option", async ({ page }) => {
@@ -283,8 +307,8 @@ test("bill scanner manual rows save into materials on iPhone", async ({ page }) 
   await rateInputs.first().fill("365");
   const amountInputs = page.getByPlaceholder("Amount");
   await expect(amountInputs).toHaveValue("4380");
-  const siteSelect = page.locator("select").filter({ has: page.locator("option", { hasText: siteName }) });
-  await expect(siteSelect).toHaveCount(1);
+  const siteSelect = page.locator("select").filter({ has: page.locator("option", { hasText: siteName }) }).nth(1);
+  await expect(siteSelect).toBeVisible();
   await siteSelect.selectOption({ index: 1 });
   await page.getByRole("button", { name: "Save Selected Items" }).click();
   await expect(page.getByText("1 material items saved from bill")).toBeVisible();

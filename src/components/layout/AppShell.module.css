@@ -161,6 +161,65 @@
   white-space: nowrap;
 }
 
+.siteDock {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(118px, 38%);
+  gap: 10px;
+  align-items: center;
+  margin-top: 10px;
+  min-height: 58px;
+  border: 1px solid color-mix(in srgb, var(--app-border) 90%, transparent);
+  border-radius: 22px;
+  padding: 9px 10px 9px 13px;
+  background: color-mix(in srgb, var(--app-surface) 96%, transparent);
+  box-shadow: 0 12px 26px rgba(17, 24, 39, 0.08);
+}
+
+.siteDockText {
+  min-width: 0;
+}
+
+.siteDockText span,
+.siteDockText small {
+  display: block;
+  color: var(--app-muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.siteDockText strong {
+  display: block;
+  margin-top: 2px;
+  color: var(--app-text);
+  font-size: 16px;
+  font-weight: 950;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.siteDockText small {
+  margin-top: 3px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.siteDock select {
+  min-width: 0;
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid color-mix(in srgb, var(--app-border) 88%, transparent);
+  border-radius: 16px;
+  background: var(--app-surface-2);
+  color: var(--app-text);
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 900;
+}
+
 .aiButton {
   position: fixed;
   right: max(14px, env(safe-area-inset-right));
@@ -505,6 +564,10 @@
   }
 
   .quickGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .siteDock {
     grid-template-columns: 1fr;
   }
 }

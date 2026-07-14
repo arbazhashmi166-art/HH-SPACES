@@ -17,6 +17,7 @@ import { ToastMessage } from "@/components/ui/toast-message";
 import { buildLookupFields, resources, type FieldConfig, type LookupContext, type ResourceConfig } from "@/config/resources";
 import { useAuth } from "@/lib/auth";
 import { createRecord, useCreateRecord, useDeleteRecord, useRecords, useUpdateRecord } from "@/lib/repository";
+import { selectedSiteStorageKey, useUiStore } from "@/lib/ui-store";
 import { canArchive, canCreate, canUpdate } from "@/services/permissions";
 import type { AnyEntity, EntityMap, TableName } from "@/types/domain";
 import { formatMoney, toTitle } from "@/utils/format";
@@ -26,6 +27,10 @@ type ResourceKey = keyof typeof resources;
 
 function safeString(value: unknown) {
   return value == null ? "" : String(value);
+}
+
+function savedSelectedSiteId() {
+  return typeof window === "undefined" ? "" : window.localStorage.getItem(selectedSiteStorageKey) || "";
 }
 
 function duplicateMessage(table: TableName, records: AnyEntity[], values: Record<string, unknown>, editingId?: string) {
@@ -85,6 +90,27 @@ function autoCalculate(table: TableName, values: Record<string, unknown>) {
     next.amount = Number(next.quantity || 0) * Number(next.rate || 0);
   }
   return next;
+}
+
+function saveStatusMessage(title: string, record: AnyEntity) {
+  if (record.sync_status === "synced") return `${title} saved and synced`;
+  if (record.sync_status === "pending") return `${title} saved on this phone - will upload automatically`;
+  return `${title} saved`;
+}
+
+function emptyDescription(table: TableName, addLabel: string) {
+  const copy: Partial<Record<TableName, string>> = {
+    sites: "No sites added yet. Add your first site so labour, material, expenses, progress, and payments stay connected to the correct project.",
+    attendance: "No attendance added yet. Mark today's labour presence to calculate wages and daily site cost.",
+    materials: "No materials added yet. Add a purchase or bill so stock, supplier dues, and site cost stay clear.",
+    expenses: "No expenses added yet. Add your first expense to track today's site spending.",
+    client_payments: "No client payments added yet. Record received and pending money to keep cash collection clear.",
+    progress_updates: "No progress updates yet. Add today's completed work, percentage, remarks, and photos.",
+    extra_works: "No extra work added yet. Capture variations early so they can be approved, billed, and paid.",
+    partner_draws: "No partner money entries yet. Add every company withdrawal so final sharing stays clear.",
+    reminders: "No reminders yet. Add follow-ups for payments, materials, attendance, or site tasks."
+  };
+  return copy[table] || `No records yet. Tap ${addLabel} to create the first working entry.`;
 }
 
 function siteSummary(site: EntityMap["sites"], companyName?: string) {
@@ -164,6 +190,8 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
   const config = resources[resourceKey] as ResourceConfig;
   const table = config.table;
   const { company, user, role } = useAuth();
+  const selectedSiteId = useUiStore((state) => state.selectedSiteId);
+  const setSelectedSiteId = useUiStore((state) => state.setSelectedSiteId);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -192,10 +220,18 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
 
   const fields = useMemo(() => buildLookupFields(config.fields, lookups), [config.fields, lookups]);
   const defaultValues = useMemo(() => config.defaults(), [config]);
+  const hasSiteField = useMemo(() => fields.some((field) => field.name === "site_id"), [fields]);
+  const addDefaultValues = useMemo(() => {
+    const requestedSiteId = searchParams.get("siteId");
+    const onlySiteId = lookups.sites.length === 1 ? lookups.sites[0]?.id || "" : "";
+    const next = { ...(defaultValues as Record<string, unknown>) };
+    if (hasSiteField) next.site_id = requestedSiteId || selectedSiteId || savedSelectedSiteId() || next.site_id || onlySiteId || "";
+    return next;
+  }, [defaultValues, hasSiteField, lookups.sites, searchParams, selectedSiteId]);
   const schema = config.schema as z.ZodTypeAny;
   const form = useForm<FieldValues>({
     resolver: zodResolver(schema as any) as any,
-    defaultValues: defaultValues as Record<string, unknown>,
+    defaultValues: addDefaultValues,
     mode: "onBlur"
   });
 
@@ -205,7 +241,7 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
       (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("add") === "1");
     if (!requested || open) return;
     setEditing(null);
-    form.reset(defaultValues as Record<string, unknown>);
+    form.reset(addDefaultValues);
     if (typeof window !== "undefined") {
       window.history.replaceState(null, "", window.location.pathname);
       window.setTimeout(() => setOpen(true), 80);
@@ -213,7 +249,7 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
       router.replace(pathname);
       setOpen(true);
     }
-  }, [defaultValues, form, open, pathname, router, searchParams]);
+  }, [addDefaultValues, form, open, pathname, router, searchParams]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -231,7 +267,7 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
   const startAdd = () => {
     setWarning(null);
     setEditing(null);
-    form.reset(defaultValues as Record<string, unknown>);
+    form.reset(addDefaultValues);
     setOpen(true);
   };
 
@@ -252,8 +288,8 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
       }
 
       if (editing) {
-        await updateMutation.mutateAsync({ id: editing.id, values: values as never, userId: user?.id || null });
-        setToast(`${config.title} updated`);
+        const saved = await updateMutation.mutateAsync({ id: editing.id, values: values as never, userId: user?.id || null });
+        setToast(saveStatusMessage(config.title, saved as AnyEntity));
       } else {
         const saved = await createMutation.mutateAsync({ values: values as never, userId: user?.id || null, source: "manual" });
         if (company?.id) {
@@ -265,8 +301,9 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
             description: `${config.title} entry created`
           } as never, { userId: user?.id || null });
         }
-        setToast(`${config.title} saved`);
+        setToast(saveStatusMessage(config.title, saved as AnyEntity));
       }
+      if (safeString(values.site_id)) setSelectedSiteId(safeString(values.site_id));
       setWarning(null);
       setOpen(false);
     },
@@ -362,7 +399,12 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
           })}
         </div>
       ) : (
-        <EmptyState title={`No ${config.title.toLowerCase()} yet`} description={`Tap ${config.addLabel} to create the first working record. Offline entries will sync when internet returns.`} />
+        <EmptyState
+          title={`No ${config.title.toLowerCase()} yet`}
+          description={emptyDescription(table, config.addLabel)}
+          actionLabel={mayCreate ? config.addLabel : undefined}
+          onAction={mayCreate ? startAdd : undefined}
+        />
       )}
 
       {open ? (

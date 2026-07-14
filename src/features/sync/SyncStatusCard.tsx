@@ -55,7 +55,7 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
   const statusText = !cloudReady
     ? "Not connected"
     : offlineMode
-      ? "Saved locally"
+      ? "Saved on phone"
       : pending
         ? "Uploading to cloud"
         : session
@@ -64,7 +64,7 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
   const subtitle = !cloudReady
     ? "Supabase keys are missing in this GitHub build. Add GitHub Actions secrets or use the connected build."
     : offlineMode
-      ? cloudLoginIssue || "Your entries are saving on this phone/browser only. Logout, then login with ARBAZ123 or SAHIL123 to sync laptop and iPhone data."
+      ? cloudLoginIssue || "Your entries are safe on this phone. Logout, then login with ARBAZ123 or SAHIL123 when you want laptop and iPhone sharing."
       : online
         ? session
           ? pending
@@ -76,10 +76,10 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
     ? "Supabase Not Configured"
     : offlineMode || !session
       ? "Login Required for Sync"
-      : syncing
+    : syncing
         ? "Syncing..."
-        : pending
-          ? "Sync Pending Entries"
+    : pending
+          ? "Retry Upload"
           : "Sync Now";
 
   if (compact && pending === 0 && online && cloudReady && !offlineMode) return null;
@@ -94,7 +94,9 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
       {!compact ? (
         <p style={{ margin: "0 0 12px", color: "var(--app-muted)", fontWeight: 800, lineHeight: 1.4 }}>
           {offlineMode
-            ? `${pending} saved local ${pending === 1 ? "entry is" : "entries are"} waiting for cloud sync.`
+            ? pending
+              ? `${pending} ${pending === 1 ? "entry is" : "entries are"} safe on this phone. Login to upload to cloud.`
+              : "Entries are saving on this phone. Login for cloud sharing when needed."
             : session
               ? pending
                 ? `${pending} ${pending === 1 ? "entry is" : "entries are"} backed up on this phone and waiting to upload to Supabase. ${friendlyIssue ? `Reason: ${friendlyIssue}` : "Auto-sync will retry every few seconds."}`

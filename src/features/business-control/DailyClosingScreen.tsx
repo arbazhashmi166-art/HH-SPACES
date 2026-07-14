@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ToastMessage } from "@/components/ui/toast-message";
 import { useAuth } from "@/lib/auth";
 import { useCreateRecord, useRecords } from "@/lib/repository";
+import { useUiStore } from "@/lib/ui-store";
 import { formatMoney, todayIso } from "@/utils/format";
 import styles from "./BusinessControl.module.css";
 
@@ -29,7 +30,9 @@ const labels: Array<{ key: keyof Checks; title: string; description: string }> =
 
 export function DailyClosingScreen() {
   const { company, user } = useAuth();
-  const [selectedSite, setSelectedSite] = useState("");
+  const globalSiteId = useUiStore((state) => state.selectedSiteId);
+  const setGlobalSiteId = useUiStore((state) => state.setSelectedSiteId);
+  const [selectedSite, setSelectedSite] = useState(globalSiteId);
   const [notes, setNotes] = useState("");
   const [toast, setToast] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
@@ -60,6 +63,10 @@ export function DailyClosingScreen() {
     setChecks(autoChecks);
   }, [autoChecks]);
 
+  useEffect(() => {
+    setSelectedSite(globalSiteId);
+  }, [globalSiteId]);
+
   const selectedSiteName = sites.data?.find((site) => site.id === selectedSite)?.name || "All Sites";
   const todayAttendance = (attendance.data || []).filter((row) => row.date === today && (!selectedSite || row.site_id === selectedSite));
   const todayMaterial = (materials.data || []).filter((row) => row.date === today && (!selectedSite || row.site_id === selectedSite));
@@ -85,6 +92,10 @@ export function DailyClosingScreen() {
     .join("\n");
 
   const toggle = (key: keyof Checks) => setChecks((current) => ({ ...current, [key]: !current[key] }));
+  const changeSite = (siteId: string) => {
+    setSelectedSite(siteId);
+    setGlobalSiteId(siteId);
+  };
 
   const saveClosing = async () => {
     await createClosing.mutateAsync({
@@ -129,7 +140,7 @@ export function DailyClosingScreen() {
       <Card>
         <CardHeader title="Closing Scope" subtitle="Choose one site or close the full company day." />
         <div className={styles.fieldGrid}>
-          <select className={styles.select} value={selectedSite} onChange={(event) => setSelectedSite(event.target.value)}>
+          <select className={styles.select} value={selectedSite} onChange={(event) => changeSite(event.target.value)}>
             <option value="">All Sites</option>
             {(sites.data || []).map((site) => (
               <option key={site.id} value={site.id}>{site.name}</option>

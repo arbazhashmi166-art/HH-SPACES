@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ToastMessage } from "@/components/ui/toast-message";
 import { useAuth } from "@/lib/auth";
 import { createRecord, useCreateRecord, useRecords } from "@/lib/repository";
+import { selectedSiteStorageKey, useUiStore } from "@/lib/ui-store";
 import { scanBillWithAi } from "@/services/ai-bill-ocr";
 import { scanBillImage, type BillOcrLineItem, type BillOcrPass, type BillOcrResult } from "@/services/bill-ocr";
 import { createBillPhotoReference } from "@/services/photo-storage";
@@ -93,6 +94,7 @@ function normalizeItemsForUi(items: BillOcrLineItem[], fallbackDraft: Partial<Bi
 
 export function BillScannerScreen() {
   const { company, user, session, offlineMode } = useAuth();
+  const selectedSiteId = useUiStore((state) => state.selectedSiteId);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [ocrText, setOcrText] = useState("");
@@ -130,6 +132,14 @@ export function BillScannerScreen() {
   );
   const amount = useMemo(() => selectedItemsTotal || Number(draft.total || 0), [draft.total, selectedItemsTotal]);
   const canUploadPhoto = Boolean(company?.id && session && !offlineMode);
+
+  useEffect(() => {
+    const storedSiteId = typeof window === "undefined" ? "" : window.localStorage.getItem(selectedSiteStorageKey) || "";
+    const onlySiteId = (sites.data || []).length === 1 ? sites.data?.[0]?.id || "" : "";
+    const nextSiteId = selectedSiteId || storedSiteId || onlySiteId;
+    if (!nextSiteId || draft.site_id) return;
+    setDraft((current) => ({ ...current, site_id: nextSiteId }));
+  }, [draft.site_id, selectedSiteId, sites.data]);
   const canUseAiOcr = Boolean(session && !offlineMode);
 
   const chooseFile = (event: ChangeEvent<HTMLInputElement>) => {

@@ -311,10 +311,17 @@
 }
 
 .alert {
+  width: 100%;
   border-radius: 20px;
   border: 1px solid rgba(245, 158, 11, 0.25);
   padding: 12px;
   background: rgba(245, 158, 11, 0.12);
+  color: var(--app-text);
+  text-align: left;
+}
+
+.alertWarning {
+  border-color: rgba(245, 158, 11, 0.3);
 }
 
 .alertCritical {
@@ -353,4 +360,30 @@
 
 .riskItem strong {
   display: block;
+}
+
+.miniPanel {
+  min-height: 92px;
+  border-radius: 22px;
+  border: 1px solid color-mix(in srgb, var(--app-border) 90%, transparent);
+  padding: 13px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 96%, transparent), color-mix(in srgb, var(--app-surface-2) 58%, transparent));
+}
+
+.miniPanel span {
+  display: block;
+  color: var(--app-muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.miniPanel strong {
+  display: block;
+  margin-top: 7px;
+  font-size: 18px;
+  line-height: 1.1;
+  font-weight: 950;
 }

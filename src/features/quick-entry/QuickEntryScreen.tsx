@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { quickActionGroups } from "@/config/routes";
 import { useAuth } from "@/lib/auth";
 import { useRecords } from "@/lib/repository";
+import { selectedSiteStorageKey, useUiStore } from "@/lib/ui-store";
 import { automationEngine } from "@/utils/automation-engine";
 import { dashboardMetrics } from "@/utils/calc";
 import { formatMoney, todayIso } from "@/utils/format";
@@ -19,9 +20,17 @@ function statusTone(done: boolean) {
   return done ? "success" : "warning";
 }
 
+function withSite(path: string, siteId: string) {
+  const currentSiteId = siteId || (typeof window === "undefined" ? "" : window.localStorage.getItem(selectedSiteStorageKey) || "");
+  if (!currentSiteId || !path.includes("add=1") || path.includes("siteId=")) return path;
+  const separator = path.includes("?") ? "&" : "?";
+  return `${path}${separator}siteId=${encodeURIComponent(currentSiteId)}`;
+}
+
 export function QuickEntryScreen() {
   const router = useRouter();
   const { company } = useAuth();
+  const selectedSiteId = useUiStore((state) => state.selectedSiteId);
   const today = todayIso();
 
   const sites = useRecords("sites", company?.id);
@@ -36,58 +45,62 @@ export function QuickEntryScreen() {
   const extraWorks = useRecords("extra_works", company?.id);
   const reminders = useRecords("reminders", company?.id);
 
+  const selectedSite = useMemo(() => (sites.data || []).find((site) => site.id === selectedSiteId) || null, [selectedSiteId, sites.data]);
+  const siteMatch = (siteId: string | null | undefined) => !selectedSiteId || siteId === selectedSiteId;
+  const go = (path: string) => router.push(withSite(path, selectedSiteId));
+
   const metrics = useMemo(
     () =>
       dashboardMetrics({
-        sites: sites.data || [],
-        attendance: attendance.data || [],
-        materials: materials.data || [],
-        expenses: expenses.data || [],
-        payments: payments.data || [],
-        supplierPayments: supplierPayments.data || [],
-        labour: labour.data || [],
-        extraWorks: extraWorks.data || [],
-        partnerDraws: partnerDraws.data || []
+        sites: selectedSiteId ? (sites.data || []).filter((site) => site.id === selectedSiteId) : sites.data || [],
+        attendance: (attendance.data || []).filter((item) => siteMatch(item.site_id)),
+        materials: (materials.data || []).filter((item) => siteMatch(item.site_id)),
+        expenses: (expenses.data || []).filter((item) => siteMatch(item.site_id)),
+        payments: (payments.data || []).filter((item) => siteMatch(item.site_id)),
+        supplierPayments: (supplierPayments.data || []).filter((item) => siteMatch(item.site_id)),
+        labour: selectedSiteId ? (labour.data || []).filter((item) => item.site_id === selectedSiteId) : labour.data || [],
+        extraWorks: (extraWorks.data || []).filter((item) => siteMatch(item.site_id)),
+        partnerDraws: (partnerDraws.data || []).filter((item) => siteMatch(item.site_id))
       }),
-    [attendance.data, expenses.data, extraWorks.data, labour.data, materials.data, partnerDraws.data, payments.data, sites.data, supplierPayments.data]
+    [attendance.data, expenses.data, extraWorks.data, labour.data, materials.data, partnerDraws.data, payments.data, selectedSiteId, sites.data, supplierPayments.data]
   );
 
   const engine = useMemo(
     () =>
       automationEngine({
-        sites: sites.data || [],
-        labour: labour.data || [],
-        attendance: attendance.data || [],
-        materials: materials.data || [],
-        expenses: expenses.data || [],
-        payments: payments.data || [],
-        supplierPayments: supplierPayments.data || [],
-        progress: progress.data || [],
-        extraWorks: extraWorks.data || [],
-        reminders: reminders.data || []
+        sites: selectedSiteId ? (sites.data || []).filter((site) => site.id === selectedSiteId) : sites.data || [],
+        labour: selectedSiteId ? (labour.data || []).filter((item) => item.site_id === selectedSiteId) : labour.data || [],
+        attendance: (attendance.data || []).filter((item) => siteMatch(item.site_id)),
+        materials: (materials.data || []).filter((item) => siteMatch(item.site_id)),
+        expenses: (expenses.data || []).filter((item) => siteMatch(item.site_id)),
+        payments: (payments.data || []).filter((item) => siteMatch(item.site_id)),
+        supplierPayments: (supplierPayments.data || []).filter((item) => siteMatch(item.site_id)),
+        progress: (progress.data || []).filter((item) => siteMatch(item.site_id)),
+        extraWorks: (extraWorks.data || []).filter((item) => siteMatch(item.site_id)),
+        reminders: (reminders.data || []).filter((item) => siteMatch(item.site_id))
       }),
-    [attendance.data, expenses.data, extraWorks.data, labour.data, materials.data, payments.data, progress.data, reminders.data, sites.data, supplierPayments.data]
+    [attendance.data, expenses.data, extraWorks.data, labour.data, materials.data, payments.data, progress.data, reminders.data, selectedSiteId, sites.data, supplierPayments.data]
   );
 
   const todayStatus = [
     {
       label: "Attendance",
-      done: (attendance.data || []).some((item) => item.date === today),
+      done: (attendance.data || []).some((item) => item.date === today && siteMatch(item.site_id)),
       path: "/attendance?add=1"
     },
     {
       label: "Material",
-      done: (materials.data || []).some((item) => item.date === today),
+      done: (materials.data || []).some((item) => item.date === today && siteMatch(item.site_id)),
       path: "/materials?add=1"
     },
     {
       label: "Expense",
-      done: (expenses.data || []).some((item) => item.date === today),
+      done: (expenses.data || []).some((item) => item.date === today && siteMatch(item.site_id)),
       path: "/expenses?add=1"
     },
     {
       label: "Progress",
-      done: (progress.data || []).some((item) => item.date === today),
+      done: (progress.data || []).some((item) => item.date === today && siteMatch(item.site_id)),
       path: "/progress?add=1"
     }
   ];
@@ -99,16 +112,16 @@ export function QuickEntryScreen() {
       <div className={styles.hero}>
         <span>Daily Add</span>
         <h2>{doneCount}/4</h2>
-        <p>Today's main site entries completed. Add attendance, expense, material, payment, progress, or extra work in one place.</p>
+        <p>{selectedSite ? `${selectedSite.name}: ` : ""}Add attendance, expense, material, payment, progress, or extra work in one place.</p>
         <div className={styles.heroActions}>
-          <Button onClick={() => router.push("/attendance?add=1")}>Start Attendance</Button>
-          <Button variant="secondary" onClick={() => router.push("/expenses?add=1")}>Add Expense</Button>
+          <Button onClick={() => go("/attendance?add=1")}>Start Attendance</Button>
+          <Button variant="secondary" onClick={() => go("/expenses?add=1")}>Add Expense</Button>
         </div>
       </div>
 
       <div className={styles.statusGrid}>
         {todayStatus.map((item) => (
-          <button className={styles.statusCard} type="button" key={item.label} onClick={() => router.push(item.path)}>
+          <button className={styles.statusCard} type="button" key={item.label} onClick={() => go(item.path)}>
             <span>{item.label}</span>
             <strong>{item.done ? "Done" : "Add"}</strong>
             <Badge tone={statusTone(item.done)}>{item.done ? "Saved" : "Open"}</Badge>
@@ -119,15 +132,15 @@ export function QuickEntryScreen() {
       <Card>
         <CardHeader title="Fast Money View" subtitle="The three numbers you usually need before taking action." />
         <div className={styles.moneyGrid}>
-          <button type="button" onClick={() => router.push("/payment-recovery")}>
+          <button type="button" onClick={() => go("/payment-recovery")}>
             <span>Client Pending</span>
             <strong>{formatMoney(metrics.pendingClientPayments)}</strong>
           </button>
-          <button type="button" onClick={() => router.push("/supplier-payments")}>
+          <button type="button" onClick={() => go("/supplier-payments")}>
             <span>Supplier Pending</span>
             <strong>{formatMoney(metrics.pendingSupplierPayments)}</strong>
           </button>
-          <button type="button" onClick={() => router.push("/partner-ledger")}>
+          <button type="button" onClick={() => go("/partner-ledger")}>
             <span>Partner Draws</span>
             <strong>{formatMoney(metrics.partnerDrawsTotal)}</strong>
           </button>
@@ -139,7 +152,7 @@ export function QuickEntryScreen() {
         {engine.actions.length ? (
           <div className={styles.suggestionList}>
             {engine.actions.slice(0, 4).map((action) => (
-              <button className={styles.suggestion} type="button" key={action.id} onClick={() => router.push(action.route)}>
+              <button className={styles.suggestion} type="button" key={action.id} onClick={() => go(action.route)}>
                 <span>{action.category}</span>
                 <strong>{action.title}</strong>
                 <p>{action.description}</p>
@@ -156,7 +169,7 @@ export function QuickEntryScreen() {
           <CardHeader title={group.title} subtitle="Tap any card to open the correct entry screen." />
           <div className={styles.quickGrid}>
             {group.actions.map((action) => (
-              <button className={styles.quickCard} type="button" key={action.path} onClick={() => router.push(action.path)}>
+              <button className={styles.quickCard} type="button" key={action.path} onClick={() => go(action.path)}>
                 <IonIcon icon={action.icon} />
                 <span>
                   <strong>{action.label}</strong>

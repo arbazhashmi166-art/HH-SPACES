@@ -12,7 +12,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { appName } from "@/lib/env";
 import { useAuth } from "@/lib/auth";
-import { useUiStore } from "@/lib/ui-store";
+import { useRecords } from "@/lib/repository";
+import { selectedSiteStorageKey, useUiStore } from "@/lib/ui-store";
 import { appRoutes, mainTabs, quickActionGroups } from "@/config/routes";
 import { SyncStatusCard } from "@/features/sync/SyncStatusCard";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,9 +27,12 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
   const [offlineReady, setOfflineReady] = useState(false);
   const mode = useUiStore((state) => state.mode);
   const toggleMode = useUiStore((state) => state.toggleMode);
+  const selectedSiteId = useUiStore((state) => state.selectedSiteId);
+  const setSelectedSiteId = useUiStore((state) => state.setSelectedSiteId);
   const [quickOpen, setQuickOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const sites = useRecords("sites", company?.id);
   const showQuickAdd =
     !pathname.startsWith("/quick-entry") &&
     !pathname.startsWith("/settings") &&
@@ -45,11 +49,22 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
   useEffect(() => {
     setMounted(true);
     setOfflineReady(window.localStorage.getItem("sitetracker.offlineMode") === "1");
+    const savedSiteId = window.localStorage.getItem(selectedSiteStorageKey) || "";
+    if (savedSiteId) setSelectedSiteId(savedSiteId);
   }, []);
 
   useEffect(() => {
     if (!loading && !company && !offlineReady) router.replace("/login");
   }, [company, loading, offlineReady, router]);
+
+  const activeSites = useMemo(() => (sites.data || []).filter((site) => site.status !== "completed"), [sites.data]);
+  const selectedSite = useMemo(() => (sites.data || []).find((site) => site.id === selectedSiteId) || null, [selectedSiteId, sites.data]);
+
+  useEffect(() => {
+    if (!selectedSiteId || sites.isLoading) return;
+    if ((sites.data || []).some((site) => site.id === selectedSiteId)) return;
+    setSelectedSiteId("");
+  }, [selectedSiteId, setSelectedSiteId, sites.data, sites.isLoading]);
 
   const searchResults = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -176,13 +191,21 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
     }, 160);
   };
 
+  const addSelectedSiteToPath = (path: string) => {
+    if (!selectedSiteId || !path.includes("add=1") || path.includes("siteId=")) return path;
+    const [baseWithQuery = path, hash] = path.split("#");
+    const separator = baseWithQuery.includes("?") ? "&" : "?";
+    return `${baseWithQuery}${separator}siteId=${encodeURIComponent(selectedSiteId)}${hash ? `#${hash}` : ""}`;
+  };
+
   const go = (path: string) => {
+    const nextPath = addSelectedSiteToPath(path);
     setQuickOpen(false);
     setSearchOpen(false);
     setQuery("");
     window.setTimeout(() => {
-      router.push(path, { scroll: false });
-      scrollToHash(path);
+      router.push(nextPath, { scroll: false });
+      scrollToHash(nextPath);
     }, 0);
   };
 
@@ -242,6 +265,25 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
             <button type="button" onClick={() => go("/settings#supabase-sync")}>
               <span>{session && !offlineMode ? "Cloud Sync" : "Local Save"}</span>
             </button>
+          </div>
+          <div className={styles.siteDock} aria-label="Current site selector">
+            <div className={styles.siteDockText}>
+              <span>Current Site</span>
+              <strong>{selectedSite ? selectedSite.name : "All Sites"}</strong>
+              <small>{selectedSite ? `${selectedSite.client_name || "Client"} - ${selectedSite.status}` : `${activeSites.length} active sites`}</small>
+            </div>
+            <select
+              aria-label="Select current site"
+              value={selectedSiteId}
+              onChange={(event) => setSelectedSiteId(event.target.value)}
+            >
+              <option value="">All Sites</option>
+              {activeSites.map((site) => (
+                <option key={site.id} value={site.id}>
+                  {site.name} - {site.client_name || "Client"}
+                </option>
+              ))}
+            </select>
           </div>
         </header>
 
