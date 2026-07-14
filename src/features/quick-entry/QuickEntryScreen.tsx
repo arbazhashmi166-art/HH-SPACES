@@ -2,7 +2,7 @@
 
 import { IonIcon } from "@ionic/react";
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -46,7 +46,7 @@ export function QuickEntryScreen() {
   const reminders = useRecords("reminders", company?.id);
 
   const selectedSite = useMemo(() => (sites.data || []).find((site) => site.id === selectedSiteId) || null, [selectedSiteId, sites.data]);
-  const siteMatch = (siteId: string | null | undefined) => !selectedSiteId || siteId === selectedSiteId;
+  const siteMatch = useCallback((siteId: string | null | undefined) => !selectedSiteId || siteId === selectedSiteId, [selectedSiteId]);
   const go = (path: string) => router.push(withSite(path, selectedSiteId));
 
   const metrics = useMemo(
@@ -62,7 +62,19 @@ export function QuickEntryScreen() {
         extraWorks: (extraWorks.data || []).filter((item) => siteMatch(item.site_id)),
         partnerDraws: (partnerDraws.data || []).filter((item) => siteMatch(item.site_id))
       }),
-    [attendance.data, expenses.data, extraWorks.data, labour.data, materials.data, partnerDraws.data, payments.data, selectedSiteId, sites.data, supplierPayments.data]
+    [
+      attendance.data,
+      expenses.data,
+      extraWorks.data,
+      labour.data,
+      materials.data,
+      partnerDraws.data,
+      payments.data,
+      selectedSiteId,
+      siteMatch,
+      sites.data,
+      supplierPayments.data
+    ]
   );
 
   const engine = useMemo(
@@ -79,7 +91,20 @@ export function QuickEntryScreen() {
         extraWorks: (extraWorks.data || []).filter((item) => siteMatch(item.site_id)),
         reminders: (reminders.data || []).filter((item) => siteMatch(item.site_id))
       }),
-    [attendance.data, expenses.data, extraWorks.data, labour.data, materials.data, payments.data, progress.data, reminders.data, selectedSiteId, sites.data, supplierPayments.data]
+    [
+      attendance.data,
+      expenses.data,
+      extraWorks.data,
+      labour.data,
+      materials.data,
+      payments.data,
+      progress.data,
+      reminders.data,
+      selectedSiteId,
+      siteMatch,
+      sites.data,
+      supplierPayments.data
+    ]
   );
 
   const todayStatus = [

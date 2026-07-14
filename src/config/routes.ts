@@ -8,7 +8,6 @@ import {
   businessOutline,
   calendarOutline,
   cashOutline,
-  chatbubblesOutline,
   checkmarkDoneOutline,
   clipboardOutline,
   constructOutline,

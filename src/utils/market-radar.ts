@@ -80,8 +80,6 @@ export function marketRadar(input: {
   const hasExtraWorkControl = (input.extraWorks || []).length > 0;
   const unbilledExtraWorks = automation.cashflow.unbilledExtraWorks;
   const highRiskSites = intelligence.siteHealth.filter((site) => site.riskLevel !== "info").length;
-  const openAutomationActions = automation.actions.length;
-
   const capabilities: MarketCapability[] = [
     {
       id: "ai-field-copilot",

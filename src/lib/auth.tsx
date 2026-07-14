@@ -184,7 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const companyId = approvedUser ? cloudCompanyId : createId("company");
     const companyName = approvedUser ? cloudCompanyName : profileRow?.full_name ? `${profileRow.full_name}'s Company` : "My Construction Company";
-    let companyData: Company | null = null;
+    let companyData: Company | null;
 
     const { data: existingCompany } = await requireSupabase().from("companies").select("*").eq("id", companyId).maybeSingle();
     if (existingCompany) {
@@ -372,7 +372,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               const issue = supabaseSetupIssue(error);
               if (!issue) throw error;
               await requireSupabase().auth.signOut();
-              if (!passwordMatchesAppLogin) throw new Error(issue);
+              if (!passwordMatchesAppLogin) throw new Error(issue, { cause: error });
               startApprovedOffline(issue);
             }
             return;

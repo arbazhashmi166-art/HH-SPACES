@@ -51,7 +51,7 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
     setOfflineReady(window.localStorage.getItem("sitetracker.offlineMode") === "1");
     const savedSiteId = window.localStorage.getItem(selectedSiteStorageKey) || "";
     if (savedSiteId) setSelectedSiteId(savedSiteId);
-  }, []);
+  }, [setSelectedSiteId]);
 
   useEffect(() => {
     if (!loading && !company && !offlineReady) router.replace("/login");

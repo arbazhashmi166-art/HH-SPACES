@@ -257,7 +257,7 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
     return () => document.body.classList.remove("record-sheet-open");
   }, [open]);
 
-  const records = (recordsQuery.data || []) as AnyEntity[];
+  const records = useMemo(() => (recordsQuery.data || []) as AnyEntity[], [recordsQuery.data]);
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
     if (!term) return records;

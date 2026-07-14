@@ -296,7 +296,7 @@ test("bill scanner manual rows save into materials on iPhone", async ({ page }) 
   const siteName = `Scanner Site ${suffix}`;
   const itemName = `Scanner Cement ${suffix}`;
 
-  let dialog = await openAddSheet(page, "/sites/", "Add Site");
+  const dialog = await openAddSheet(page, "/sites/", "Add Site");
   await dialog.getByLabel("Site Name").fill(siteName);
   await dialog.getByLabel("Client Name").fill(`Scanner Client ${suffix}`);
   await saveAndExpect(page, dialog, siteName);

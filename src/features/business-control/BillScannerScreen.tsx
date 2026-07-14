@@ -295,7 +295,7 @@ export function BillScannerScreen() {
       return;
     }
     setSavingPhoto(true);
-    let billPhotoUrl: string | null = null;
+    let billPhotoUrl: string | null;
     try {
       billPhotoUrl = await createBillPhotoReference(file, {
         companyId: company.id,
@@ -362,7 +362,7 @@ export function BillScannerScreen() {
     }
 
     setSavingPhoto(true);
-    let billPhotoUrl: string | null = null;
+    let billPhotoUrl: string | null;
     try {
       billPhotoUrl = await createBillPhotoReference(file, {
         companyId: company.id,
@@ -435,7 +435,7 @@ export function BillScannerScreen() {
       return;
     }
     setSavingPhoto(true);
-    let receiptPhotoUrl: string | null = null;
+    let receiptPhotoUrl: string | null;
     try {
       receiptPhotoUrl = await createBillPhotoReference(file, {
         companyId: company.id,
