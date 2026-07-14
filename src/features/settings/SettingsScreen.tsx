@@ -182,7 +182,7 @@ export function SettingsScreen() {
       </Card>
 
       <Card>
-        <CardHeader title="Working Shortcuts" subtitle="Every button below opens a real working module. No hidden pages or dead shortcuts." />
+        <CardHeader title="Daily Shortcuts" subtitle="The most useful working modules stay first. Advanced tools are kept lower in More." />
         <div className={styles.grid}>
           <button className={styles.setting} type="button" aria-label="Open Quick Entry" onClick={() => router.push("/quick-entry")}>
             <span>Quick Entry</span>
@@ -195,22 +195,6 @@ export function SettingsScreen() {
           <button className={styles.setting} type="button" aria-label="Open Client Payments" onClick={() => router.push("/payments")}>
             <span>Client Payments</span>
             <strong>Received, pending, payment history</strong>
-          </button>
-          <button className={styles.setting} type="button" aria-label="Open Payment Recovery" onClick={() => router.push("/payment-recovery")}>
-            <span>Payment Recovery</span>
-            <strong>Overdue follow-ups and WhatsApp reminders</strong>
-          </button>
-          <button className={styles.setting} type="button" aria-label="Open Business Brain" onClick={() => router.push("/business-brain")}>
-            <span>Business Brain</span>
-            <strong>Cash, risk, approvals, and next best actions</strong>
-          </button>
-          <button className={styles.setting} type="button" aria-label="Open Cash Flow Forecast" onClick={() => router.push("/cash-flow")}>
-            <span>Cash Flow</span>
-            <strong>7, 15, and 30 day money forecast</strong>
-          </button>
-          <button className={styles.setting} type="button" aria-label="Open Approval Center" onClick={() => router.push("/approval-center")}>
-            <span>Approvals</span>
-            <strong>Approve partner, supplier, extra work, and expense decisions</strong>
           </button>
           <button className={styles.setting} type="button" aria-label="Open Bill Scanner" onClick={() => router.push("/bill-scanner")}>
             <span>Bill Scanner</span>
@@ -257,7 +241,7 @@ export function SettingsScreen() {
       </Card>
 
       <Card>
-        <CardHeader title="All Modules" subtitle="Open any module from one clean phone-friendly list." />
+        <CardHeader title="All Modules and Advanced Tools" subtitle="Daily screens, reports, AI, audit, health, and admin tools are grouped here when needed." />
         <div className={styles.moduleGrid}>
           {appRoutes
             .filter((route) => route.group !== "main")

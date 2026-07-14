@@ -30,6 +30,7 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const showQuickAdd =
+    !pathname.startsWith("/quick-entry") &&
     !pathname.startsWith("/settings") &&
     !pathname.startsWith("/ai") &&
     !pathname.startsWith("/payment-recovery") &&
@@ -66,9 +67,9 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
     const commands = [
       {
         label: "Quick Entry Hub",
-        description: "Open one-tap daily add screen for attendance, material, expense, progress, payments, bill scan, and closing.",
+        description: "Open the one-tap daily add screen for attendance, expense, material, payment, progress, and extra work.",
         path: "/quick-entry",
-        keywords: "quick entry quick add fast add daily entry shortcut one tap attendance material expense payment bill scan",
+        keywords: "quick entry quick add fast add daily entry shortcut one tap attendance material expense payment progress extra work",
         rank: 0
       },
       {
@@ -232,11 +233,11 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
             </div>
           </div>
           <div className={styles.statusDock} aria-label="Business command shortcuts">
-            <button type="button" onClick={() => go("/quick-entry")}>
-              <span>Quick Entry</span>
+            <button type="button" onClick={() => go("/daily-closing")}>
+              <span>Today</span>
             </button>
-            <button type="button" onClick={() => go("/business-brain")}>
-              <span>Brain</span>
+            <button type="button" onClick={() => go("/quick-entry")}>
+              <span>Add Entry</span>
             </button>
             <button type="button" onClick={() => go("/settings#supabase-sync")}>
               <span>{session && !offlineMode ? "Cloud Sync" : "Local Save"}</span>
@@ -290,7 +291,7 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
             <div className={styles.quickSheet}>
             <div className={styles.sheetHandle} />
             <h2 className={styles.sheetTitle}>Quick Add</h2>
-            <p className={styles.sheetSub}>Fast daily entries with site ownership, validation, and offline queue support.</p>
+            <p className={styles.sheetSub}>Add today&apos;s site work without opening five different screens.</p>
             {quickActionGroups.map((group) => (
               <section className={styles.quickSection} key={group.title}>
                 <h3>{group.title}</h3>
@@ -320,7 +321,7 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
             <div className={styles.searchSheet}>
             <div className={styles.sheetHandle} />
             <h2 className={styles.sheetTitle}>Search Everything</h2>
-            <p className={styles.sheetSub}>Search modules and commands like bill, labour wage, extra work, partner money taken, payment recovery, Supabase sync, reports, audit, memory, and settings.</p>
+            <p className={styles.sheetSub}>Search daily actions, money records, reports, bill scanner, Supabase sync, and advanced tools.</p>
             <input
               autoFocus
               value={query}

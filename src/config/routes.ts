@@ -54,14 +54,14 @@ export type QuickActionGroup = {
 export const mainTabs: AppRoute[] = [
   { path: "/dashboard", label: "Home", icon: gridOutline, group: "main", description: "Dashboard, alerts, profit, and quick actions." },
   { path: "/sites", label: "Sites", icon: businessOutline, group: "main", description: "Site cards, client details, budgets, and progress." },
-  { path: "/labour", label: "Labour", icon: peopleOutline, group: "main", description: "Labour profiles, wages, advances, and balances." },
-  { path: "/payments", label: "Finance", icon: walletOutline, group: "main", description: "Client payments, pending amount, supplier dues, and profit." },
+  { path: "/quick-entry", label: "Add", icon: addCircleOutline, group: "main", description: "One-tap daily entry hub for labour, materials, expenses, payments, progress, and bill scan." },
+  { path: "/payments", label: "Money", icon: walletOutline, group: "main", description: "Client payments, pending amount, supplier dues, and profit." },
   { path: "/settings", label: "More", icon: albumsOutline, group: "main", description: "All modules, settings, staff, AI, reports, and health." }
 ];
 
 export const appRoutes: AppRoute[] = [
   ...mainTabs,
-  { path: "/quick-entry", label: "Quick Entry", shortLabel: "Quick", icon: addCircleOutline, group: "business", description: "One-tap daily entry hub for labour, materials, expenses, payments, progress, and bill scan." },
+  { path: "/labour", label: "Labour", icon: peopleOutline, group: "business", description: "Labour profiles, wages, advances, and balances." },
   { path: "/attendance", label: "Attendance", icon: calendarOutline, group: "business", description: "Daily attendance, half day, overtime, and wage calculation." },
   { path: "/materials", label: "Materials", icon: cubeOutline, group: "business", description: "Material purchases, bill numbers, supplier mapping, and stock history." },
   { path: "/suppliers", label: "Suppliers", icon: briefcaseOutline, group: "business", description: "Supplier contacts, rates, pending bills, and payment history." },
@@ -93,39 +93,32 @@ export const appRoutes: AppRoute[] = [
 
 export const quickActionGroups: QuickActionGroup[] = [
   {
-    title: "Daily Work",
+    title: "Most Used Today",
     actions: [
       { label: "Attendance", path: "/attendance?add=1", icon: calendarOutline, helper: "Present, absent, half day" },
-      { label: "Material", path: "/materials?add=1", icon: cubeOutline, helper: "Purchase, supplier, bill" },
       { label: "Expense", path: "/expenses?add=1", icon: receiptOutline, helper: "Transport, food, site cost" },
-      { label: "Progress", path: "/progress?add=1", icon: constructOutline, helper: "Work update and %" }
-    ]
-  },
-  {
-    title: "Money",
-    actions: [
+      { label: "Material", path: "/materials?add=1", icon: cubeOutline, helper: "Purchase, supplier, bill" },
       { label: "Client Payment", path: "/payments?add=1", icon: walletOutline, helper: "Received and pending" },
-      { label: "Supplier Pay", path: "/supplier-payments?add=1", icon: cashOutline, helper: "Supplier dues" },
-      { label: "Partner Draw", path: "/partner-draws?add=1", icon: cashOutline, helper: "Company money taken" },
-      { label: "Recovery", path: "/payment-recovery", icon: cashOutline, helper: "Collect pending money" }
+      { label: "Progress", path: "/progress?add=1", icon: constructOutline, helper: "Work update and %" },
+      { label: "Extra Work", path: "/extra-works?add=1", icon: constructOutline, helper: "Variation and amount increase" }
     ]
   },
   {
     title: "Site Control",
     actions: [
       { label: "Add Site", path: "/sites?add=1", icon: businessOutline, helper: "Client, address, budget" },
-      { label: "Extra Work", path: "/extra-works?add=1", icon: constructOutline, helper: "Amount increase" },
-      { label: "Daily Closing", path: "/daily-closing", icon: checkmarkDoneOutline, helper: "End day report" },
-      { label: "Bill Scanner", path: "/bill-scanner", icon: receiptOutline, helper: "OCR bill entry" }
+      { label: "Labour", path: "/labour?add=1", icon: peopleOutline, helper: "Worker, wage, advance" },
+      { label: "Bill Scanner", path: "/bill-scanner", icon: receiptOutline, helper: "OCR bill entry" },
+      { label: "Daily Closing", path: "/daily-closing", icon: checkmarkDoneOutline, helper: "End day report" }
     ]
   },
   {
-    title: "Smart Tools",
+    title: "Money Control",
     actions: [
-      { label: "Business Brain", path: "/business-brain", icon: sparklesOutline, helper: "Next best action" },
-      { label: "Cash Flow", path: "/cash-flow", icon: cashOutline, helper: "7/15/30 day forecast" },
-      { label: "Approvals", path: "/approval-center", icon: shieldCheckmarkOutline, helper: "Approve decisions" },
-      { label: "Report", path: "/reports", icon: barChartOutline, helper: "PDF, Excel, CSV" }
+      { label: "Supplier Pay", path: "/supplier-payments?add=1", icon: cashOutline, helper: "Supplier dues" },
+      { label: "Partner Draw", path: "/partner-draws?add=1", icon: cashOutline, helper: "Company money taken" },
+      { label: "Recovery", path: "/payment-recovery", icon: cashOutline, helper: "Collect pending money" },
+      { label: "Reports", path: "/reports", icon: barChartOutline, helper: "PDF, Excel, CSV" }
     ]
   }
 ];

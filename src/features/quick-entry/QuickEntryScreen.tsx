@@ -97,12 +97,12 @@ export function QuickEntryScreen() {
   return (
     <section className={styles.stack}>
       <div className={styles.hero}>
-        <span>Quick Entry</span>
+        <span>Daily Add</span>
         <h2>{doneCount}/4</h2>
-        <p>Today’s main site entries completed. Add common daily records in one or two taps.</p>
+        <p>Today's main site entries completed. Add attendance, expense, material, payment, progress, or extra work in one place.</p>
         <div className={styles.heroActions}>
           <Button onClick={() => router.push("/attendance?add=1")}>Start Attendance</Button>
-          <Button variant="secondary" onClick={() => router.push("/bill-scanner")}>Scan Bill</Button>
+          <Button variant="secondary" onClick={() => router.push("/expenses?add=1")}>Add Expense</Button>
         </div>
       </div>
 

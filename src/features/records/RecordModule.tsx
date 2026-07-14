@@ -100,20 +100,34 @@ function siteSummary(site: EntityMap["sites"], companyName?: string) {
   ].join("\n");
 }
 
-async function copyText(text: string) {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    return;
-  }
+function fallbackCopyText(text: string) {
+  if (typeof document === "undefined") return false;
   const element = document.createElement("textarea");
   element.value = text;
   element.setAttribute("readonly", "true");
   element.style.position = "fixed";
   element.style.left = "-9999px";
+  element.style.top = "0";
   document.body.appendChild(element);
-  element.select();
-  document.execCommand("copy");
-  document.body.removeChild(element);
+  try {
+    element.focus();
+    element.select();
+    return document.execCommand("copy");
+  } finally {
+    document.body.removeChild(element);
+  }
+}
+
+async function copyText(text: string) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      return fallbackCopyText(text);
+    }
+  }
+  return fallbackCopyText(text);
 }
 
 function FieldInput({ field, register, error }: { field: FieldConfig; register: UseFormRegister<FieldValues>; error?: string }) {
@@ -274,8 +288,8 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
   const copySummary = async (record: AnyEntity) => {
     if (table !== "sites") return;
     try {
-      await copyText(siteSummary(record as EntityMap["sites"], company?.name));
-      setToast("Site summary copied");
+      const copied = await copyText(siteSummary(record as EntityMap["sites"], company?.name));
+      setToast(copied ? "Site summary copied" : "Could not copy summary");
     } catch {
       setToast("Could not copy summary");
     }
