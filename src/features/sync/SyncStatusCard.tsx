@@ -57,7 +57,7 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
     : offlineMode
       ? "Saved locally"
       : pending
-        ? "Saved on phone"
+        ? "Uploading to cloud"
         : session
           ? "Cloud synced"
         : "Login needed";
@@ -68,8 +68,8 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
       : online
         ? session
           ? pending
-            ? "Your entries are safe on this phone. They will show on other devices after cloud sync finishes."
-            : "Auto-save is on. Entries save instantly on this device and are synced to Supabase."
+            ? "Supabase login is active. New entries are saved safely on this phone first, then uploaded to Supabase. The pending entries will show on other devices after upload finishes."
+            : "Supabase login is active. Entries save instantly on this phone and are already synced to Supabase."
           : "Supabase is configured. Login with ARBAZ123 or SAHIL123 to sync this device."
         : "No internet. Entries are saved locally and queued until this device is online.";
   const actionLabel = !cloudReady
@@ -97,8 +97,8 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
             ? `${pending} saved local ${pending === 1 ? "entry is" : "entries are"} waiting for cloud sync.`
             : session
               ? pending
-                ? `${pending} saved ${pending === 1 ? "entry is" : "entries are"} on this phone and not on other devices yet. ${friendlyIssue ? `Reason: ${friendlyIssue}` : "Auto-sync will retry every few seconds."}`
-                : "All saved entries are synced. New entries will auto-save and auto-sync."
+                ? `${pending} ${pending === 1 ? "entry is" : "entries are"} backed up on this phone and waiting to upload to Supabase. ${friendlyIssue ? `Reason: ${friendlyIssue}` : "Auto-sync will retry every few seconds."}`
+                : "All entries are synced with Supabase. New entries will auto-save on this phone first, then sync to cloud."
               : "Use ARBAZ123 or SAHIL123 login when you want the same data on laptop and phone."}
         </p>
       ) : null}

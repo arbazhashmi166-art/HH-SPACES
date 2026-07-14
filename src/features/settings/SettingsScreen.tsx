@@ -103,7 +103,7 @@ export function SettingsScreen() {
           subtitle={
             supabase
               ? session
-                ? "This device is connected to Supabase. Use Retry Sync for pending local entries."
+                ? "Supabase cloud sync is active. Entries save on this phone first, then upload to Supabase for laptop and iPhone sharing."
                 : "Supabase is configured, but this device is not logged in. Login to sync laptop and phone data."
               : "This GitHub Pages build does not have Supabase keys. Add GitHub Actions secrets to enable cloud sync."
           }
@@ -119,7 +119,7 @@ export function SettingsScreen() {
           </div>
           <div>
             <span>Data Sharing</span>
-            <strong>{session && supabase && !offlineMode ? "Laptop and phone sync" : "Local only until login"}</strong>
+            <strong>{session && supabase && !offlineMode ? "Cloud sync active" : "Local only until login"}</strong>
           </div>
         </div>
         <div className={styles.actions}>
@@ -139,7 +139,8 @@ export function SettingsScreen() {
         {showSyncHelp ? (
           <div className={styles.helpBox}>
             <strong>How sync works</strong>
-            <p>Every entry saves on this phone first. When Supabase login is connected and internet is available, pending entries sync automatically so laptop and phone can share the same business data.</p>
+            <p>Every entry saves on this phone first as a safety backup. If Supabase login is connected and internet is available, the app uploads those entries to Supabase automatically.</p>
+            <p>If the card says Uploading to cloud, your entries are safe on this phone and waiting for upload. If it says Cloud synced, phone and laptop should see the same data.</p>
             <p>If this card says Local only, use Login for Supabase Sync and make sure the Supabase SQL schema is installed.</p>
           </div>
         ) : null}
