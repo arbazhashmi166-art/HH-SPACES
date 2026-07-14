@@ -88,6 +88,39 @@ test("site add flow keeps new site visible and available in scanner dropdown", a
   await expect(page.locator("select option", { hasText: "Kondhwa Test Site" })).toHaveCount(1);
 });
 
+test("long client names stay readable on iPhone site cards", async ({ page }) => {
+  await loginDeviceOnly(page, "client-name-layout-qa");
+  const suffix = Date.now().toString().slice(-6);
+  const siteName = `Client Layout ${suffix}`;
+  const clientName = `ClientNameWithVeryLongContinuousText${suffix}AndExtraWordsForMobileWrapping`;
+
+  const dialog = await openAddSheet(page, "/sites/", "Add Site");
+  await dialog.getByLabel("Site Name").fill(siteName);
+  await dialog.getByLabel("Client Name").fill(clientName);
+  await dialog.getByLabel("Budget").fill("999999999");
+  await saveAndExpect(page, dialog, siteName);
+
+  const layout = await page.evaluate((name) => {
+    const card = [...document.querySelectorAll('[class*="record"]')].find((element) => element.textContent?.includes(name));
+    const subtitle = card?.querySelector("p");
+    const amount = card?.querySelector('[class*="amount"]');
+    const subtitleRect = subtitle?.getBoundingClientRect();
+    const amountRect = amount?.getBoundingClientRect();
+    return {
+      hasCard: Boolean(card),
+      hasClientName: Boolean(card?.textContent?.includes("ClientNameWithVeryLongContinuousText")),
+      subtitleRight: subtitleRect?.right ?? 0,
+      amountLeft: amountRect?.left ?? 0,
+      overflow: document.documentElement.scrollWidth - window.innerWidth
+    };
+  }, siteName);
+
+  expect(layout.hasCard).toBeTruthy();
+  expect(layout.hasClientName).toBeTruthy();
+  expect(layout.subtitleRight).toBeLessThanOrEqual(layout.amountLeft - 4);
+  expect(layout.overflow).toBeLessThanOrEqual(2);
+});
+
 test("core business entry screens save data one by one on iPhone", async ({ page }) => {
   test.setTimeout(120000);
   await loginDeviceOnly(page, "entry-matrix-qa");
