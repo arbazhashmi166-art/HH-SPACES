@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { db, localRecordKey, type PendingMutation } from "./db";
+import { db, lastSyncMetaKey, localRecordKey, type PendingMutation } from "./db";
 import { createId } from "./id";
 import { requireSupabase, supabase } from "./supabase";
 import type { AnyEntity, EntityMap, SourceType, TableName } from "@/types/domain";
@@ -363,6 +363,11 @@ export async function syncPendingMutations(companyId: string) {
   const pending = await db.pendingMutations.where({ companyId }).sortBy("createdAt");
   let synced = 0;
 
+  if (!pending.length) {
+    await db.meta.put({ key: lastSyncMetaKey(companyId), value: nowIso() });
+    return { synced };
+  }
+
   for (const item of pending) {
     const client = requireSupabase().from(item.table);
     const payload = cloudSyncedPayload(item.payload);
@@ -393,6 +398,10 @@ export async function syncPendingMutations(companyId: string) {
     }
     await db.pendingMutations.delete(item.id);
     synced += 1;
+  }
+
+  if (synced > 0) {
+    await db.meta.put({ key: lastSyncMetaKey(companyId), value: nowIso() });
   }
 
   return { synced };

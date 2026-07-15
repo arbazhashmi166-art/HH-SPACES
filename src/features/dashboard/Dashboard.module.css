@@ -81,6 +81,61 @@
   background: rgba(255, 255, 255, 0.14);
   padding: 13px;
   backdrop-filter: blur(16px);
+  color: #fff;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.heroMini small,
+.metric small {
+  display: block;
+  margin-top: 7px;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
+.metric small {
+  color: var(--app-muted);
+}
+
+.filterBar {
+  position: sticky;
+  top: calc(env(safe-area-inset-top) + 86px);
+  z-index: 5;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 132px;
+  gap: 10px;
+  padding: 6px;
+  border: 1px solid color-mix(in srgb, var(--app-border) 88%, transparent);
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--app-surface) 96%, transparent);
+  box-shadow: 0 14px 30px rgba(17, 24, 39, 0.08);
+}
+
+.filterBar button,
+.filterBar select {
+  min-height: 46px;
+  border: 1px solid color-mix(in srgb, var(--app-border) 90%, transparent);
+  border-radius: 18px;
+  background: var(--app-surface-2);
+  color: var(--app-text);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.filterBar button {
+  overflow: hidden;
+  padding: 0 12px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filterBar select {
+  padding: 0 9px;
 }
 
 .commandCenter {
@@ -211,6 +266,21 @@
   min-height: 112px;
   display: grid;
   align-content: space-between;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.metric:active {
+  transform: scale(0.985);
+}
+
+.metricSkeleton {
+  width: 74%;
+  height: 28px;
+  margin-top: 8px;
+  border-radius: 14px;
 }
 
 .autopilot {
@@ -341,6 +411,19 @@
   line-height: 1.4;
 }
 
+.alert small {
+  display: inline-flex;
+  margin-top: 10px;
+  min-height: 28px;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0 10px;
+  background: color-mix(in srgb, var(--app-surface) 82%, transparent);
+  color: var(--app-text);
+  font-size: 11px;
+  font-weight: 950;
+}
+
 .timelineItem {
   border-left: 3px solid var(--app-primary);
   padding: 2px 0 2px 12px;
@@ -386,4 +469,46 @@
   font-size: 18px;
   line-height: 1.1;
   font-weight: 950;
+}
+
+.healthGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.healthGrid div {
+  min-height: 82px;
+  border-radius: 22px;
+  border: 1px solid color-mix(in srgb, var(--app-border) 90%, transparent);
+  padding: 13px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 96%, transparent), color-mix(in srgb, var(--app-surface-2) 58%, transparent));
+}
+
+.healthGrid span {
+  display: block;
+  color: var(--app-muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.healthGrid strong {
+  display: block;
+  margin-top: 7px;
+  font-size: 18px;
+  line-height: 1.1;
+  font-weight: 950;
+}
+
+.healthNote {
+  margin: 12px 0 0;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--app-primary) 8%, transparent);
+  color: var(--app-text);
+  padding: 12px;
+  font-size: 13px;
+  font-weight: 850;
+  line-height: 1.4;
 }

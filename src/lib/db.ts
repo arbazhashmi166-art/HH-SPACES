@@ -60,3 +60,7 @@ export const db = new HHSpacesDb();
 export function localRecordKey(table: TableName, id: string) {
   return `${table}:${id}`;
 }
+
+export function lastSyncMetaKey(companyId: string) {
+  return `last-sync:${companyId}`;
+}
