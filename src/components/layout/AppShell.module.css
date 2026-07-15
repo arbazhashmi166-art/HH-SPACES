@@ -490,6 +490,7 @@
 }
 
 .searchItem {
+  min-height: 72px;
   border: 1px solid var(--app-border);
   border-radius: 20px;
   background:
@@ -500,6 +501,15 @@
   gap: 12px;
   align-items: center;
   color: var(--app-text);
+  text-align: left;
+  transition:
+    transform 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.searchItem:active {
+  transform: scale(0.985);
 }
 
 .searchItem p {
@@ -509,10 +519,46 @@
   line-height: 1.35;
 }
 
+.searchItem small {
+  display: inline-flex;
+  min-height: 22px;
+  align-items: center;
+  margin-top: 4px;
+  border-radius: 999px;
+  padding: 0 8px;
+  background: color-mix(in srgb, var(--app-primary) 10%, transparent);
+  color: var(--app-primary);
+  font-size: 10px;
+  font-weight: 950;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.searchEmpty {
+  border: 1px dashed color-mix(in srgb, var(--app-border) 90%, transparent);
+  border-radius: 22px;
+  padding: 18px;
+  background: color-mix(in srgb, var(--app-surface-2) 64%, transparent);
+}
+
+.searchEmpty strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 950;
+}
+
+.searchEmpty p {
+  margin: 6px 0 0;
+  color: var(--app-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
 .searchItem ion-icon,
 .searchItem span,
 .searchItem strong,
-.searchItem p {
+.searchItem p,
+.searchItem small {
   pointer-events: none;
 }
 

@@ -52,6 +52,11 @@ class HHSpacesDb extends Dexie {
       pendingMutations: "id, table, companyId, recordId, idempotencyKey, [companyId+createdAt], createdAt, updatedAt",
       meta: "key"
     });
+    this.version(4).stores({
+      records: "key, table, companyId, [table+companyId], updatedAt",
+      pendingMutations: "id, table, companyId, recordId, idempotencyKey, [companyId+recordId], [companyId+createdAt], createdAt, updatedAt",
+      meta: "key"
+    });
   }
 }
 

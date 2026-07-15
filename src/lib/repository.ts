@@ -321,7 +321,7 @@ export async function deleteRecord<T extends TableName>(table: T, companyId: str
     } as EntityMap[T]);
   }
 
-  const pendingForRecord = await db.pendingMutations.where({ companyId, recordId }).toArray();
+  const pendingForRecord = await db.pendingMutations.where("[companyId+recordId]").equals([companyId, recordId]).toArray();
   const hasPendingInsert = pendingForRecord.some((item) => item.table === table && item.operationType === "insert");
   for (const item of pendingForRecord) {
     if (item.table === table && (item.operationType === "insert" || item.operationType === "update")) {
@@ -444,11 +444,11 @@ export async function migrateLocalCompanyRecords(fromCompanyId: string, toCompan
   return migrated;
 }
 
-export function useRecords<T extends TableName>(table: T, companyId?: string) {
+export function useRecords<T extends TableName>(table: T, companyId?: string, options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: ["records", table, companyId],
     queryFn: () => fetchRecords(table, companyId || ""),
-    enabled: Boolean(companyId),
+    enabled: Boolean(companyId) && (options.enabled ?? true),
     staleTime: 30_000,
     gcTime: 10 * 60_000
   });

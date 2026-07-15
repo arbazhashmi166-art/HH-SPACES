@@ -16,8 +16,21 @@ import { useRecords } from "@/lib/repository";
 import { selectedSiteStorageKey, useUiStore } from "@/lib/ui-store";
 import { appRoutes, mainTabs, quickActionGroups } from "@/config/routes";
 import { SyncStatusCard } from "@/features/sync/SyncStatusCard";
+import { useSyncStatus } from "@/features/sync/useSyncStatus";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatMoney } from "@/utils/format";
 import styles from "./AppShell.module.css";
+
+type SearchResult = {
+  id: string;
+  label: string;
+  description: string;
+  path: string;
+  icon: string;
+  keywords: string;
+  rank: number;
+  type: "Action" | "Page" | "Record";
+};
 
 export function AppShell({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
   const router = useRouter();
@@ -33,6 +46,21 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const sites = useRecords("sites", company?.id);
+  const syncStatus = useSyncStatus({
+    companyId: company?.id,
+    offlineMode,
+    hasSession: Boolean(session)
+  });
+  const searchTerm = query.trim().toLowerCase();
+  const searchRecordsEnabled = searchOpen && searchTerm.length > 1;
+  const searchLabour = useRecords("labour", company?.id, { enabled: searchRecordsEnabled });
+  const searchMaterials = useRecords("materials", company?.id, { enabled: searchRecordsEnabled });
+  const searchExpenses = useRecords("expenses", company?.id, { enabled: searchRecordsEnabled });
+  const searchPayments = useRecords("client_payments", company?.id, { enabled: searchRecordsEnabled });
+  const searchSuppliers = useRecords("suppliers", company?.id, { enabled: searchRecordsEnabled });
+  const searchProgress = useRecords("progress_updates", company?.id, { enabled: searchRecordsEnabled });
+  const searchExtraWorks = useRecords("extra_works", company?.id, { enabled: searchRecordsEnabled });
+  const searchPartnerDraws = useRecords("partner_draws", company?.id, { enabled: searchRecordsEnabled });
   const showQuickAdd =
     !pathname.startsWith("/quick-entry") &&
     !pathname.startsWith("/settings") &&
@@ -67,7 +95,6 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
   }, [selectedSiteId, setSelectedSiteId, sites.data, sites.isLoading]);
 
   const searchResults = useMemo(() => {
-    const term = query.trim().toLowerCase();
     const routeResults = appRoutes.map((route) => ({
       id: `route-${route.path}-${route.label}`,
       label: route.label,
@@ -75,7 +102,8 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
       path: route.path,
       icon: route.icon,
       keywords: `${route.label} ${route.description}`.toLowerCase(),
-      rank: 2
+      rank: 2,
+      type: "Page" as const
     }));
     const cleanPath = (path: string) => path.split("?")[0]?.split("#")[0] || path;
     const iconFor = (path: string) => appRoutes.find((route) => cleanPath(route.path) === cleanPath(path))?.icon || searchOutline;
@@ -167,15 +195,134 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
     ].map((command) => ({
       ...command,
       id: `command-${command.path}-${command.label}`,
-      icon: iconFor(command.path)
+      icon: iconFor(command.path),
+      type: "Action" as const
     }));
-    const allResults = [...commands, ...routeResults];
-    if (!term) return allResults.slice(0, 18);
+
+    const recordResults: SearchResult[] = searchTerm.length > 1
+      ? [
+          ...(sites.data || []).map((site) => ({
+            id: `site-${site.id}`,
+            label: site.name,
+            description: `Site · ${site.client_name || "Client"} · ${site.status} · ${site.progress_percent}% progress`,
+            path: "/sites",
+            icon: iconFor("/sites"),
+            keywords: `${site.name} ${site.client_name || ""} ${site.address || ""} ${site.work_type || ""} ${site.status}`.toLowerCase(),
+            rank: 0,
+            type: "Record" as const
+          })),
+          ...(searchLabour.data || []).map((item) => ({
+            id: `labour-${item.id}`,
+            label: item.full_name,
+            description: `Labour · ${item.work_type || "Worker"} · wage ${formatMoney(item.default_daily_wage)} · balance ${formatMoney(item.balance_payment)}`,
+            path: "/labour",
+            icon: iconFor("/labour"),
+            keywords: `${item.full_name} ${item.mobile || ""} ${item.work_type || ""}`.toLowerCase(),
+            rank: 0,
+            type: "Record" as const
+          })),
+          ...(searchMaterials.data || []).map((item) => ({
+            id: `material-${item.id}`,
+            label: item.material_name,
+            description: `Material · ${item.quantity} ${item.unit} · ${formatMoney(item.total)} · ${item.supplier_name || "No supplier"}`,
+            path: "/materials",
+            icon: iconFor("/materials"),
+            keywords: `${item.material_name} ${item.supplier_name || ""} ${item.bill_number || ""} ${item.unit}`.toLowerCase(),
+            rank: 0,
+            type: "Record" as const
+          })),
+          ...(searchExpenses.data || []).map((item) => ({
+            id: `expense-${item.id}`,
+            label: `${item.category} expense`,
+            description: `Expense · ${formatMoney(item.amount)} · ${item.date} · ${item.notes || "No notes"}`,
+            path: "/expenses",
+            icon: iconFor("/expenses"),
+            keywords: `${item.category} ${item.amount} ${item.date} ${item.notes || ""}`.toLowerCase(),
+            rank: 0,
+            type: "Record" as const
+          })),
+          ...(searchPayments.data || []).map((item) => ({
+            id: `payment-${item.id}`,
+            label: `Client payment ${formatMoney(item.received_amount)}`,
+            description: `Payment · received ${formatMoney(item.received_amount)} · pending ${formatMoney(item.pending_amount)} · ${item.payment_date}`,
+            path: "/payments",
+            icon: iconFor("/payments"),
+            keywords: `${item.received_amount} ${item.pending_amount} ${item.payment_date} ${item.payment_mode} ${item.notes || ""}`.toLowerCase(),
+            rank: 0,
+            type: "Record" as const
+          })),
+          ...(searchSuppliers.data || []).map((item) => ({
+            id: `supplier-${item.id}`,
+            label: item.name,
+            description: `Supplier · ${item.material_type || "General"} · ${item.mobile || "No mobile"}`,
+            path: "/suppliers",
+            icon: iconFor("/suppliers"),
+            keywords: `${item.name} ${item.mobile || ""} ${item.material_type || ""}`.toLowerCase(),
+            rank: 0,
+            type: "Record" as const
+          })),
+          ...(searchProgress.data || []).map((item) => ({
+            id: `progress-${item.id}`,
+            label: item.title,
+            description: `Progress · ${item.progress_percent}% · ${item.date}`,
+            path: "/progress",
+            icon: iconFor("/progress"),
+            keywords: `${item.title} ${item.description} ${item.date} ${item.progress_percent}`.toLowerCase(),
+            rank: 0,
+            type: "Record" as const
+          })),
+          ...(searchExtraWorks.data || []).map((item) => ({
+            id: `extra-${item.id}`,
+            label: item.description,
+            description: `Extra work · ${formatMoney(item.amount)} · ${item.status}`,
+            path: "/extra-works",
+            icon: iconFor("/extra-works"),
+            keywords: `${item.work_type} ${item.description} ${item.status} ${item.amount}`.toLowerCase(),
+            rank: 0,
+            type: "Record" as const
+          })),
+          ...(searchPartnerDraws.data || []).map((item) => ({
+            id: `draw-${item.id}`,
+            label: item.partner_name,
+            description: `Partner draw · ${formatMoney(item.amount)} · ${item.category} · ${item.date}`,
+            path: "/partner-ledger",
+            icon: iconFor("/partner-ledger"),
+            keywords: `${item.partner_name} ${item.amount} ${item.category} ${item.date} ${item.notes || ""}`.toLowerCase(),
+            rank: 0,
+            type: "Record" as const
+          }))
+        ]
+      : [];
+
+    const allResults: SearchResult[] = [...recordResults, ...commands, ...routeResults];
+    if (!searchTerm) return allResults.slice(0, 18);
     return allResults
-      .filter((item) => `${item.label} ${item.description} ${item.keywords}`.toLowerCase().includes(term))
+      .filter((item) => `${item.label} ${item.description} ${item.keywords}`.toLowerCase().includes(searchTerm))
       .sort((a, b) => a.rank - b.rank || a.label.localeCompare(b.label))
       .slice(0, 18);
-  }, [query]);
+  }, [
+    searchTerm,
+    sites.data,
+    searchLabour.data,
+    searchMaterials.data,
+    searchExpenses.data,
+    searchPayments.data,
+    searchSuppliers.data,
+    searchProgress.data,
+    searchExtraWorks.data,
+    searchPartnerDraws.data
+  ]);
+
+  const searchLoading =
+    searchRecordsEnabled &&
+    (searchLabour.isLoading ||
+      searchMaterials.isLoading ||
+      searchExpenses.isLoading ||
+      searchPayments.isLoading ||
+      searchSuppliers.isLoading ||
+      searchProgress.isLoading ||
+      searchExtraWorks.isLoading ||
+      searchPartnerDraws.isLoading);
 
   const scrollToHash = (path: string) => {
     const hash = path.split("#")[1];
@@ -263,7 +410,7 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
               <span>Add Entry</span>
             </button>
             <button type="button" onClick={() => go("/settings#supabase-sync")}>
-              <span>{session && !offlineMode ? "Cloud Sync" : "Local Save"}</span>
+              <span>{syncStatus.label}</span>
             </button>
           </div>
           <div className={styles.siteDock} aria-label="Current site selector">
@@ -359,7 +506,7 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
 
         {searchOpen ? (
           <div className={styles.sheetOverlay} role="dialog" aria-modal="true" aria-label="Search Everything">
-            <button className={styles.sheetBackdrop} type="button" aria-label="Close search" onClick={() => setSearchOpen(false)} />
+            <button className={styles.sheetBackdrop} type="button" aria-label="Dismiss search overlay" onClick={() => setSearchOpen(false)} />
             <div className={styles.searchSheet}>
             <div className={styles.sheetHandle} />
             <h2 className={styles.sheetTitle}>Search Everything</h2>
@@ -381,16 +528,27 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
               }}
             />
             <div className={styles.searchList}>
+              {searchLoading ? <Skeleton style={{ height: 72 }} /> : null}
               {searchResults.map((route) => (
                 <button key={route.id} className={styles.searchItem} type="button" onClick={() => go(route.path)}>
                   <IonIcon icon={route.icon} />
                   <span>
                     <strong>{route.label}</strong>
+                    <small>{route.type}</small>
                     <p>{route.description}</p>
                   </span>
                 </button>
               ))}
+              {!searchLoading && searchResults.length === 0 ? (
+                <div className={styles.searchEmpty}>
+                  <strong>No matching result</strong>
+                  <p>Try site name, labour name, material, supplier, bill number, payment, report, or tool name.</p>
+                </div>
+              ) : null}
             </div>
+            <button className={styles.sheetClose} type="button" onClick={() => setSearchOpen(false)}>
+              Close Search
+            </button>
           </div>
           </div>
         ) : null}

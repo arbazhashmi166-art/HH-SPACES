@@ -212,6 +212,27 @@
   font-weight: 800;
 }
 
+.errorPanel {
+  display: grid;
+  gap: 10px;
+  border-color: rgba(239, 68, 68, 0.26);
+  background:
+    linear-gradient(180deg, rgba(239, 68, 68, 0.08), color-mix(in srgb, var(--app-surface) 92%, transparent));
+}
+
+.errorPanel strong {
+  color: var(--app-text);
+  font-size: 17px;
+  font-weight: 950;
+}
+
+.errorPanel p {
+  margin: 0;
+  color: var(--app-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
 @keyframes sheetIn {
   from {
     opacity: 0;

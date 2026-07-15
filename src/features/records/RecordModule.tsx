@@ -352,7 +352,15 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
         </Button>
       </div>
 
-      {recordsQuery.isLoading ? (
+      {recordsQuery.isError ? (
+        <Card className={styles.errorPanel}>
+          <strong>{config.title} could not be loaded</strong>
+          <p>Your saved entries are not deleted. Check internet/cloud sync and retry loading this screen.</p>
+          <Button variant="secondary" onClick={() => void recordsQuery.refetch()}>
+            Retry
+          </Button>
+        </Card>
+      ) : recordsQuery.isLoading ? (
         <div className={styles.list}>
           <Skeleton style={{ height: 132 }} />
           <Skeleton style={{ height: 132 }} />

@@ -87,6 +87,10 @@ test("site add flow keeps new site visible and available in scanner dropdown", a
   await page.getByRole("button", { name: "Save Entry" }).click();
 
   await expect(page.getByRole("heading", { name: "Kondhwa Test Site" })).toBeVisible();
+  await page.getByRole("button", { name: "Search everything" }).click();
+  await page.getByPlaceholder("Search any feature").fill("Kondhwa");
+  await expect(page.getByRole("button", { name: /Kondhwa Test Site/ })).toBeVisible();
+  await page.getByRole("button", { name: "Close Search" }).click();
   await page.goto("/bill-scanner/");
   await expect(page.getByRole("heading", { name: "Bill Scanner" })).toBeVisible();
   await expect(page.locator("select option", { hasText: "Kondhwa Test Site" }).first()).toHaveText(/Kondhwa Test Site/);
