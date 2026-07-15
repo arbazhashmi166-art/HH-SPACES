@@ -111,7 +111,7 @@ test("permanent site selector defaults quick entry forms to the current site", a
   await saveAndExpect(page, dialog, siteName);
 
   await page.getByLabel("Select current site").selectOption({ label: `${siteName} - Selector Client ${suffix}` });
-  await expect(page.getByText("Current Site")).toBeVisible();
+  await expect(page.getByText("Working Scope")).toBeVisible();
   await expect(page.getByText(siteName).first()).toBeVisible();
 
   await expect(page.getByRole("navigation", { name: "Main navigation" }).getByRole("button", { name: "Add", exact: true })).toBeVisible();

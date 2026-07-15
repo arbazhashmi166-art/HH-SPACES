@@ -199,14 +199,17 @@ export function DashboardScreen() {
   );
   const costConsumed = contractValue > 0 ? Math.round((recordedCost / contractValue) * 100) : 0;
   const costVariance = costConsumed - progressAverage;
-  const scopeLabel = selectedSite ? selectedSite.name : "All Sites";
-  const scopeSub = selectedSite ? `${selectedSite.client_name || "Client"} - ${selectedSite.status}` : `${metrics.activeSites} active sites`;
+  const scopeLabel = selectedSite ? selectedSite.name : "All Active Sites";
+  const scopeSub = selectedSite ? `${selectedSite.client_name || "Client"} - ${selectedSite.status}` : `Company overview - ${metrics.activeSites} active sites`;
+  const viewingLabel = selectedSite ? `Viewing site: ${selectedSite.name}` : "Viewing all active sites";
+  const attendanceScopePhrase = selectedSite ? `for ${selectedSite.name}` : "across all active sites";
+  const progressScopePhrase = selectedSite ? `in ${selectedSite.name}` : "across all active sites";
 
   const attentionItems = [
     periodAttendance.length === 0
       ? {
           title: "Attendance missing",
-          message: `${dateRange.label} labour attendance is not marked for ${scopeLabel}.`,
+          message: `${dateRange.label} labour attendance is not marked ${attendanceScopePhrase}.`,
           route: "/attendance?add=1",
           severity: "warning" as const,
           action: "Mark attendance"
@@ -224,7 +227,7 @@ export function DashboardScreen() {
     periodProgress.length === 0
       ? {
           title: "Progress not updated",
-          message: `No progress entry found for ${dateRange.label.toLowerCase()} in ${scopeLabel}.`,
+          message: `No progress entry found for ${dateRange.label.toLowerCase()} ${progressScopePhrase}.`,
           route: "/progress?add=1",
           severity: "warning" as const,
           action: "Add progress"
@@ -319,7 +322,7 @@ export function DashboardScreen() {
 
       <div className={styles.filterBar} aria-label="Dashboard filters">
         <button type="button" onClick={() => go("/sites")}>
-          Viewing: {scopeLabel}
+          {viewingLabel}
         </button>
         <select aria-label="Dashboard date range" value={datePreset} onChange={(event) => setDatePreset(event.target.value as DashboardDatePreset)}>
           <option value="today">Today</option>

@@ -416,16 +416,16 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
           </div>
           <div className={styles.siteDock} aria-label="Current site selector">
             <div className={styles.siteDockText}>
-              <span>Current Site</span>
-              <strong>{selectedSite ? selectedSite.name : "All Sites"}</strong>
-              <small>{selectedSite ? `${selectedSite.client_name || "Client"} - ${selectedSite.status}` : `${activeSites.length} active sites`}</small>
+              <span>Working Scope</span>
+              <strong>{selectedSite ? selectedSite.name : "All Active Sites"}</strong>
+              <small>{selectedSite ? `${selectedSite.client_name || "Client"} - ${selectedSite.status}` : `Company overview - ${activeSites.length} active sites`}</small>
             </div>
             <select
               aria-label="Select current site"
               value={selectedSiteId}
               onChange={(event) => setSelectedSiteId(event.target.value)}
             >
-              <option value="">All Sites</option>
+              <option value="">All Active Sites</option>
               {activeSites.map((site) => (
                 <option key={site.id} value={site.id}>
                   {site.name} - {site.client_name || "Client"}
