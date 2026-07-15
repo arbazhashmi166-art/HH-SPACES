@@ -105,7 +105,7 @@ export const resources = {
       { name: "notes", label: "Notes", type: "textarea", rows: 3 }
     ],
     cardTitle: (row) => row.name,
-    cardSubtitle: (row) => `${row.client_name} • ${row.work_type} • ${row.progress_percent}%`,
+    cardSubtitle: (row) => `${row.client_name} - ${row.work_type} - ${row.progress_percent}%`,
     amount: (row) => row.budget,
     searchText: (row) => `${row.name} ${row.client_name} ${row.client_mobile || ""} ${row.address} ${row.work_type}`,
     defaults: () => ({ client_name: "", address: "", work_type: "", start_date: todayIso(), expected_completion_date: todayIso(), status: "active", budget: 0, progress_percent: 0 })
@@ -128,7 +128,7 @@ export const resources = {
       { name: "status", label: "Status", type: "select", options: [{ label: "Active", value: "active" }, { label: "Inactive", value: "inactive" }] }
     ],
     cardTitle: (row) => row.full_name,
-    cardSubtitle: (row, lookups) => `${row.work_type} • ${lookups.sites.find((site) => site.id === row.site_id)?.name || "No site"} • Balance ₹${row.balance_payment}`,
+    cardSubtitle: (row, lookups) => `${row.work_type} - ${lookups.sites.find((site) => site.id === row.site_id)?.name || "No site"} - Balance ₹${row.balance_payment}`,
     amount: (row) => row.default_daily_wage,
     searchText: (row) => `${row.full_name} ${row.mobile || ""} ${row.work_type}`,
     defaults: () => ({ default_daily_wage: 0, advance_payment: 0, balance_payment: 0, status: "active" })
@@ -151,7 +151,7 @@ export const resources = {
       { name: "notes", label: "Notes", type: "textarea", rows: 3 }
     ],
     cardTitle: (row, lookups) => lookups.labour.find((item) => item.id === row.labour_id)?.full_name || "Labour",
-    cardSubtitle: (row, lookups) => `${row.date} • ${lookups.sites.find((site) => site.id === row.site_id)?.name || "Site"} • ${row.status}`,
+    cardSubtitle: (row, lookups) => `${row.date} - ${lookups.sites.find((site) => site.id === row.site_id)?.name || "Site"} - ${row.status}`,
     amount: (row) => row.wage_amount,
     searchText: (row) => `${row.date} ${row.status} ${row.notes || ""}`,
     defaults: () => ({ date: todayIso(), status: "present", daily_wage: 0, overtime_hours: 0, wage_amount: 0 })
@@ -180,7 +180,7 @@ export const resources = {
       { name: "notes", label: "Notes", type: "textarea", rows: 3 }
     ],
     cardTitle: (row) => row.material_name,
-    cardSubtitle: (row, lookups) => `${row.quantity} ${row.unit} • ${lookups.sites.find((site) => site.id === row.site_id)?.name || "Site"} • ${row.payment_status}`,
+    cardSubtitle: (row, lookups) => `${row.quantity} ${row.unit} - ${lookups.sites.find((site) => site.id === row.site_id)?.name || "Site"} - ${row.payment_status}`,
     amount: (row) => row.total,
     searchText: (row) => `${row.material_name} ${row.supplier_name || ""} ${row.bill_number || ""}`,
     defaults: () => ({ date: todayIso(), quantity: 0, unit: "Nos", rate: 0, total: 0, payment_status: "unpaid" })
@@ -199,7 +199,7 @@ export const resources = {
       { name: "address", label: "Address", type: "textarea", rows: 3 }
     ],
     cardTitle: (row) => row.name,
-    cardSubtitle: (row) => `${row.material_type || "General"} • ${row.mobile || "No mobile"}`,
+    cardSubtitle: (row) => `${row.material_type || "General"} - ${row.mobile || "No mobile"}`,
     searchText: (row) => `${row.name} ${row.mobile || ""} ${row.material_type || ""}`,
     defaults: () => ({})
   },
@@ -220,7 +220,7 @@ export const resources = {
       { name: "receipt_photo_url", label: "Receipt Photo URL", type: "text" }
     ],
     cardTitle: (row) => row.category,
-    cardSubtitle: (row) => `${row.date} • ${row.payment_mode} • ${row.notes || "No notes"}`,
+    cardSubtitle: (row) => `${row.date} - ${row.payment_mode} - ${row.notes || "No notes"}`,
     amount: (row) => row.amount,
     searchText: (row) => `${row.category} ${row.notes || ""}`,
     defaults: () => ({ date: todayIso(), category: "misc", amount: 0, payment_mode: "cash" })
@@ -242,7 +242,7 @@ export const resources = {
       { name: "notes", label: "Notes", type: "textarea", rows: 3 }
     ],
     cardTitle: (row, lookups) => lookups.sites.find((site) => site.id === row.site_id)?.client_name || "Client Payment",
-    cardSubtitle: (row, lookups) => `${lookups.sites.find((site) => site.id === row.site_id)?.name || "Site"} • Pending ₹${row.pending_amount}`,
+    cardSubtitle: (row, lookups) => `${lookups.sites.find((site) => site.id === row.site_id)?.name || "Site"} - Pending ₹${row.pending_amount}`,
     amount: (row) => row.received_amount,
     searchText: (row) => `${row.notes || ""} ${row.payment_mode}`,
     defaults: () => ({ payment_date: todayIso(), contract_amount: 0, received_amount: 0, pending_amount: 0, payment_mode: "upi" })
@@ -265,7 +265,7 @@ export const resources = {
       { name: "notes", label: "Notes", type: "textarea", rows: 3 }
     ],
     cardTitle: (row, lookups) => lookups.suppliers.find((supplier) => supplier.id === row.supplier_id)?.name || "Supplier Payment",
-    cardSubtitle: (row) => `${row.payment_date} • Pending ₹${row.pending_amount} • ${row.payment_mode}`,
+    cardSubtitle: (row) => `${row.payment_date} - Pending ₹${row.pending_amount} - ${row.payment_mode}`,
     amount: (row) => row.paid_amount,
     searchText: (row) => `${row.bill_reference || ""} ${row.notes || ""}`,
     defaults: () => ({ payment_date: todayIso(), paid_amount: 0, pending_amount: 0, payment_mode: "upi" })
@@ -311,7 +311,7 @@ export const resources = {
       { name: "ai_summary", label: "AI Summary", type: "textarea", rows: 2 }
     ],
     cardTitle: (row) => row.title,
-    cardSubtitle: (row, lookups) => `${row.date} • ${lookups.sites.find((site) => site.id === row.site_id)?.name || "Site"} • ${row.progress_percent}%`,
+    cardSubtitle: (row, lookups) => `${row.date} - ${lookups.sites.find((site) => site.id === row.site_id)?.name || "Site"} - ${row.progress_percent}%`,
     amount: (row) => row.progress_percent,
     searchText: (row) => `${row.title} ${row.description} ${row.ai_summary || ""}`,
     defaults: () => ({ date: todayIso(), progress_percent: 0 })
@@ -359,7 +359,7 @@ export const resources = {
       { name: "snoozed_until", label: "Snoozed Until", type: "date" }
     ],
     cardTitle: (row) => row.title,
-    cardSubtitle: (row) => `${row.due_date} • ${row.status}`,
+    cardSubtitle: (row) => `${row.due_date} - ${row.status}`,
     searchText: (row) => `${row.title} ${row.description || ""}`,
     defaults: () => ({ due_date: todayIso(), status: "open" })
   },
@@ -379,7 +379,7 @@ export const resources = {
       { name: "can_delete_financial", label: "Can Delete Financial Records", type: "select", options: [{ label: "No", value: "false" }, { label: "Yes", value: "true" }] }
     ],
     cardTitle: (row) => row.full_name,
-    cardSubtitle: (row) => `${row.email} • ${row.role} • ${row.status}`,
+    cardSubtitle: (row) => `${row.email} - ${row.role} - ${row.status}`,
     searchText: (row) => `${row.full_name} ${row.email} ${row.role}`,
     defaults: () => ({ role: "staff", status: "invited", can_delete_financial: false })
   }
@@ -390,10 +390,10 @@ export const resourceList = Object.values(resources);
 export function buildLookupFields(fields: FieldConfig[], lookups: LookupContext) {
   return fields.map((field) => {
     if (field.name === "site_id") {
-      return { ...field, options: lookups.sites.map((site) => ({ label: `${site.name} • ${site.client_name || ""}`, value: site.id })) };
+      return { ...field, options: lookups.sites.map((site) => ({ label: `${site.name} - ${site.client_name || ""}`, value: site.id })) };
     }
     if (field.name === "labour_id") {
-      return { ...field, options: lookups.labour.map((item) => ({ label: `${item.full_name} • ${item.work_type || ""}`, value: item.id })) };
+      return { ...field, options: lookups.labour.map((item) => ({ label: `${item.full_name} - ${item.work_type || ""}`, value: item.id })) };
     }
     if (field.name === "supplier_id") {
       return { ...field, options: lookups.suppliers.map((item) => ({ label: item.name, value: item.id })) };

@@ -354,7 +354,7 @@ export function DashboardScreen() {
           {dashboardLoading ? <Skeleton className={styles.metricSkeleton} /> : <strong>{formatMoney(periodSpend)}</strong>}
           <Badge tone="neutral">Labour + material + other</Badge>
           <small>
-            Labour {formatMoney(periodLabourCost)} · Material {formatMoney(periodMaterialCost)}
+            Labour {formatMoney(periodLabourCost)} - Material {formatMoney(periodMaterialCost)}
           </small>
         </Card>
         <Card className={styles.metric} role="button" tabIndex={0} onClick={() => go("/payments")}>

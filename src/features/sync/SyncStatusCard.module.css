@@ -1,0 +1,114 @@
+.syncSummary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.syncSummary div,
+.clearState,
+.pendingItem {
+  border: 1px solid color-mix(in srgb, var(--app-border) 86%, transparent);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 96%, transparent), color-mix(in srgb, var(--app-surface-2) 64%, transparent));
+}
+
+.syncSummary div {
+  min-height: 80px;
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  padding: 13px;
+}
+
+.syncSummary span,
+.syncCentreHeader span {
+  color: var(--app-muted);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.syncSummary strong {
+  color: var(--app-text);
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.syncCentre {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 12px;
+}
+
+.syncCentreHeader {
+  display: grid;
+  gap: 4px;
+}
+
+.syncCentreHeader strong {
+  font-size: 16px;
+  font-weight: 950;
+}
+
+.pendingList {
+  display: grid;
+  gap: 9px;
+}
+
+.pendingItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  padding: 12px;
+}
+
+.pendingItem strong,
+.clearState strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 950;
+  line-height: 1.25;
+}
+
+.pendingItem p,
+.pendingItem small,
+.clearState p,
+.moreRows {
+  margin: 5px 0 0;
+  color: var(--app-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.pendingItem small {
+  display: block;
+  color: var(--app-danger);
+  font-weight: 800;
+}
+
+.clearState {
+  padding: 14px;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+@media (max-width: 430px) {
+  .syncSummary,
+  .actions {
+    grid-template-columns: 1fr;
+  }
+
+  .syncSummary div {
+    min-height: 68px;
+  }
+
+  .pendingItem {
+    grid-template-columns: 1fr;
+  }
+}

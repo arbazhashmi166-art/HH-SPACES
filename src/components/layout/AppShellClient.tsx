@@ -107,6 +107,7 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
     }));
     const cleanPath = (path: string) => path.split("?")[0]?.split("#")[0] || path;
     const iconFor = (path: string) => appRoutes.find((route) => cleanPath(route.path) === cleanPath(path))?.icon || searchOutline;
+    const recordPath = (path: string, search: string) => `${path}?search=${encodeURIComponent(search)}`;
     const commands = [
       {
         label: "Quick Entry Hub",
@@ -204,8 +205,8 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
           ...(sites.data || []).map((site) => ({
             id: `site-${site.id}`,
             label: site.name,
-            description: `Site · ${site.client_name || "Client"} · ${site.status} · ${site.progress_percent}% progress`,
-            path: "/sites",
+            description: `Site - ${site.client_name || "Client"} - ${site.status} - ${site.progress_percent}% progress`,
+            path: recordPath("/sites", site.name),
             icon: iconFor("/sites"),
             keywords: `${site.name} ${site.client_name || ""} ${site.address || ""} ${site.work_type || ""} ${site.status}`.toLowerCase(),
             rank: 0,
@@ -214,8 +215,8 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
           ...(searchLabour.data || []).map((item) => ({
             id: `labour-${item.id}`,
             label: item.full_name,
-            description: `Labour · ${item.work_type || "Worker"} · wage ${formatMoney(item.default_daily_wage)} · balance ${formatMoney(item.balance_payment)}`,
-            path: "/labour",
+            description: `Labour - ${item.work_type || "Worker"} - wage ${formatMoney(item.default_daily_wage)} - balance ${formatMoney(item.balance_payment)}`,
+            path: recordPath("/labour", item.full_name),
             icon: iconFor("/labour"),
             keywords: `${item.full_name} ${item.mobile || ""} ${item.work_type || ""}`.toLowerCase(),
             rank: 0,
@@ -224,8 +225,8 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
           ...(searchMaterials.data || []).map((item) => ({
             id: `material-${item.id}`,
             label: item.material_name,
-            description: `Material · ${item.quantity} ${item.unit} · ${formatMoney(item.total)} · ${item.supplier_name || "No supplier"}`,
-            path: "/materials",
+            description: `Material - ${item.quantity} ${item.unit} - ${formatMoney(item.total)} - ${item.supplier_name || "No supplier"}`,
+            path: recordPath("/materials", item.material_name),
             icon: iconFor("/materials"),
             keywords: `${item.material_name} ${item.supplier_name || ""} ${item.bill_number || ""} ${item.unit}`.toLowerCase(),
             rank: 0,
@@ -234,8 +235,8 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
           ...(searchExpenses.data || []).map((item) => ({
             id: `expense-${item.id}`,
             label: `${item.category} expense`,
-            description: `Expense · ${formatMoney(item.amount)} · ${item.date} · ${item.notes || "No notes"}`,
-            path: "/expenses",
+            description: `Expense - ${formatMoney(item.amount)} - ${item.date} - ${item.notes || "No notes"}`,
+            path: recordPath("/expenses", item.category),
             icon: iconFor("/expenses"),
             keywords: `${item.category} ${item.amount} ${item.date} ${item.notes || ""}`.toLowerCase(),
             rank: 0,
@@ -244,8 +245,8 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
           ...(searchPayments.data || []).map((item) => ({
             id: `payment-${item.id}`,
             label: `Client payment ${formatMoney(item.received_amount)}`,
-            description: `Payment · received ${formatMoney(item.received_amount)} · pending ${formatMoney(item.pending_amount)} · ${item.payment_date}`,
-            path: "/payments",
+            description: `Payment - received ${formatMoney(item.received_amount)} - pending ${formatMoney(item.pending_amount)} - ${item.payment_date}`,
+            path: recordPath("/payments", String(item.received_amount)),
             icon: iconFor("/payments"),
             keywords: `${item.received_amount} ${item.pending_amount} ${item.payment_date} ${item.payment_mode} ${item.notes || ""}`.toLowerCase(),
             rank: 0,
@@ -254,8 +255,8 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
           ...(searchSuppliers.data || []).map((item) => ({
             id: `supplier-${item.id}`,
             label: item.name,
-            description: `Supplier · ${item.material_type || "General"} · ${item.mobile || "No mobile"}`,
-            path: "/suppliers",
+            description: `Supplier - ${item.material_type || "General"} - ${item.mobile || "No mobile"}`,
+            path: recordPath("/suppliers", item.name),
             icon: iconFor("/suppliers"),
             keywords: `${item.name} ${item.mobile || ""} ${item.material_type || ""}`.toLowerCase(),
             rank: 0,
@@ -264,8 +265,8 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
           ...(searchProgress.data || []).map((item) => ({
             id: `progress-${item.id}`,
             label: item.title,
-            description: `Progress · ${item.progress_percent}% · ${item.date}`,
-            path: "/progress",
+            description: `Progress - ${item.progress_percent}% - ${item.date}`,
+            path: recordPath("/progress", item.title),
             icon: iconFor("/progress"),
             keywords: `${item.title} ${item.description} ${item.date} ${item.progress_percent}`.toLowerCase(),
             rank: 0,
@@ -274,8 +275,8 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
           ...(searchExtraWorks.data || []).map((item) => ({
             id: `extra-${item.id}`,
             label: item.description,
-            description: `Extra work · ${formatMoney(item.amount)} · ${item.status}`,
-            path: "/extra-works",
+            description: `Extra work - ${formatMoney(item.amount)} - ${item.status}`,
+            path: recordPath("/extra-works", item.description),
             icon: iconFor("/extra-works"),
             keywords: `${item.work_type} ${item.description} ${item.status} ${item.amount}`.toLowerCase(),
             rank: 0,
@@ -284,9 +285,9 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
           ...(searchPartnerDraws.data || []).map((item) => ({
             id: `draw-${item.id}`,
             label: item.partner_name,
-            description: `Partner draw · ${formatMoney(item.amount)} · ${item.category} · ${item.date}`,
-            path: "/partner-ledger",
-            icon: iconFor("/partner-ledger"),
+            description: `Partner draw - ${formatMoney(item.amount)} - ${item.category} - ${item.date}`,
+            path: recordPath("/partner-draws", item.partner_name),
+            icon: iconFor("/partner-draws"),
             keywords: `${item.partner_name} ${item.amount} ${item.category} ${item.date} ${item.notes || ""}`.toLowerCase(),
             rank: 0,
             type: "Record" as const

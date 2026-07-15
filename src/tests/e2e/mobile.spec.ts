@@ -89,8 +89,12 @@ test("site add flow keeps new site visible and available in scanner dropdown", a
   await expect(page.getByRole("heading", { name: "Kondhwa Test Site" })).toBeVisible();
   await page.getByRole("button", { name: "Search everything" }).click();
   await page.getByPlaceholder("Search any feature").fill("Kondhwa");
-  await expect(page.getByRole("button", { name: /Kondhwa Test Site/ })).toBeVisible();
-  await page.getByRole("button", { name: "Close Search" }).click();
+  const searchResult = page.getByRole("button", { name: /Kondhwa Test Site/ });
+  await expect(searchResult).toBeVisible();
+  await searchResult.click();
+  await expect(page).toHaveURL(/\/sites\/\?search=Kondhwa%20Test%20Site/);
+  await expect(page.getByPlaceholder("Search sites")).toHaveValue("Kondhwa Test Site");
+  await page.getByRole("button", { name: "Clear" }).click();
   await page.goto("/bill-scanner/");
   await expect(page.getByRole("heading", { name: "Bill Scanner" })).toBeVisible();
   await expect(page.locator("select option", { hasText: "Kondhwa Test Site" }).first()).toHaveText(/Kondhwa Test Site/);

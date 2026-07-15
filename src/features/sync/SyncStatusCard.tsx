@@ -2,7 +2,56 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
-import { useSyncStatus } from "./useSyncStatus";
+import type { PendingMutation } from "@/lib/db";
+import type { TableName } from "@/types/domain";
+import { explainSyncIssue, useSyncStatus } from "./useSyncStatus";
+import styles from "./SyncStatusCard.module.css";
+
+const tableLabels: Partial<Record<TableName, string>> = {
+  sites: "Site",
+  labour: "Labour",
+  attendance: "Attendance",
+  materials: "Material",
+  expenses: "Expense",
+  client_payments: "Client payment",
+  supplier_payments: "Supplier payment",
+  partner_draws: "Partner draw",
+  progress_updates: "Progress",
+  extra_works: "Extra work",
+  reminders: "Reminder",
+  activity_logs: "Activity"
+};
+
+function operationLabel(operation: PendingMutation["operationType"]) {
+  if (operation === "insert") return "New entry";
+  if (operation === "update") return "Updated entry";
+  if (operation === "delete") return "Deleted entry";
+  return "Photo upload";
+}
+
+function mutationTitle(row: PendingMutation) {
+  const payload = row.payload;
+  const title =
+    payload.name ||
+    payload.full_name ||
+    payload.material_name ||
+    payload.title ||
+    payload.description ||
+    payload.partner_name ||
+    payload.category ||
+    payload.date ||
+    row.recordId;
+  return String(title);
+}
+
+function mutationTime(value: string) {
+  return new Date(value).toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
 
 export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
   const { company, offlineMode, session, cloudLoginIssue } = useAuth();
@@ -43,6 +92,22 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
         action={<Badge tone={syncStatus.tone}>{syncStatus.label}</Badge>}
       />
       {!compact ? (
+        <div className={styles.syncSummary} aria-label="Sync centre summary">
+          <div>
+            <span>Cloud</span>
+            <strong>{syncStatus.cloudReady ? (session && !offlineMode ? "Connected" : "Login needed") : "Not configured"}</strong>
+          </div>
+          <div>
+            <span>Phone backup</span>
+            <strong>{syncStatus.pendingCount ? `${syncStatus.pendingCount} waiting` : "Clear"}</strong>
+          </div>
+          <div>
+            <span>Last sync</span>
+            <strong>{syncStatus.lastSyncedAt ? mutationTime(syncStatus.lastSyncedAt) : "Not yet"}</strong>
+          </div>
+        </div>
+      ) : null}
+      {!compact ? (
         <p style={{ margin: "0 0 12px", color: "var(--app-muted)", fontWeight: 800, lineHeight: 1.4 }}>
           {offlineMode
             ? syncStatus.pendingCount
@@ -56,9 +121,46 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
         </p>
       ) : null}
       {!compact ? (
-        <Button variant="secondary" onClick={syncStatus.sync} disabled={syncStatus.syncing || !syncStatus.online || !syncStatus.cloudReady || offlineMode || !session}>
-          {actionLabel}
-        </Button>
+        <div className={styles.syncCentre}>
+          <div className={styles.syncCentreHeader}>
+            <strong>Sync Centre</strong>
+            <span>{syncStatus.pendingCount ? "Entries below are safe on this phone." : "No waiting phone entries."}</span>
+          </div>
+          {syncStatus.pendingRows.length ? (
+            <div className={styles.pendingList}>
+              {syncStatus.pendingRows.slice(0, 6).map((row) => (
+                <div className={styles.pendingItem} key={row.id}>
+                  <div>
+                    <strong>{mutationTitle(row)}</strong>
+                    <p>
+                      {tableLabels[row.table] || row.table} - {operationLabel(row.operationType)} - {mutationTime(row.updatedAt)}
+                    </p>
+                    {row.lastError ? <small>{explainSyncIssue(row.lastError)}</small> : null}
+                  </div>
+                  <Badge tone={row.lastError ? "danger" : "warning"}>{row.lastError ? "Retry needed" : "Waiting"}</Badge>
+                </div>
+              ))}
+              {syncStatus.pendingRows.length > 6 ? (
+                <p className={styles.moreRows}>{syncStatus.pendingRows.length - 6} more entries are waiting to upload.</p>
+              ) : null}
+            </div>
+          ) : (
+            <div className={styles.clearState}>
+              <strong>All phone entries are clear</strong>
+              <p>New work will save on this phone first and upload automatically when cloud sync is available.</p>
+            </div>
+          )}
+        </div>
+      ) : null}
+      {!compact ? (
+        <div className={styles.actions}>
+          <Button variant="secondary" onClick={syncStatus.sync} disabled={syncStatus.syncing || !syncStatus.online || !syncStatus.cloudReady || offlineMode || !session}>
+            {actionLabel}
+          </Button>
+          <Button variant="ghost" onClick={() => void syncStatus.refresh()}>
+            Refresh Status
+          </Button>
+        </div>
       ) : null}
     </Card>
   );

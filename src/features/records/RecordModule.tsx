@@ -195,9 +195,10 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const searchFromUrl = searchParams.get("search") || "";
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<AnyEntity | null>(null);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(searchFromUrl);
   const [toast, setToast] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
 
@@ -250,6 +251,10 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
       setOpen(true);
     }
   }, [addDefaultValues, form, open, pathname, router, searchParams]);
+
+  useEffect(() => {
+    if (searchFromUrl) setQuery(searchFromUrl);
+  }, [searchFromUrl]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -346,7 +351,14 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
       {!mayCreate ? <div className={styles.permission}>Viewer mode: you can read records but cannot add or edit entries.</div> : null}
 
       <div className={styles.toolbar}>
-        <input className={styles.search} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${config.title.toLowerCase()}`} />
+        <div className={styles.searchWrap}>
+          <input className={styles.search} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${config.title.toLowerCase()}`} />
+          {query ? (
+            <button className={styles.clearSearch} type="button" onClick={() => setQuery("")}>
+              Clear
+            </button>
+          ) : null}
+        </div>
         <Button onClick={startAdd} disabled={!mayCreate}>
           {config.addLabel}
         </Button>
