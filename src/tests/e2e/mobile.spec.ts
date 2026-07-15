@@ -37,6 +37,9 @@ test("mobile app shell opens login and offline dashboard", async ({ page }) => {
   await page.getByRole("button", { name: "I Understand, Continue Offline" }).click();
   await expect(page.getByRole("heading", { name: "Home" })).toBeVisible();
   await expect(page.getByTestId("ask-ai-button")).toBeVisible();
+  await expect(page.getByText("All Active Sites").first()).toBeVisible();
+  const dashboardFilterPosition = await page.locator('[aria-label="Dashboard filters"]').evaluate((element) => getComputedStyle(element).position);
+  expect(dashboardFilterPosition).toBe("static");
 
   await page.getByRole("button", { name: "More" }).click();
   await expect(page.getByRole("heading", { name: "More" })).toBeVisible();

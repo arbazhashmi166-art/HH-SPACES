@@ -82,6 +82,11 @@ function cloudSyncedPayload(payload: Record<string, unknown>) {
   };
 }
 
+export function isSchemaSetupError(message: string) {
+  const lower = message.toLowerCase();
+  return lower.includes("could not find the table") || lower.includes("schema cache") || lower.includes("pgrst205");
+}
+
 export async function getLocalRecords<T extends TableName>(table: T, companyId: string) {
   const rows = await db.records.where("[table+companyId]").equals([table, companyId]).toArray();
   const storedRows = rows
@@ -384,6 +389,7 @@ export async function syncPendingMutations(companyId: string) {
         lastError: response.error.message,
         updatedAt: nowIso()
       });
+      if (isSchemaSetupError(response.error.message)) continue;
       break;
     }
     if (item.operationType !== "delete") {

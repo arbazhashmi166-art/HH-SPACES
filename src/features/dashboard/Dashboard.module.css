@@ -102,9 +102,6 @@
 }
 
 .filterBar {
-  position: sticky;
-  top: calc(env(safe-area-inset-top) + 86px);
-  z-index: 5;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 132px;
   gap: 10px;
@@ -136,6 +133,19 @@
 
 .filterBar select {
   padding: 0 9px;
+}
+
+@media (max-width: 430px) {
+  .filterBar {
+    grid-template-columns: 1fr minmax(112px, 34%);
+  }
+
+  .filterBar button,
+  .filterBar select {
+    min-height: 52px;
+    border-radius: 20px;
+    font-size: 13px;
+  }
 }
 
 .commandCenter {

@@ -16,6 +16,8 @@ const tableLabels: Partial<Record<TableName, string>> = {
   client_payments: "Client payment",
   supplier_payments: "Supplier payment",
   partner_draws: "Partner draw",
+  daily_closings: "Daily closing",
+  approval_requests: "Approval",
   progress_updates: "Progress",
   extra_works: "Extra work",
   reminders: "Reminder",

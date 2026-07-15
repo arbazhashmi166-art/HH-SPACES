@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeCloudRowsWithLocalPending, queuedInsertPayloadsAsRecords } from "@/lib/repository";
+import { isSchemaSetupError, mergeCloudRowsWithLocalPending, queuedInsertPayloadsAsRecords } from "@/lib/repository";
 import type { PendingMutation } from "@/lib/db";
 import type { Site } from "@/types/domain";
 
@@ -112,5 +112,10 @@ describe("repository cloud/local merge", () => {
     const result = queuedInsertPayloadsAsRecords(pending, "sites", "company");
 
     expect(result).toEqual([]);
+  });
+
+  it("recognizes missing Supabase schema failures without treating them like data loss", () => {
+    expect(isSchemaSetupError("Could not find the table 'public.daily_closings' in the schema cache")).toBe(true);
+    expect(isSchemaSetupError("violates row-level security policy")).toBe(false);
   });
 });
