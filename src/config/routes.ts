@@ -6,6 +6,7 @@ import {
   barChartOutline,
   briefcaseOutline,
   businessOutline,
+  calculatorOutline,
   calendarOutline,
   cashOutline,
   checkmarkDoneOutline,
@@ -77,6 +78,7 @@ export const appRoutes: AppRoute[] = [
   { path: "/approval-center", label: "Approval Center", shortLabel: "Approvals", icon: shieldCheckmarkOutline, group: "business", description: "Approve partner draws, extra work, supplier payments, expenses, and risky decisions." },
   { path: "/bill-scanner", label: "Bill Scanner", shortLabel: "Scanner", icon: receiptOutline, group: "business", description: "Scan supplier bills with OCR and save verified material or expense entries." },
   { path: "/reports", label: "Reports", icon: documentTextOutline, group: "business", description: "Daily, weekly, monthly, site, labour, material, payment, and profit reports." },
+  { path: "/rate-analyzer", label: "Rate Analyzer", shortLabel: "Rates", icon: calculatorOutline, group: "business", description: "Construction market rates, labour/material calculator, BOQ, quotation and profit analyzer." },
   { path: "/automations", label: "Automations", shortLabel: "Auto", icon: analyticsOutline, group: "system", description: "Business autopilot, cashflow radar, next actions, and daily closing checklist." },
   { path: "/market-radar", label: "Market Radar", shortLabel: "Radar", icon: barChartOutline, group: "system", description: "Latest construction-tech capability score and upgrade playbook." },
   { path: "/ai", label: "AI Assistant", shortLabel: "AI", icon: sparklesOutline, group: "system", description: "Ask questions, create drafts, confirm smart entries, and generate summaries." },
@@ -107,6 +109,7 @@ export const quickActionGroups: QuickActionGroup[] = [
     actions: [
       { label: "Add Site", path: "/sites?add=1", icon: businessOutline, helper: "Client, address, budget" },
       { label: "Labour", path: "/labour?add=1", icon: peopleOutline, helper: "Worker, wage, advance" },
+      { label: "Rate Analyzer", path: "/rate-analyzer", icon: calculatorOutline, helper: "Instant quote and BOQ" },
       { label: "Bill Scanner", path: "/bill-scanner", icon: receiptOutline, helper: "OCR bill entry" },
       { label: "Daily Closing", path: "/daily-closing", icon: checkmarkDoneOutline, helper: "End day report" }
     ]

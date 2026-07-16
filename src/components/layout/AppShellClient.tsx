@@ -71,6 +71,7 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
     !pathname.startsWith("/business-brain") &&
     !pathname.startsWith("/cash-flow") &&
     !pathname.startsWith("/approval-center") &&
+    !pathname.startsWith("/rate-analyzer") &&
     !pathname.startsWith("/bill-scanner");
   const showAiButton = !pathname.startsWith("/bill-scanner");
 

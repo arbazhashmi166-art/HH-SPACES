@@ -58,6 +58,7 @@ test("power screens stay usable on iPhone width", async ({ page }) => {
     { path: "/business-brain/", text: "AI Business Brain" },
     { path: "/cash-flow/", text: "Cash Flow Forecast" },
     { path: "/approval-center/", text: "Approval Center" },
+    { path: "/rate-analyzer/", text: "Rate Intelligence" },
     { path: "/bill-scanner/", text: "Bill Scanner" }
   ];
 
@@ -65,6 +66,11 @@ test("power screens stay usable on iPhone width", async ({ page }) => {
     await page.goto(route.path);
     await expect(page.getByText(route.text).first()).toBeVisible();
     await expect(page.getByTestId("quick-add-button")).toHaveCount(0);
+    if (route.path === "/rate-analyzer/") {
+      await expect(page.getByRole("button", { name: "Add To BOQ" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Analyze Text" })).toBeVisible();
+      await expect(page.getByLabel("Search rates")).toBeVisible();
+    }
     if (route.path === "/bill-scanner/") {
       await expect(page.getByTestId("ask-ai-button")).toHaveCount(0);
       await expect(page.getByRole("button", { name: "Capture Photo" })).toBeVisible();
