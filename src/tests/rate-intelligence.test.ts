@@ -3,6 +3,7 @@ import {
   adjustedRate,
   boqTotals,
   calculateBathroomTiles,
+  calculateDetailedWorkEstimate,
   calculateElectrical,
   calculateLabour,
   calculateMaterials,
@@ -10,11 +11,34 @@ import {
   toBoqRow
 } from "@/features/rates/rate-calculator";
 import { cityRateProfiles } from "@/features/rates/rate-catalog";
+import { constructionRateStats, expandedRateCatalog, searchRateDatabase } from "@/features/rates/expanded-rate-database";
 
 const pune = cityRateProfiles.find((city) => city.city === "Pune")!;
 const mumbai = cityRateProfiles.find((city) => city.city === "Mumbai")!;
 
 describe("rate intelligence calculations", () => {
+  test("expands the construction database across all major trades", () => {
+    expect(constructionRateStats.itemCount).toBeGreaterThan(700);
+    expect(constructionRateStats.categoryCount).toBeGreaterThanOrEqual(28);
+    expect(searchRateDatabase("shower niche labour charge", 5)[0]?.work).toContain("Niche");
+    expect(searchRateDatabase("quartz basin top fitting rate", 5)[0]?.work).toContain("Quartz");
+    expect(searchRateDatabase("AC point with 50 metre wiring", 5)[0]?.work).toContain("AC");
+    expect(searchRateDatabase("complete 2BHK interior estimate", 5)[0]?.work).toContain("2BHK");
+  });
+
+  test("stores required estimator fields for every expanded work item", () => {
+    for (const item of expandedRateCatalog) {
+      expect(item.details?.measurementFormula, item.work).toBeTruthy();
+      expect(item.details?.minimumCharge, item.work).toBeGreaterThan(0);
+      expect(item.details?.labourOnly.standard, item.work).toBeGreaterThanOrEqual(0);
+      expect(item.details?.labourPlusMaterial.standard, item.work).toBeGreaterThan(0);
+      expect(item.details?.workerProductivityPerDay, item.work).toBeGreaterThan(0);
+      expect(item.details?.materialConsumptionFormula, item.work).toBeTruthy();
+      expect(item.details?.qualityChecklist.length, item.work).toBeGreaterThan(0);
+      expect(item.details?.rateHistory.length, item.work).toBeGreaterThan(0);
+    }
+  });
+
   test("adjusts rate by city, contract type and area premium", () => {
     expect(adjustedRate(100, { city: pune, contractType: "Residential", areaPremiumPercent: 0 })).toBe(100);
     expect(adjustedRate(100, { city: mumbai, contractType: "Commercial", areaPremiumPercent: 10 })).toBe(140);
@@ -96,5 +120,25 @@ describe("rate intelligence calculations", () => {
     expect(totals.amount).toBe(23250);
     expect(totals.total).toBe(27435);
     expect(csv).toContain("Wall Tile");
+  });
+
+  test("creates an itemized work estimate with charges and quote levels", () => {
+    const item = searchRateDatabase("bathroom waterproofing labour only", 1)[0]!;
+    const estimate = calculateDetailedWorkEstimate({
+      item,
+      context: { city: pune, contractType: "Residential", areaPremiumPercent: 0 },
+      quantity: 120,
+      mode: "labourOnly",
+      includeHeightCharge: false,
+      includeDifficultAccess: true,
+      includeSmallQuantitySurcharge: true,
+      gstPercent: 18
+    });
+
+    expect(estimate.itemizedLines.some((line) => line.label === "Labour")).toBeTruthy();
+    expect(estimate.itemizedLines.some((line) => line.label === "Difficult access")).toBeTruthy();
+    expect(estimate.materialCost).toBe(0);
+    expect(estimate.sellingPrice).toBeGreaterThan(estimate.labourCost);
+    expect(estimate.architectRate).toBeGreaterThan(estimate.builderRate);
   });
 });

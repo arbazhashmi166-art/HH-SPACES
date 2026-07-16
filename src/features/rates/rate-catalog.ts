@@ -1,14 +1,22 @@
 export type RateCategory =
+  | "Site Preparation"
+  | "Demolition"
+  | "Excavation"
   | "Civil Work"
   | "RCC Work"
+  | "Reinforcement Steel"
+  | "Formwork"
   | "Brick Work"
   | "Plaster"
+  | "Flooring"
   | "POP"
   | "False Ceiling"
   | "Electrical"
   | "Plumbing"
+  | "HVAC"
   | "Waterproofing"
   | "Tiling"
+  | "Natural Stone"
   | "Granite"
   | "Marble"
   | "Fabrication"
@@ -22,13 +30,18 @@ export type RateCategory =
   | "PVC Work"
   | "ACP Work"
   | "Roofing"
-  | "Demolition"
+  | "External Works"
+  | "Elevation"
+  | "Low Voltage"
+  | "Fire Fighting"
   | "Waterproof Coating"
+  | "Repair Maintenance"
+  | "Cleaning Handover"
   | "Interior Work"
   | "Exterior Work"
   | "Labour Supply";
 
-export type RateUnit = "sqft" | "rft" | "point" | "nos" | "day" | "kg" | "ton" | "cum";
+export type RateUnit = "sqft" | "rft" | "point" | "nos" | "day" | "kg" | "ton" | "cum" | "visit" | "trip" | "lot" | "hour" | "meter" | "litre" | "set";
 
 export type RateMatrix = {
   lowest: number;
@@ -47,25 +60,100 @@ export type RateMatrix = {
 export type RateItem = {
   id: string;
   category: RateCategory;
+  subcategory?: string;
   work: string;
+  specification?: string;
   unit: RateUnit;
   aliases: string[];
   rates: RateMatrix;
   scope: string[];
   caution?: string;
+  details?: RateItemDetails;
+};
+
+export type RateBand = {
+  low: number;
+  standard: number;
+  premium: number;
+};
+
+export type RateHistoryPoint = {
+  date: string;
+  city: string;
+  standardRate: number;
+  source: "seed" | "custom" | "market_reference";
+};
+
+export type RateItemDetails = {
+  subcategory: string;
+  detailedSpecification: string;
+  commonAlternativeNames: string[];
+  measurementFormula: string;
+  minimumCharge: number;
+  labourOnly: RateBand;
+  materialOnly: RateBand;
+  labourPlusMaterial: RateBand;
+  subcontractorRate: number;
+  contractorCostRate: number;
+  recommendedCustomerRate: number;
+  architectQuotationRate: number;
+  builderQuotationRate: number;
+  luxuryProjectRate: number;
+  workerProductivityPerDay: number;
+  skilledWorkersRequired: number;
+  helpersRequired: number;
+  machineRequired: string;
+  materialConsumptionFormula: string;
+  materialWastagePercentage: number;
+  transportCost: number;
+  loadingUnloadingCost: number;
+  heightCharge: number;
+  smallQuantitySurcharge: number;
+  difficultAccessSurcharge: number;
+  demolitionCost: number;
+  debrisCost: number;
+  salvageValue: number;
+  supervisionPercentage: number;
+  contractorOverhead: number;
+  profitPercentage: number;
+  gst: number;
+  rateValidityDate: string;
+  city: string;
+  areaOrLocality: string;
+  brand: string;
+  qualityGrade: string;
+  notes: string;
+  exclusions: string[];
+  warranty: string;
+  workSequence: string[];
+  qualityChecklist: string[];
+  commonMistakes: string[];
+  requiredTools: string[];
+  completionTime: string;
+  beforeWorkPhotographs: string[];
+  afterWorkPhotographs: string[];
+  rateHistory: RateHistoryPoint[];
 };
 
 export const rateCategories: RateCategory[] = [
+  "Site Preparation",
+  "Demolition",
+  "Excavation",
   "Civil Work",
   "RCC Work",
+  "Reinforcement Steel",
+  "Formwork",
   "Brick Work",
   "Plaster",
+  "Flooring",
   "POP",
   "False Ceiling",
   "Electrical",
   "Plumbing",
+  "HVAC",
   "Waterproofing",
   "Tiling",
+  "Natural Stone",
   "Granite",
   "Marble",
   "Fabrication",
@@ -79,8 +167,13 @@ export const rateCategories: RateCategory[] = [
   "PVC Work",
   "ACP Work",
   "Roofing",
-  "Demolition",
+  "External Works",
+  "Elevation",
+  "Low Voltage",
+  "Fire Fighting",
   "Waterproof Coating",
+  "Repair Maintenance",
+  "Cleaning Handover",
   "Interior Work",
   "Exterior Work",
   "Labour Supply"

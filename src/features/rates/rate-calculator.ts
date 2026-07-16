@@ -22,6 +22,31 @@ export type QuoteBreakdown = {
   perUnitSelling: number;
 };
 
+export type DetailedEstimateInput = {
+  item: RateItem;
+  context: RateContext;
+  quantity: number;
+  mode: QuoteMode;
+  includeHeightCharge: boolean;
+  includeDifficultAccess: boolean;
+  includeSmallQuantitySurcharge: boolean;
+  gstPercent?: number;
+};
+
+export type DetailedEstimateLine = {
+  label: string;
+  amount: number;
+};
+
+export type DetailedEstimateResult = QuoteBreakdown & {
+  itemizedLines: DetailedEstimateLine[];
+  customerRate: number;
+  architectRate: number;
+  builderRate: number;
+  contractorCost: number;
+  productivityDays: number;
+};
+
 export type BoqRow = {
   id: string;
   description: string;
@@ -148,6 +173,65 @@ export function adjustedRate(rate: number, context: RateContext) {
 
 export function rateForItem(item: RateItem, level: RateLevel, context: RateContext) {
   return adjustedRate(item.rates[level] || item.rates.standard, context);
+}
+
+export function calculateDetailedWorkEstimate(input: DetailedEstimateInput): DetailedEstimateResult {
+  const quantity = clampNumber(input.quantity);
+  const labourRate = rateForItem(input.item, "labourOnly", input.context);
+  const materialRate = rateForItem(input.item, "materialOnly", input.context);
+  const details = input.item.details;
+  const labourCost = input.mode === "materialOnly" ? 0 : money(quantity * labourRate);
+  const materialCost = input.mode === "labourOnly" ? 0 : money(quantity * materialRate);
+  const baseCost = labourCost + materialCost;
+  const transportCost = money(details ? details.transportCost * Math.max(1, Math.ceil(quantity / Math.max(details.workerProductivityPerDay, 1))) : baseCost * 0.02);
+  const loadingCost = money(details ? details.loadingUnloadingCost * Math.max(1, Math.ceil(quantity / Math.max(details.workerProductivityPerDay, 1))) : baseCost * 0.02);
+  const heightCharge = input.includeHeightCharge && details ? money(quantity * details.heightCharge) : 0;
+  const smallCharge = input.includeSmallQuantitySurcharge && details && quantity < Math.max(1, details.workerProductivityPerDay * 0.35) ? money(quantity * details.smallQuantitySurcharge) : 0;
+  const accessCharge = input.includeDifficultAccess && details ? money(quantity * details.difficultAccessSurcharge) : 0;
+  const demolitionCost = details ? money(quantity * details.demolitionCost) : 0;
+  const debrisCost = details ? money(quantity * details.debrisCost) : 0;
+  const salvageCredit = details ? money(quantity * details.salvageValue) : 0;
+  const subtotalBeforePercent = baseCost + transportCost + loadingCost + heightCharge + smallCharge + accessCharge + demolitionCost + debrisCost - salvageCredit;
+  const supervision = money(subtotalBeforePercent * ((details?.supervisionPercentage || 4) / 100));
+  const overhead = money((subtotalBeforePercent + supervision) * ((details?.contractorOverhead || 6) / 100));
+  const profit = money((subtotalBeforePercent + supervision + overhead) * ((details?.profitPercentage || 18) / 100));
+  const gstCost = money((subtotalBeforePercent + supervision + overhead + profit) * ((input.gstPercent ?? details?.gst ?? 18) / 100));
+  const sellingPrice = subtotalBeforePercent + supervision + overhead + profit + gstCost;
+  const itemizedLines: DetailedEstimateLine[] = [
+    { label: "Labour", amount: labourCost },
+    { label: "Material", amount: materialCost },
+    { label: "Transport", amount: transportCost },
+    { label: "Loading/Unloading", amount: loadingCost },
+    { label: "Height charge", amount: heightCharge },
+    { label: "Small quantity surcharge", amount: smallCharge },
+    { label: "Difficult access", amount: accessCharge },
+    { label: "Demolition", amount: demolitionCost },
+    { label: "Debris", amount: debrisCost },
+    { label: "Salvage credit", amount: -salvageCredit },
+    { label: "Supervision", amount: supervision },
+    { label: "Overhead", amount: overhead },
+    { label: "Profit", amount: profit },
+    { label: "GST", amount: gstCost }
+  ].filter((line) => line.amount !== 0);
+
+  return {
+    quantity,
+    unitRate: quantity > 0 ? money(sellingPrice / quantity) : 0,
+    labourCost,
+    materialCost,
+    baseCost,
+    overheadCost: overhead,
+    profitCost: profit,
+    gstCost,
+    sellingPrice,
+    perUnitSelling: quantity > 0 ? money(sellingPrice / quantity) : 0,
+    itemizedLines,
+    customerRate: details ? money(quantity * adjustedRate(details.recommendedCustomerRate, input.context)) : money(quantity * rateForItem(input.item, "standard", input.context)),
+    architectRate: money(quantity * rateForItem(input.item, "architect", input.context)),
+    builderRate: money(quantity * rateForItem(input.item, "builder", input.context)),
+    contractorCost: details ? money(quantity * adjustedRate(details.contractorCostRate, input.context)) : baseCost,
+    productivityDays: details && details.workerProductivityPerDay > 0 ? Math.ceil(quantity / details.workerProductivityPerDay) : 1
+  };
 }
 
 export function calculateQuoteBreakdown(params: {

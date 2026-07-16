@@ -8,6 +8,7 @@ import { formatMoney } from "@/utils/format";
 import {
   calculateBathroomTiles,
   calculateCarpentry,
+  calculateDetailedWorkEstimate,
   calculateElectrical,
   calculateLabour,
   calculateMaterials,
@@ -24,15 +25,16 @@ import {
 } from "./rate-calculator";
 import {
   cityRateProfiles,
-  defaultRateCatalog,
   rateCategories,
   rateSourceNotes,
+  type RateItemDetails,
   type CityRateProfile,
   type ContractType,
   type RateCategory,
   type RateItem,
   type RateUnit
 } from "./rate-catalog";
+import { constructionRateStats, expandedRateCatalog, searchRateDatabase } from "./expanded-rate-database";
 import styles from "./RateIntelligenceScreen.module.css";
 
 const customRateStorageKey = "hhspaces.customRates.v1";
@@ -84,7 +86,10 @@ function downloadFile(filename: string, contents: string, type = "text/csv;chars
 }
 
 function rateSearchText(item: RateItem) {
-  return [item.work, item.category, item.unit, ...item.aliases, ...item.scope].join(" ").toLowerCase();
+  return [item.work, item.category, item.subcategory, item.specification, item.unit, ...item.aliases, ...item.scope, item.details?.detailedSpecification, item.details?.materialConsumptionFormula, ...(item.details?.commonMistakes || [])]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
 }
 
 function moneyRange(item: RateItem, city: CityRateProfile, contractType: ContractType, areaPremiumPercent: number) {
@@ -101,6 +106,7 @@ function buildCustomRate(input: {
   standard: number;
 }): RateItem {
   const standard = Math.max(input.standard, input.labourOnly + input.materialOnly);
+  const details = buildCustomRateDetails(input, standard);
   return {
     id: `custom-${Date.now()}`,
     category: input.category,
@@ -119,7 +125,66 @@ function buildCustomRate(input: {
       materialOnly: input.materialOnly,
       labourMaterial: standard
     },
-    scope: ["Custom rate saved on this device"]
+    scope: ["Custom rate saved on this device"],
+    subcategory: "Custom Rate",
+    specification: `${input.work.trim()} custom rate`,
+    details
+  };
+}
+
+function buildCustomRateDetails(input: { category: RateCategory; work: string; unit: RateUnit; labourOnly: number; materialOnly: number }, standard: number): RateItemDetails {
+  const labour = { low: Math.round(input.labourOnly * 0.82), standard: input.labourOnly, premium: Math.round(input.labourOnly * 1.22) };
+  const material = { low: Math.round(input.materialOnly * 0.82), standard: input.materialOnly, premium: Math.round(input.materialOnly * 1.22) };
+  const complete = { low: Math.round(standard * 0.82), standard, premium: Math.round(standard * 1.22) };
+  return {
+    subcategory: "Custom Rate",
+    detailedSpecification: `${input.work.trim()} custom saved rate.`,
+    commonAlternativeNames: [input.work.toLowerCase()],
+    measurementFormula: "Measured actual finished quantity",
+    minimumCharge: Math.max(standard, standard * 10),
+    labourOnly: labour,
+    materialOnly: material,
+    labourPlusMaterial: complete,
+    subcontractorRate: Math.round(standard * 0.86),
+    contractorCostRate: Math.round(standard * 0.78),
+    recommendedCustomerRate: Math.round(standard * 1.18),
+    architectQuotationRate: Math.round(standard * 1.35),
+    builderQuotationRate: Math.round(standard * 0.95),
+    luxuryProjectRate: Math.round(standard * 1.58),
+    workerProductivityPerDay: 100,
+    skilledWorkersRequired: 1,
+    helpersRequired: 1,
+    machineRequired: "As required",
+    materialConsumptionFormula: "Use custom material consumption from site measurement",
+    materialWastagePercentage: 8,
+    transportCost: Math.round(standard * 0.03),
+    loadingUnloadingCost: Math.round(standard * 0.025),
+    heightCharge: Math.round(standard * 0.12),
+    smallQuantitySurcharge: Math.round(standard * 0.15),
+    difficultAccessSurcharge: Math.round(standard * 0.18),
+    demolitionCost: 0,
+    debrisCost: 0,
+    salvageValue: 0,
+    supervisionPercentage: 4,
+    contractorOverhead: 6,
+    profitPercentage: 18,
+    gst: 18,
+    rateValidityDate: "2026-07-16",
+    city: "Pune",
+    areaOrLocality: "Custom",
+    brand: "As selected",
+    qualityGrade: "Custom",
+    notes: "Custom rate stored on this device.",
+    exclusions: ["Hidden repair", "Premium brand upgrade", "Night work"],
+    warranty: "As per final quotation",
+    workSequence: ["Measure", "Approve rate", "Execute", "Quality check"],
+    qualityChecklist: ["Measurement checked", "Rate approved", "Finish checked"],
+    commonMistakes: ["Not updating rate after supplier price change", "Ignoring wastage"],
+    requiredTools: ["As required"],
+    completionTime: "Depends on quantity",
+    beforeWorkPhotographs: ["Existing condition"],
+    afterWorkPhotographs: ["Completed work"],
+    rateHistory: [{ date: "2026-07-16", city: "Pune", standardRate: standard, source: "custom" }]
   };
 }
 
@@ -248,23 +313,39 @@ export function RateIntelligenceScreen() {
     return () => window.clearTimeout(timeout);
   }, [notice]);
 
-  const catalog = useMemo(() => [...defaultRateCatalog, ...customRates], [customRates]);
+  const catalog = useMemo(() => [...expandedRateCatalog, ...customRates], [customRates]);
 
   const context = useMemo(() => ({ city, contractType, areaPremiumPercent }), [areaPremiumPercent, city, contractType]);
 
   const filteredRates = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    return catalog
-      .filter((item) => item.category === category)
-      .filter((item) => (normalized ? rateSearchText(item).includes(normalized) : true))
-      .sort((a, b) => rateForItem(b, rateLevel, context) - rateForItem(a, rateLevel, context));
-  }, [catalog, category, context, query, rateLevel]);
+    const source = query.trim()
+      ? [
+          ...searchRateDatabase(query, 500).filter((item) => catalog.some((catalogItem) => catalogItem.id === item.id)),
+          ...customRates.filter((item) => rateSearchText(item).includes(normalized))
+        ]
+      : catalog;
+    const scoped = source.filter((item) => (normalized ? true : item.category === category));
+    return normalized ? scoped : scoped.sort((a, b) => rateForItem(b, rateLevel, context) - rateForItem(a, rateLevel, context));
+  }, [catalog, category, context, customRates, query, rateLevel]);
 
   const selectedItem = catalog.find((item) => item.id === selectedItemId) ?? filteredRates[0] ?? catalog[0];
   const tileItem = catalog.find((item) => item.id === "tile-wall-2x4") ?? selectedItem;
   const selectedRate = selectedItem ? rateForItem(selectedItem, rateLevel, context) : 0;
   const labourRate = selectedItem ? rateForItem(selectedItem, "labourOnly", context) : 0;
   const materialRate = selectedItem ? rateForItem(selectedItem, "materialOnly", context) : 0;
+  const detailedEstimate = selectedItem
+    ? calculateDetailedWorkEstimate({
+        item: selectedItem,
+        context,
+        quantity,
+        mode: quoteMode,
+        includeHeightCharge: false,
+        includeDifficultAccess: false,
+        includeSmallQuantitySurcharge: true,
+        gstPercent
+      })
+    : null;
   const quote = calculateQuoteBreakdown({
     quantity,
     labourRate,
@@ -403,11 +484,12 @@ export function RateIntelligenceScreen() {
 
   function runAssistant() {
     const text = assistantText.toLowerCase();
-    const dimensions = text.match(/(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)/);
+    const dimensions = text.match(/(\d+(?:\.\d+)?)\s*(?:x|by)\s*(\d+(?:\.\d+)?)/);
     const areaMatch = text.match(/(\d+(?:\.\d+)?)\s*(sqft|sq ft|square feet|square)/);
     const first = dimensions ? numberValue(dimensions[1] ?? "0") : 0;
     const second = dimensions ? numberValue(dimensions[2] ?? "0") : 0;
-    const area = areaMatch ? numberValue(areaMatch[1] ?? "0") : first * second;
+    const inferredPackageArea = text.includes("3bhk") ? 950 : text.includes("2bhk") ? 650 : 0;
+    const area = areaMatch ? numberValue(areaMatch[1] ?? "0") : first * second || inferredPackageArea;
 
     if ((text.includes("tile") || text.includes("bathroom")) && dimensions && tileItem) {
       const result = calculateBathroomTiles({
@@ -432,8 +514,10 @@ export function RateIntelligenceScreen() {
       return;
     }
 
+    const naturalSearchTarget = searchRateDatabase(assistantText, 1)[0];
     const target =
-      text.includes("pop") || text.includes("ceiling")
+      naturalSearchTarget ||
+      (text.includes("pop") || text.includes("ceiling")
         ? catalog.find((item) => item.id === "pop-ceiling")
         : text.includes("waterproof")
           ? catalog.find((item) => (text.includes("bath") ? item.id === "waterproof-bathroom" : item.id === "waterproof-terrace"))
@@ -441,7 +525,7 @@ export function RateIntelligenceScreen() {
             ? catalog.find((item) => item.id === "plaster-internal")
             : text.includes("electrical") || text.includes("3bhk")
               ? catalog.find((item) => item.id === "electrical-light-point")
-              : selectedItem;
+              : selectedItem);
 
     if (!target || !area) {
       setAssistantRow(null);
@@ -450,15 +534,27 @@ export function RateIntelligenceScreen() {
     }
 
     const rate = rateForItem(target, rateLevel, context);
+    const detail = calculateDetailedWorkEstimate({
+      item: target,
+      context,
+      quantity: area,
+      mode: "labourMaterial",
+      includeHeightCharge: /height|external|facade|scaffold|rope/.test(text),
+      includeDifficultAccess: /difficult|restricted|society|small|repair/.test(text),
+      includeSmallQuantitySurcharge: area < Math.max(1, target.details?.workerProductivityPerDay || 100),
+      gstPercent
+    });
     const row = toBoqRow({
       description: target.work,
       unit: target.unit,
       quantity: area,
-      rate,
+      rate: detail.perUnitSelling || rate,
       gstPercent
     });
     setAssistantRow(row);
-    setAssistantResult(`${target.work}: ${area} ${target.unit} x ${formatMoney(rate)} = ${formatMoney(row.total)} including GST.`);
+    setAssistantResult(
+      `${target.work}: ${area} ${target.unit}. Labour ${formatMoney(detail.labourCost)}, material ${formatMoney(detail.materialCost)}, overhead ${formatMoney(detail.overheadCost)}, profit ${formatMoney(detail.profitCost)}, GST ${formatMoney(detail.gstCost)}. Customer estimate ${formatMoney(detail.sellingPrice)}.`
+    );
   }
 
   const customerMessage = [
@@ -483,7 +579,7 @@ export function RateIntelligenceScreen() {
           <p>Search rates, compare labour/material prices, calculate BOQ, and quote customers instantly.</p>
         </div>
         <div className={styles.heroMetric}>
-          <strong>{catalog.length}</strong>
+          <strong>{constructionRateStats.itemCount + customRates.length}</strong>
           <span>rate items</span>
         </div>
       </div>
@@ -553,6 +649,7 @@ export function RateIntelligenceScreen() {
                 <Badge tone={active ? "success" : "neutral"}>{item.unit}</Badge>
               </span>
               <span>{moneyRange(item, city, contractType, areaPremiumPercent)}</span>
+              <span className={styles.subcategory}>{item.details?.subcategory || item.subcategory}</span>
               <span className={styles.miniMatrix}>
                 Labour {formatMoney(rateForItem(item, "labourOnly", context))} · Material {formatMoney(rateForItem(item, "materialOnly", context))} · L+M {formatMoney(rateForItem(item, "labourMaterial", context))}
               </span>
@@ -578,6 +675,38 @@ export function RateIntelligenceScreen() {
             ))}
           </div>
           {selectedItem.caution ? <p className={styles.warningText}>{selectedItem.caution}</p> : null}
+          {selectedItem.details ? (
+            <div className={styles.detailGrid}>
+              <div>
+                <span>Measurement</span>
+                <strong>{selectedItem.details.measurementFormula}</strong>
+              </div>
+              <div>
+                <span>Productivity</span>
+                <strong>
+                  {selectedItem.details.workerProductivityPerDay} {selectedItem.unit}/day
+                </strong>
+              </div>
+              <div>
+                <span>Team</span>
+                <strong>
+                  {selectedItem.details.skilledWorkersRequired} skilled · {selectedItem.details.helpersRequired} helper
+                </strong>
+              </div>
+              <div>
+                <span>Material Formula</span>
+                <strong>{selectedItem.details.materialConsumptionFormula}</strong>
+              </div>
+              <div>
+                <span>Minimum Charge</span>
+                <strong>{formatMoney(selectedItem.details.minimumCharge)}</strong>
+              </div>
+              <div>
+                <span>Warranty</span>
+                <strong>{selectedItem.details.warranty}</strong>
+              </div>
+            </div>
+          ) : null}
         </Card>
       ) : null}
 
@@ -615,6 +744,32 @@ export function RateIntelligenceScreen() {
             <strong>{formatMoney(quote.sellingPrice)}</strong>
           </div>
         </div>
+        {detailedEstimate ? (
+          <div className={styles.itemizedPanel}>
+            <div className={styles.itemizedHeader}>
+              <div>
+                <strong>Itemized Analyzer</strong>
+                <span>
+                  {detailedEstimate.productivityDays} working day estimate · contractor cost {formatMoney(detailedEstimate.contractorCost)}
+                </span>
+              </div>
+              <Badge tone="info">{formatMoney(detailedEstimate.perUnitSelling)} / {selectedItem?.unit}</Badge>
+            </div>
+            <div className={styles.itemizedLines}>
+              {detailedEstimate.itemizedLines.map((line) => (
+                <div key={line.label}>
+                  <span>{line.label}</span>
+                  <strong>{formatMoney(line.amount)}</strong>
+                </div>
+              ))}
+            </div>
+            <div className={styles.quoteLevels}>
+              <span>Builder {formatMoney(detailedEstimate.builderRate)}</span>
+              <span>Customer {formatMoney(detailedEstimate.customerRate)}</span>
+              <span>Architect {formatMoney(detailedEstimate.architectRate)}</span>
+            </div>
+          </div>
+        ) : null}
         <div className={styles.actionRow}>
           <Button onClick={addSelectedToBoq}>Add To BOQ</Button>
           <Button variant="secondary" onClick={() => void copyText(customerMessage, "Quote copied for WhatsApp")}>
