@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -13,6 +13,8 @@ import {
   calculateLabour,
   calculateMaterials,
   calculateQuoteBreakdown,
+  defaultQuantityForRateItem,
+  inferQuantityFromText,
   boqTotals,
   rateForItem,
   rowsToCsv,
@@ -35,6 +37,7 @@ import {
   type RateUnit
 } from "./rate-catalog";
 import { constructionRateStats, expandedRateCatalog, searchRateDatabase } from "./expanded-rate-database";
+import { analysisToWhatsAppMessage, analyzeRatePrompt, type RateAiAnalysis } from "./rate-ai-engine";
 import styles from "./RateIntelligenceScreen.module.css";
 
 const customRateStorageKey = "hhspaces.customRates.v1";
@@ -85,6 +88,10 @@ function downloadFile(filename: string, contents: string, type = "text/csv;chars
   URL.revokeObjectURL(url);
 }
 
+function fileTimestamp() {
+  return new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
+}
+
 function rateSearchText(item: RateItem) {
   return [item.work, item.category, item.subcategory, item.specification, item.unit, ...item.aliases, ...item.scope, item.details?.detailedSpecification, item.details?.materialConsumptionFormula, ...(item.details?.commonMistakes || [])]
     .filter(Boolean)
@@ -108,7 +115,7 @@ function buildCustomRate(input: {
   const standard = Math.max(input.standard, input.labourOnly + input.materialOnly);
   const details = buildCustomRateDetails(input, standard);
   return {
-    id: `custom-${Date.now()}`,
+    id: `custom-${fileTimestamp()}`,
     category: input.category,
     work: input.work.trim(),
     unit: input.unit,
@@ -219,6 +226,7 @@ function NumberField({
 }
 
 export function RateIntelligenceScreen() {
+  const quotePanelRef = useRef<HTMLDivElement | null>(null);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<RateCategory>("Tiling");
   const [city, setCity] = useState<CityRateProfile>(cityRateProfiles[0] ?? { state: "Maharashtra", city: "Pune", multiplier: 1, note: "Base profile" });
@@ -236,8 +244,17 @@ export function RateIntelligenceScreen() {
   const [notice, setNotice] = useState("");
   const [assistantText, setAssistantText] = useState("Cost of 4x8 bathroom tiling with 2x4 wall tile");
   const [assistantResult, setAssistantResult] = useState("");
+  const [assistantAnalysis, setAssistantAnalysis] = useState<RateAiAnalysis | null>(null);
   const [assistantRow, setAssistantRow] = useState<BoqRow | null>(null);
   const [importText, setImportText] = useState("");
+  const [measurementDraft, setMeasurementDraft] = useState({
+    lengthFt: 4,
+    widthFt: 8,
+    heightFt: 7,
+    count: 1,
+    wastagePercent: 10
+  });
+  const [quantityNote, setQuantityNote] = useState("Search a work with size, then tap it. Example: 4x8 bathroom tiling cost.");
   const [customDraft, setCustomDraft] = useState({
     category: "Tiling" as RateCategory,
     work: "",
@@ -372,6 +389,87 @@ export function RateIntelligenceScreen() {
   const electricalResult = calculateElectrical(electricalCalc);
   const carpenterResult = calculateCarpentry(carpenterCalc);
   const totals = boqTotals(boqRows);
+  const exactCost = detailedEstimate?.sellingPrice ?? quote.sellingPrice;
+  const exactUnitCost = detailedEstimate?.perUnitSelling ?? quote.perUnitSelling;
+
+  function updateMeasurementDraft(key: keyof typeof measurementDraft, value: number) {
+    setMeasurementDraft((current) => ({ ...current, [key]: value }));
+  }
+
+  function scrollToQuotePanel() {
+    window.setTimeout(() => {
+      quotePanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+  }
+
+  function selectRateItem(item: RateItem) {
+    const inferred = inferQuantityFromText({
+      text: query,
+      item,
+      defaultWallHeightFt: measurementDraft.heightFt,
+      defaultWastagePercent: measurementDraft.wastagePercent
+    });
+    setSelectedItemId(item.id);
+    setCategory(item.category);
+    setQuantity(inferred.quantity);
+    if (inferred.lengthFt || inferred.widthFt || inferred.heightFt || inferred.wastagePercent) {
+      setMeasurementDraft((current) => ({
+        ...current,
+        lengthFt: inferred.lengthFt ?? current.lengthFt,
+        widthFt: inferred.widthFt ?? current.widthFt,
+        heightFt: inferred.heightFt ?? current.heightFt,
+        wastagePercent: inferred.wastagePercent ?? current.wastagePercent
+      }));
+    } else {
+      setMeasurementDraft((current) => ({
+        ...current,
+        count: defaultQuantityForRateItem(item)
+      }));
+    }
+    setQuantityNote(inferred.note);
+    setNotice(`Opened calculator: ${inferred.quantity} ${item.unit}`);
+    scrollToQuotePanel();
+  }
+
+  function applyMeasurement(mode: "floor" | "wall" | "roomWalls" | "bathroom" | "running" | "count") {
+    const lengthFt = Math.max(0, measurementDraft.lengthFt);
+    const widthFt = Math.max(0, measurementDraft.widthFt);
+    const heightFt = Math.max(0, measurementDraft.heightFt);
+    const wastageFactor = 1 + Math.max(0, measurementDraft.wastagePercent) / 100;
+    const count = Math.max(0, measurementDraft.count);
+    let nextQuantity = quantity;
+    let nextNote = "";
+
+    if (mode === "floor") {
+      nextQuantity = Math.round(lengthFt * widthFt * 100) / 100;
+      nextNote = `Floor/ceiling area: ${lengthFt} x ${widthFt} = ${nextQuantity} ${selectedItem?.unit || "sqft"}.`;
+    }
+    if (mode === "wall") {
+      nextQuantity = Math.round(lengthFt * heightFt * 100) / 100;
+      nextNote = `Single wall area: ${lengthFt} x ${heightFt} = ${nextQuantity} ${selectedItem?.unit || "sqft"}.`;
+    }
+    if (mode === "roomWalls") {
+      nextQuantity = Math.round(2 * (lengthFt + widthFt) * heightFt * 100) / 100;
+      nextNote = `Room wall area: 2 x (${lengthFt} + ${widthFt}) x ${heightFt} = ${nextQuantity} ${selectedItem?.unit || "sqft"}.`;
+    }
+    if (mode === "bathroom") {
+      const area = (2 * (lengthFt + widthFt) * heightFt + lengthFt * widthFt) * wastageFactor;
+      nextQuantity = Math.round(area * 100) / 100;
+      nextNote = `Bathroom tile area with floor, walls and ${measurementDraft.wastagePercent}% wastage: ${nextQuantity} ${selectedItem?.unit || "sqft"}.`;
+    }
+    if (mode === "running") {
+      nextQuantity = selectedItem?.unit === "meter" ? Math.round((lengthFt / 3.28084) * 100) / 100 : lengthFt;
+      nextNote = `Running length: ${nextQuantity} ${selectedItem?.unit || "rft"}.`;
+    }
+    if (mode === "count") {
+      nextQuantity = count;
+      nextNote = `Count/points: ${nextQuantity} ${selectedItem?.unit || "nos"}.`;
+    }
+
+    setQuantity(nextQuantity);
+    setQuantityNote(nextNote);
+    setNotice("Exact cost recalculated");
+  }
 
   function addSelectedToBoq() {
     if (!selectedItem) return;
@@ -379,7 +477,7 @@ export function RateIntelligenceScreen() {
       description: selectedItem.work,
       unit: selectedItem.unit,
       quantity,
-      rate: selectedRate,
+      rate: exactUnitCost || selectedRate,
       gstPercent
     });
     setBoqRows((current) => [row, ...current]);
@@ -413,7 +511,53 @@ export function RateIntelligenceScreen() {
       setNotice("Add at least one BOQ item first");
       return;
     }
-    downloadFile(`hh-spaces-boq-${Date.now()}.csv`, rowsToCsv(boqRows));
+    downloadFile(`hh-spaces-boq-${fileTimestamp()}.csv`, rowsToCsv(boqRows));
+  }
+
+  async function exportBoqPdf() {
+    if (!boqRows.length) {
+      setNotice("Add at least one BOQ item first");
+      return;
+    }
+    const [{ jsPDF }, autoTableModule] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
+    const autoTable = autoTableModule.default;
+    const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+    doc.setFontSize(16);
+    doc.text("H&H SPACES - BOQ Estimate", 40, 44);
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleString("en-IN")}`, 40, 62);
+    autoTable(doc, {
+      startY: 82,
+      head: [["Sr", "Description", "Unit", "Qty", "Rate", "Amount", "GST %", "Total"]],
+      body: boqRows.map((row, index) => [index + 1, row.description, row.unit, row.quantity, row.rate, row.amount, row.gstPercent, row.total]),
+      foot: [["", "", "", "", "", totals.amount, totals.gst ? "GST" : "", totals.total]]
+    });
+    doc.save(`hh-spaces-boq-${fileTimestamp()}.pdf`);
+    setNotice("BOQ PDF generated");
+  }
+
+  function exportBoqExcel() {
+    if (!boqRows.length) {
+      setNotice("Add at least one BOQ item first");
+      return;
+    }
+    const html = `
+      <html>
+        <head><meta charset="utf-8" /></head>
+        <body>
+          <table border="1">
+            <thead><tr><th>Sr No</th><th>Description</th><th>Unit</th><th>Quantity</th><th>Rate</th><th>Amount</th><th>GST %</th><th>Total</th></tr></thead>
+            <tbody>
+              ${boqRows
+                .map((row, index) => `<tr><td>${index + 1}</td><td>${row.description}</td><td>${row.unit}</td><td>${row.quantity}</td><td>${row.rate}</td><td>${row.amount}</td><td>${row.gstPercent}</td><td>${row.total}</td></tr>`)
+                .join("")}
+              <tr><td colspan="5"><strong>Total</strong></td><td>${totals.amount}</td><td>${totals.gst}</td><td>${totals.total}</td></tr>
+            </tbody>
+          </table>
+        </body>
+      </html>`;
+    downloadFile(`hh-spaces-boq-${fileTimestamp()}.xls`, html, "application/vnd.ms-excel;charset=utf-8");
+    setNotice("BOQ Excel file generated");
   }
 
   function exportRateDatabase() {
@@ -439,7 +583,7 @@ export function RateIntelligenceScreen() {
           .join(",")
       )
       .join("\n");
-    downloadFile(`hh-spaces-rate-database-${Date.now()}.csv`, header + body);
+    downloadFile(`hh-spaces-rate-database-${fileTimestamp()}.csv`, header + body);
   }
 
   function importRates() {
@@ -483,86 +627,62 @@ export function RateIntelligenceScreen() {
   }
 
   function runAssistant() {
-    const text = assistantText.toLowerCase();
-    const dimensions = text.match(/(\d+(?:\.\d+)?)\s*(?:x|by)\s*(\d+(?:\.\d+)?)/);
-    const areaMatch = text.match(/(\d+(?:\.\d+)?)\s*(sqft|sq ft|square feet|square)/);
-    const first = dimensions ? numberValue(dimensions[1] ?? "0") : 0;
-    const second = dimensions ? numberValue(dimensions[2] ?? "0") : 0;
-    const inferredPackageArea = text.includes("3bhk") ? 950 : text.includes("2bhk") ? 650 : 0;
-    const area = areaMatch ? numberValue(areaMatch[1] ?? "0") : first * second || inferredPackageArea;
-
-    if ((text.includes("tile") || text.includes("bathroom")) && dimensions && tileItem) {
-      const result = calculateBathroomTiles({
-        ...bathroom,
-        lengthFt: first,
-        widthFt: second,
-        selectedRate: rateForItem(tileItem, rateLevel, context),
-        labourOnlyRate: rateForItem(tileItem, "labourOnly", context),
-        materialOnlyRate: rateForItem(tileItem, "materialOnly", context),
-        marginPercent,
-        gstPercent
-      });
-      const row = toBoqRow({
-        description: `${tileItem.work} - ${first}x${second} bathroom`,
-        unit: "sqft",
-        quantity: result.areaWithWastage,
-        rate: result.perUnitSelling,
-        gstPercent
-      });
-      setAssistantRow(row);
-      setAssistantResult(`Bathroom tile estimate: ${result.areaWithWastage} sqft including wastage, ${result.tileQuantity} tiles, ${result.tileBoxes} boxes, customer quote ${formatMoney(result.sellingPrice)}.`);
-      return;
-    }
-
-    const naturalSearchTarget = searchRateDatabase(assistantText, 1)[0];
-    const target =
-      naturalSearchTarget ||
-      (text.includes("pop") || text.includes("ceiling")
-        ? catalog.find((item) => item.id === "pop-ceiling")
-        : text.includes("waterproof")
-          ? catalog.find((item) => (text.includes("bath") ? item.id === "waterproof-bathroom" : item.id === "waterproof-terrace"))
-          : text.includes("plaster")
-            ? catalog.find((item) => item.id === "plaster-internal")
-            : text.includes("electrical") || text.includes("3bhk")
-              ? catalog.find((item) => item.id === "electrical-light-point")
-              : selectedItem);
-
-    if (!target || !area) {
-      setAssistantRow(null);
-      setAssistantResult("I need a work type and size. Example: POP for 12x15 hall, waterproofing 500 sqft, or 4x8 bathroom tiling.");
-      return;
-    }
-
-    const rate = rateForItem(target, rateLevel, context);
-    const detail = calculateDetailedWorkEstimate({
-      item: target,
+    const analysis = analyzeRatePrompt({
+      text: assistantText,
+      catalog,
       context,
-      quantity: area,
-      mode: "labourMaterial",
-      includeHeightCharge: /height|external|facade|scaffold|rope/.test(text),
-      includeDifficultAccess: /difficult|restricted|society|small|repair/.test(text),
-      includeSmallQuantitySurcharge: area < Math.max(1, target.details?.workerProductivityPerDay || 100),
-      gstPercent
+      gstPercent,
+      rateLevel,
+      fallbackItem: selectedItem,
+      defaultWallHeightFt: measurementDraft.heightFt,
+      defaultWastagePercent: measurementDraft.wastagePercent
     });
-    const row = toBoqRow({
-      description: target.work,
-      unit: target.unit,
-      quantity: area,
-      rate: detail.perUnitSelling || rate,
-      gstPercent
-    });
-    setAssistantRow(row);
-    setAssistantResult(
-      `${target.work}: ${area} ${target.unit}. Labour ${formatMoney(detail.labourCost)}, material ${formatMoney(detail.materialCost)}, overhead ${formatMoney(detail.overheadCost)}, profit ${formatMoney(detail.profitCost)}, GST ${formatMoney(detail.gstCost)}. Customer estimate ${formatMoney(detail.sellingPrice)}.`
-    );
+
+    setAssistantAnalysis(analysis);
+    setAssistantRow(analysis.boqRow);
+    setAssistantResult(analysis.internalSummary);
+
+    if (!analysis.item || !analysis.quantity) {
+      setNotice("Add work type and measurement for a stronger estimate");
+      return;
+    }
+
+    setSelectedItemId(analysis.item.id);
+    setCategory(analysis.item.category);
+    setQuoteMode(analysis.quoteMode);
+    setQuantity(analysis.quantity.quantity);
+    setQuantityNote(analysis.quantity.note);
+
+    if (analysis.quantity.lengthFt || analysis.quantity.widthFt || analysis.quantity.heightFt || analysis.quantity.wastagePercent) {
+      setMeasurementDraft((current) => ({
+        ...current,
+        lengthFt: analysis.quantity?.lengthFt ?? current.lengthFt,
+        widthFt: analysis.quantity?.widthFt ?? current.widthFt,
+        heightFt: analysis.quantity?.heightFt ?? current.heightFt,
+        wastagePercent: analysis.quantity?.wastagePercent ?? current.wastagePercent
+      }));
+    }
+
+    if (analysis.quantity.method === "bathroom-area" && analysis.quantity.lengthFt && analysis.quantity.widthFt) {
+      setBathroom((current) => ({
+        ...current,
+        lengthFt: analysis.quantity?.lengthFt ?? current.lengthFt,
+        widthFt: analysis.quantity?.widthFt ?? current.widthFt,
+        wallHeightFt: analysis.quantity?.heightFt ?? current.wallHeightFt,
+        wastagePercent: analysis.quantity?.wastagePercent ?? current.wastagePercent
+      }));
+    }
+
+    setNotice(`Smart analysis ready: ${Math.round(analysis.confidence * 100)}% confidence`);
+    scrollToQuotePanel();
   }
 
   const customerMessage = [
     "H&H SPACES Quotation Estimate",
     selectedItem ? `Work: ${selectedItem.work}` : "",
     `Qty: ${quantity} ${selectedItem?.unit || "unit"}`,
-    `Rate: ${formatMoney(selectedRate)} / ${selectedItem?.unit || "unit"}`,
-    `Estimated total: ${formatMoney(quote.sellingPrice)}`,
+    `Rate: ${formatMoney(exactUnitCost)} / ${selectedItem?.unit || "unit"}`,
+    `Estimated total: ${formatMoney(exactCost)}`,
     "Final amount can change after site measurement, design, material brand and surface condition."
   ]
     .filter(Boolean)
@@ -639,10 +759,7 @@ export function RateIntelligenceScreen() {
               className={active ? styles.rateCardActive : styles.rateCard}
               key={item.id}
               type="button"
-              onClick={() => {
-                setSelectedItemId(item.id);
-                setQuantity(item.unit === "point" || item.unit === "nos" ? 1 : 100);
-              }}
+              onClick={() => selectRateItem(item)}
             >
               <span className={styles.rateCardTop}>
                 <strong>{item.work}</strong>
@@ -710,8 +827,19 @@ export function RateIntelligenceScreen() {
         </Card>
       ) : null}
 
-      <Card>
-        <CardHeader title="Quick Customer Quote" subtitle="Labour only, material only, or complete labour + material quotation." />
+      <div ref={quotePanelRef}>
+        <Card>
+        <CardHeader title="Quick Customer Quote" subtitle="Tap any search result to open this calculator with inferred area and exact cost." />
+        <div className={styles.exactCostBanner}>
+          <div>
+            <span>Exact customer cost</span>
+            <strong>{formatMoney(exactCost)}</strong>
+            <p>
+              {selectedItem?.work || "Selected work"} · {quantity} {selectedItem?.unit || "unit"} x {formatMoney(exactUnitCost)} / {selectedItem?.unit || "unit"}
+            </p>
+          </div>
+          <Badge tone="success">{quoteMode === "labourOnly" ? "Labour only" : quoteMode === "materialOnly" ? "Material only" : "Labour + Material"}</Badge>
+        </div>
         <div className={styles.grid3}>
           <NumberField label={`Quantity (${selectedItem?.unit || "unit"})`} value={quantity} onChange={setQuantity} />
           <label className={styles.field}>
@@ -726,22 +854,58 @@ export function RateIntelligenceScreen() {
           <NumberField label="Overhead %" value={overheadPercent} onChange={setOverheadPercent} />
           <NumberField label="GST %" value={gstPercent} onChange={setGstPercent} />
         </div>
+        <div className={styles.dimensionPanel}>
+          <div className={styles.dimensionHeader}>
+            <div>
+              <strong>Area & Quantity Calculator</strong>
+              <span>{quantityNote}</span>
+            </div>
+            <Badge tone="info">Auto cost</Badge>
+          </div>
+          <div className={styles.grid3}>
+            <NumberField label="Length ft" value={measurementDraft.lengthFt} step="0.1" onChange={(value) => updateMeasurementDraft("lengthFt", value)} />
+            <NumberField label="Width ft" value={measurementDraft.widthFt} step="0.1" onChange={(value) => updateMeasurementDraft("widthFt", value)} />
+            <NumberField label="Height ft" value={measurementDraft.heightFt} step="0.1" onChange={(value) => updateMeasurementDraft("heightFt", value)} />
+            <NumberField label="Count / Points" value={measurementDraft.count} step="1" onChange={(value) => updateMeasurementDraft("count", value)} />
+            <NumberField label="Wastage %" value={measurementDraft.wastagePercent} step="1" onChange={(value) => updateMeasurementDraft("wastagePercent", value)} />
+          </div>
+          <div className={styles.formulaButtons}>
+            <button type="button" onClick={() => applyMeasurement("floor")}>
+              Floor/Ceiling Area
+            </button>
+            <button type="button" onClick={() => applyMeasurement("wall")}>
+              Single Wall Area
+            </button>
+            <button type="button" onClick={() => applyMeasurement("roomWalls")}>
+              Room Wall Area
+            </button>
+            <button type="button" onClick={() => applyMeasurement("bathroom")}>
+              Bathroom Tile Area
+            </button>
+            <button type="button" onClick={() => applyMeasurement("running")}>
+              Running Length
+            </button>
+            <button type="button" onClick={() => applyMeasurement("count")}>
+              Count / Points
+            </button>
+          </div>
+        </div>
         <div className={styles.resultGrid}>
           <div>
             <span>Labour</span>
-            <strong>{formatMoney(quote.labourCost)}</strong>
+            <strong>{formatMoney(detailedEstimate?.labourCost ?? quote.labourCost)}</strong>
           </div>
           <div>
             <span>Material</span>
-            <strong>{formatMoney(quote.materialCost)}</strong>
+            <strong>{formatMoney(detailedEstimate?.materialCost ?? quote.materialCost)}</strong>
           </div>
           <div>
             <span>Profit</span>
-            <strong>{formatMoney(quote.profitCost)}</strong>
+            <strong>{formatMoney(detailedEstimate?.profitCost ?? quote.profitCost)}</strong>
           </div>
           <div>
             <span>Customer Quote</span>
-            <strong>{formatMoney(quote.sellingPrice)}</strong>
+            <strong>{formatMoney(exactCost)}</strong>
           </div>
         </div>
         {detailedEstimate ? (
@@ -776,7 +940,8 @@ export function RateIntelligenceScreen() {
             Copy Quote
           </Button>
         </div>
-      </Card>
+        </Card>
+      </div>
 
       <Card>
         <CardHeader title="Bathroom Tile Calculator" subtitle="Use for 2x4 bathroom tiling, wall/floor area, tile boxes, adhesive, grout and total quote." />
@@ -932,10 +1097,15 @@ export function RateIntelligenceScreen() {
       </div>
 
       <Card>
-        <CardHeader title="Smart Estimate Assistant" subtitle="Type natural language and it will create an editable BOQ draft from the rate database." />
+        <CardHeader title="Smart Rate AI" subtitle="Type natural language. It finds the work item, calculates quantity, builds exact cost and creates an editable BOQ draft." />
         <textarea className={styles.assistantInput} value={assistantText} onChange={(event) => setAssistantText(event.target.value)} />
         <div className={styles.actionRow}>
           <Button onClick={runAssistant}>Analyze Text</Button>
+          {assistantAnalysis?.estimate ? (
+            <Button variant="secondary" onClick={() => void copyText(analysisToWhatsAppMessage(assistantAnalysis), "Smart estimate copied for WhatsApp")}>
+              Copy Customer Estimate
+            </Button>
+          ) : null}
           {assistantRow ? (
             <Button
               variant="secondary"
@@ -949,7 +1119,98 @@ export function RateIntelligenceScreen() {
             </Button>
           ) : null}
         </div>
-        {assistantResult ? <p className={styles.assistantResult}>{assistantResult}</p> : null}
+        {assistantAnalysis ? (
+          <div className={styles.aiPanel}>
+            <div className={styles.aiPanelHeader}>
+              <div>
+                <span>AI Rate Brain</span>
+                <strong>{assistantAnalysis.item?.work || "Need more information"}</strong>
+                <p>
+                  {assistantAnalysis.item?.category || "No category"} · {assistantAnalysis.quoteMode.replace(/([A-Z])/g, " $1").toLowerCase()} ·{" "}
+                  {Math.round(assistantAnalysis.confidence * 100)}% confidence
+                </p>
+              </div>
+              <Badge tone={assistantAnalysis.confidence >= 0.7 ? "success" : assistantAnalysis.confidence >= 0.45 ? "warning" : "danger"}>
+                {assistantAnalysis.quantity?.method === "default" ? "Needs size" : "Calculated"}
+              </Badge>
+            </div>
+
+            {assistantAnalysis.estimate && assistantAnalysis.quantity ? (
+              <>
+                <div className={styles.aiExactTotal}>
+                  <span>Exact customer estimate</span>
+                  <strong>{formatMoney(assistantAnalysis.estimate.sellingPrice)}</strong>
+                  <p>
+                    {assistantAnalysis.quantity.quantity} {assistantAnalysis.item?.unit} · {formatMoney(assistantAnalysis.estimate.perUnitSelling)} / {assistantAnalysis.item?.unit}
+                  </p>
+                </div>
+
+                <div className={styles.aiStatGrid}>
+                  <div>
+                    <span>Labour</span>
+                    <strong>{formatMoney(assistantAnalysis.estimate.labourCost)}</strong>
+                  </div>
+                  <div>
+                    <span>Material</span>
+                    <strong>{formatMoney(assistantAnalysis.estimate.materialCost)}</strong>
+                  </div>
+                  <div>
+                    <span>Profit</span>
+                    <strong>{formatMoney(assistantAnalysis.estimate.profitCost)}</strong>
+                  </div>
+                  <div>
+                    <span>GST</span>
+                    <strong>{formatMoney(assistantAnalysis.estimate.gstCost)}</strong>
+                  </div>
+                </div>
+              </>
+            ) : null}
+
+            {assistantAnalysis.marketBands ? (
+              <div className={styles.aiMarketGrid}>
+                <span>Lowest {formatMoney(assistantAnalysis.marketBands.lowest)}</span>
+                <span>Standard {formatMoney(assistantAnalysis.marketBands.standard)}</span>
+                <span>Premium {formatMoney(assistantAnalysis.marketBands.premium)}</span>
+                <span>Luxury {formatMoney(assistantAnalysis.marketBands.luxury)}</span>
+              </div>
+            ) : null}
+
+            <div className={styles.aiColumns}>
+              <div>
+                <h3>Missing / Risk</h3>
+                {(assistantAnalysis.missingFields.length || assistantAnalysis.warnings.length ? [...assistantAnalysis.missingFields, ...assistantAnalysis.warnings] : ["No major missing details detected."]).map((item) => (
+                  <p key={item}>{item}</p>
+                ))}
+              </div>
+              <div>
+                <h3>Smart Advice</h3>
+                {assistantAnalysis.recommendations.map((item) => (
+                  <p key={item}>{item}</p>
+                ))}
+              </div>
+            </div>
+
+            {assistantAnalysis.alternatives.length ? (
+              <div className={styles.aiAlternatives}>
+                <span>Other possible matches</span>
+                <div>
+                  {assistantAnalysis.alternatives.map((item) => (
+                    <button key={item.id} type="button" onClick={() => selectRateItem(item)}>
+                      {item.work}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {assistantAnalysis.source ? (
+              <p className={styles.aiSource}>
+                Source: {assistantAnalysis.source.category} · {assistantAnalysis.source.city} · rate valid {assistantAnalysis.source.rateValidityDate || "as per database"}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+        {assistantResult && !assistantAnalysis ? <p className={styles.assistantResult}>{assistantResult}</p> : null}
       </Card>
 
       <Card>
@@ -992,7 +1253,13 @@ export function RateIntelligenceScreen() {
           )}
         </div>
         <div className={styles.actionRow}>
-          <Button onClick={exportBoq}>Export CSV</Button>
+          <Button onClick={exportBoqPdf}>Export PDF</Button>
+          <Button variant="secondary" onClick={exportBoqExcel}>
+            Export Excel
+          </Button>
+          <Button variant="secondary" onClick={exportBoq}>
+            Export CSV
+          </Button>
           <Button variant="secondary" onClick={() => window.print()}>
             Print
           </Button>

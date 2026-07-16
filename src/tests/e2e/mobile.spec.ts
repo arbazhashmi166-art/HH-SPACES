@@ -2,8 +2,12 @@ import { expect, test } from "@playwright/test";
 
 async function loginDeviceOnly(page: import("@playwright/test").Page, marker: string) {
   await page.goto(`/login?${marker}=1`);
-  await page.getByRole("button", { name: "Continue Offline" }).click();
-  await page.getByRole("button", { name: "I Understand, Continue Offline" }).click();
+  const continueOffline = page.getByRole("button", { name: "Continue Offline" });
+  await expect(continueOffline).toBeVisible();
+  await continueOffline.click();
+  const confirmOffline = page.getByRole("button", { name: "I Understand, Continue Offline" });
+  await expect(confirmOffline).toBeVisible();
+  await confirmOffline.click();
   await expect(page.getByRole("heading", { name: "Home" })).toBeVisible();
 }
 
@@ -85,6 +89,23 @@ test("power screens stay usable on iPhone width", async ({ page }) => {
     const hasNoHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 2);
     expect(hasNoHorizontalOverflow).toBeTruthy();
   }
+});
+
+test("rate search result opens calculator and calculates exact area cost", async ({ page }) => {
+  await loginDeviceOnly(page, "rate-click-calc-qa");
+
+  await page.goto("/rate-analyzer/");
+  await expect(page.getByText("Rate Intelligence").first()).toBeVisible();
+  await page.getByLabel("Search rates").fill("4 by 8 bathroom complete tiling cost");
+
+  const resultCard = page.locator("button").filter({ hasText: "Complete Bathroom Tiling" }).first();
+  await expect(resultCard).toBeVisible();
+  await resultCard.click();
+
+  await expect(page.getByText("EXACT CUSTOMER COST")).toBeVisible();
+  await expect(page.getByText("Area & Quantity Calculator")).toBeVisible();
+  await expect(page.getByText(/Calculated bathroom tile area from 4x8 ft.*220 sqft/)).toBeVisible();
+  await expect(page.getByText(/₹\d/).first()).toBeVisible();
 });
 
 test("site add flow keeps new site visible and available in scanner dropdown", async ({ page }) => {

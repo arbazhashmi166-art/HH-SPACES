@@ -47,6 +47,16 @@ export type DetailedEstimateResult = QuoteBreakdown & {
   productivityDays: number;
 };
 
+export type InferredQuantityResult = {
+  quantity: number;
+  method: "explicit-area" | "bathroom-area" | "floor-area" | "wall-area" | "running-length" | "count" | "volume" | "default";
+  note: string;
+  lengthFt?: number;
+  widthFt?: number;
+  heightFt?: number;
+  wastagePercent?: number;
+};
+
 export type BoqRow = {
   id: string;
   description: string;
@@ -163,6 +173,160 @@ function money(value: number) {
 export function clampNumber(value: number, min = 0, max = Number.MAX_SAFE_INTEGER) {
   if (!Number.isFinite(value)) return min;
   return Math.min(Math.max(value, min), max);
+}
+
+function roundMeasure(value: number) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.round(value * 100) / 100;
+}
+
+function hasAny(text: string, words: string[]) {
+  return words.some((word) => text.includes(word));
+}
+
+export function defaultQuantityForRateItem(item: RateItem) {
+  if (["point", "nos", "visit", "trip", "lot", "day", "set"].includes(item.unit)) return 1;
+  if (item.unit === "kg") return 100;
+  if (item.unit === "ton") return 1;
+  if (item.unit === "cum") return 1;
+  return 100;
+}
+
+export function inferQuantityFromText(input: {
+  text: string;
+  item: RateItem;
+  defaultWallHeightFt?: number;
+  defaultWastagePercent?: number;
+}): InferredQuantityResult {
+  const text = input.text.trim().toLowerCase();
+  const defaultQuantity = defaultQuantityForRateItem(input.item);
+  const defaultWallHeightFt = clampNumber(input.defaultWallHeightFt ?? 7, 1, 30);
+  const wastagePercent = clampNumber(input.defaultWastagePercent ?? 10, 0, 60);
+  const unit = input.item.unit;
+  const workText = `${input.item.category} ${input.item.subcategory || ""} ${input.item.work} ${input.item.aliases.join(" ")}`.toLowerCase();
+
+  if (!text) {
+    return {
+      quantity: defaultQuantity,
+      method: "default",
+      note: `Using default ${defaultQuantity} ${unit}. Enter actual size for exact site quote.`
+    };
+  }
+
+  const areaMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:sq\.?\s*ft|sqft|sft|square\s*(?:feet|foot|ft))/);
+  if (areaMatch?.[1] && ["sqft", "rft", "meter"].includes(unit)) {
+    const quantity = roundMeasure(Number(areaMatch[1]));
+    return {
+      quantity,
+      method: unit === "sqft" ? "explicit-area" : "running-length",
+      note: `Calculated from search text: ${quantity} ${unit}.`
+    };
+  }
+
+  const pointMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:points?|nos|numbers?|pcs|pieces|sets?)\b/);
+  if (pointMatch?.[1] && ["point", "nos", "set"].includes(unit)) {
+    const quantity = roundMeasure(Number(pointMatch[1]));
+    return {
+      quantity,
+      method: "count",
+      note: `Calculated count from search text: ${quantity} ${unit}.`
+    };
+  }
+
+  const runningMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:rft|running\s*feet|running\s*ft|linear\s*ft|feet|ft|meter|metre|mtr|m)\b/);
+  if (runningMatch?.[1] && ["rft", "meter"].includes(unit)) {
+    const raw = Number(runningMatch[1]);
+    const mentionedMeters = /(?:meter|metre|mtr|m)\b/.test(text) && !/(?:rft|running\s*feet|running\s*ft|linear\s*ft|feet|ft)\b/.test(text);
+    const quantity = roundMeasure(unit === "rft" && mentionedMeters ? raw * 3.28084 : unit === "meter" && !mentionedMeters ? raw / 3.28084 : raw);
+    return {
+      quantity,
+      method: "running-length",
+      note: `Calculated running length from search text: ${quantity} ${unit}.`
+    };
+  }
+
+  const dimensionMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:x|×|by|\*)\s*(\d+(?:\.\d+)?)(?:\s*(?:x|×|by|\*)\s*(\d+(?:\.\d+)?))?/);
+  if (dimensionMatch?.[1] && dimensionMatch[2]) {
+    const lengthFt = clampNumber(Number(dimensionMatch[1]));
+    const widthFt = clampNumber(Number(dimensionMatch[2]));
+    const heightFt = clampNumber(Number(dimensionMatch[3] || defaultWallHeightFt), 1, 50);
+    const bathroomLike = hasAny(text, ["bathroom", "toilet", "washroom", "shower", "wc"]);
+    const tileLike = hasAny(text + " " + workText, ["tile", "tiling", "dado"]);
+    const wallLike = hasAny(text + " " + workText, ["wall", "plaster", "painting", "paint", "cladding", "elevation", "facade", "façade"]);
+    const floorLike = hasAny(text + " " + workText, ["floor", "ceiling", "pop", "gypsum", "false ceiling", "hall", "room", "slab", "terrace"]);
+    const looksLikeTileSize = tileLike && lengthFt <= 4 && widthFt <= 4 && !bathroomLike && !hasAny(text, ["area", "room", "hall", "bathroom", "toilet", "wall size"]);
+
+    if (unit === "sqft" && bathroomLike && tileLike && !looksLikeTileSize) {
+      const floorArea = lengthFt * widthFt;
+      const wallArea = 2 * (lengthFt + widthFt) * heightFt;
+      const quantity = roundMeasure((floorArea + wallArea) * (1 + wastagePercent / 100));
+      return {
+        quantity,
+        method: "bathroom-area",
+        note: `Calculated bathroom tile area from ${lengthFt}x${widthFt} ft, ${heightFt} ft height and ${wastagePercent}% wastage: ${quantity} sqft.`,
+        lengthFt,
+        widthFt,
+        heightFt,
+        wastagePercent
+      };
+    }
+
+    if (unit === "sqft" && wallLike && !looksLikeTileSize) {
+      const quantity = roundMeasure(lengthFt * widthFt);
+      return {
+        quantity,
+        method: "wall-area",
+        note: `Calculated wall/surface area from ${lengthFt}x${widthFt} ft: ${quantity} sqft.`,
+        lengthFt,
+        widthFt,
+        heightFt,
+        wastagePercent: 0
+      };
+    }
+
+    if (unit === "sqft" && (floorLike || !looksLikeTileSize)) {
+      const quantity = roundMeasure(lengthFt * widthFt);
+      return {
+        quantity,
+        method: "floor-area",
+        note: `Calculated floor/ceiling area from ${lengthFt}x${widthFt} ft: ${quantity} sqft.`,
+        lengthFt,
+        widthFt,
+        heightFt,
+        wastagePercent: 0
+      };
+    }
+
+    if (unit === "cum") {
+      const quantity = roundMeasure(lengthFt * widthFt * heightFt * 0.0283168);
+      return {
+        quantity,
+        method: "volume",
+        note: `Calculated volume from ${lengthFt}x${widthFt}x${heightFt} ft: ${quantity} cum.`,
+        lengthFt,
+        widthFt,
+        heightFt
+      };
+    }
+
+    if (["rft", "meter"].includes(unit)) {
+      const quantity = roundMeasure(unit === "meter" ? lengthFt / 3.28084 : lengthFt);
+      return {
+        quantity,
+        method: "running-length",
+        note: `Calculated running length from ${lengthFt} ft: ${quantity} ${unit}.`,
+        lengthFt,
+        widthFt,
+        heightFt
+      };
+    }
+  }
+
+  return {
+    quantity: defaultQuantity,
+    method: "default",
+    note: `No measurable size found in search. Using default ${defaultQuantity} ${unit}; update quantity for exact site cost.`
+  };
 }
 
 export function adjustedRate(rate: number, context: RateContext) {

@@ -7,9 +7,11 @@ import {
   calculateElectrical,
   calculateLabour,
   calculateMaterials,
+  inferQuantityFromText,
   rowsToCsv,
   toBoqRow
 } from "@/features/rates/rate-calculator";
+import { analyzeRatePrompt } from "@/features/rates/rate-ai-engine";
 import { cityRateProfiles } from "@/features/rates/rate-catalog";
 import { constructionRateStats, expandedRateCatalog, searchRateDatabase } from "@/features/rates/expanded-rate-database";
 
@@ -67,6 +69,24 @@ describe("rate intelligence calculations", () => {
     expect(result.tileQuantity).toBe(28);
     expect(result.tileBoxes).toBe(14);
     expect(result.sellingPrice).toBeGreaterThan(45000);
+  });
+
+  test("infers quantity from natural search before opening the calculator", () => {
+    const tile = searchRateDatabase("4 by 8 bathroom complete tiling cost", 1)[0]!;
+    const plaster = searchRateDatabase("500 sqft plaster", 1)[0]!;
+    const acPoint = searchRateDatabase("AC point with 50 metre wiring", 1)[0]!;
+
+    const bathroom = inferQuantityFromText({ text: "4 by 8 bathroom complete tiling cost", item: tile });
+    const plasterArea = inferQuantityFromText({ text: "500 sqft plaster", item: plaster });
+    const pointCount = inferQuantityFromText({ text: "AC point with 50 metre wiring", item: acPoint });
+
+    expect(tile.work).toContain("Complete Bathroom");
+    expect(bathroom.method).toBe("bathroom-area");
+    expect(bathroom.quantity).toBe(220);
+    expect(plasterArea.method).toBe("explicit-area");
+    expect(plasterArea.quantity).toBe(500);
+    expect(pointCount.method).toBe("default");
+    expect(pointCount.quantity).toBe(1);
   });
 
   test("calculates labour per unit and selling price", () => {
@@ -140,5 +160,55 @@ describe("rate intelligence calculations", () => {
     expect(estimate.materialCost).toBe(0);
     expect(estimate.sellingPrice).toBeGreaterThan(estimate.labourCost);
     expect(estimate.architectRate).toBeGreaterThan(estimate.builderRate);
+  });
+
+  test("smart rate AI creates exact bathroom tiling estimate from natural language", () => {
+    const analysis = analyzeRatePrompt({
+      text: "4 by 8 bathroom complete tiling cost with 2x4 wall tile",
+      catalog: expandedRateCatalog,
+      context: { city: pune, contractType: "Residential", areaPremiumPercent: 0 },
+      gstPercent: 18,
+      rateLevel: "standard"
+    });
+
+    expect(analysis.item?.work).toContain("Complete Bathroom");
+    expect(analysis.quantity?.method).toBe("bathroom-area");
+    expect(analysis.quantity?.quantity).toBe(220);
+    expect(analysis.estimate?.sellingPrice).toBeGreaterThan(40000);
+    expect(analysis.boqRow?.quantity).toBe(220);
+    expect(analysis.customerSummary).toContain("estimate");
+    expect(analysis.confidence).toBeGreaterThan(0.55);
+  });
+
+  test("smart rate AI respects labour-only prompts and excludes material cost", () => {
+    const analysis = analyzeRatePrompt({
+      text: "labour only 500 sqft internal plaster rate",
+      catalog: expandedRateCatalog,
+      context: { city: pune, contractType: "Residential", areaPremiumPercent: 0 },
+      gstPercent: 18,
+      rateLevel: "standard"
+    });
+
+    expect(analysis.quoteMode).toBe("labourOnly");
+    expect(analysis.quantity?.quantity).toBe(500);
+    expect(analysis.estimate?.materialCost).toBe(0);
+    expect(analysis.estimate?.labourCost).toBeGreaterThan(0);
+    expect(analysis.warnings.some((warning) => warning.includes("Material purchase"))).toBeTruthy();
+  });
+
+  test("smart rate AI reports missing fields before final waterproofing quote", () => {
+    const analysis = analyzeRatePrompt({
+      text: "waterproofing cost",
+      catalog: expandedRateCatalog,
+      context: { city: pune, contractType: "Residential", areaPremiumPercent: 0 },
+      gstPercent: 18,
+      rateLevel: "standard"
+    });
+
+    expect(analysis.item?.work.toLowerCase()).toContain("waterproof");
+    expect(analysis.quantity?.method).toBe("default");
+    expect(analysis.missingFields).toContain("Exact measurement or quantity");
+    expect(analysis.missingFields).toContain("Waterproofing location");
+    expect(analysis.confidence).toBeLessThan(0.7);
   });
 });

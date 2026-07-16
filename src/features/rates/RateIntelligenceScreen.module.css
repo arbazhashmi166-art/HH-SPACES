@@ -373,6 +373,106 @@
   font-size: 1.15rem;
 }
 
+.exactCostBanner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid rgba(80, 101, 255, 0.2);
+  border-radius: 26px;
+  padding: 18px;
+  color: #fff;
+  background:
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.32), transparent 34%),
+    linear-gradient(135deg, #182b68, #334dff 52%, #7f49ff);
+  box-shadow: 0 20px 44px rgba(54, 72, 206, 0.22);
+}
+
+.exactCostBanner div {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.exactCostBanner span {
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 0.78rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.exactCostBanner strong {
+  color: #fff;
+  font-size: clamp(1.85rem, 9vw, 3rem);
+  line-height: 0.95;
+}
+
+.exactCostBanner p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.dimensionPanel {
+  display: grid;
+  gap: 14px;
+  border: 1px solid rgba(80, 101, 255, 0.14);
+  border-radius: 24px;
+  padding: 16px;
+  background: linear-gradient(135deg, rgba(36, 84, 255, 0.08), rgba(127, 73, 255, 0.08));
+}
+
+.dimensionHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dimensionHeader div {
+  display: grid;
+  gap: 5px;
+}
+
+.dimensionHeader strong {
+  color: var(--text-strong);
+  font-size: 1.05rem;
+}
+
+.dimensionHeader span {
+  color: var(--text-muted);
+  font-weight: 820;
+  line-height: 1.45;
+}
+
+.formulaButtons {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.formulaButtons button {
+  min-height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 10px 12px;
+  color: var(--text-strong);
+  background: rgba(255, 255, 255, 0.8);
+  font: inherit;
+  font-weight: 900;
+  text-align: center;
+}
+
+:global(.dark) .formulaButtons button {
+  background: rgba(15, 23, 42, 0.78);
+}
+
+.formulaButtons button:focus-visible {
+  outline: 3px solid rgba(80, 101, 255, 0.28);
+  outline-offset: 2px;
+}
+
 .toggleRow label {
   display: inline-flex;
   min-height: 48px;
@@ -508,6 +608,173 @@
   line-height: 1.55;
 }
 
+.aiPanel {
+  display: grid;
+  gap: 14px;
+  border: 1px solid rgba(80, 101, 255, 0.18);
+  border-radius: 26px;
+  padding: 16px;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(80, 101, 255, 0.16), transparent 34%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(245, 248, 255, 0.84));
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+}
+
+:global(.dark) .aiPanel {
+  background:
+    radial-gradient(circle at 10% 0%, rgba(80, 101, 255, 0.22), transparent 34%),
+    linear-gradient(145deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.84));
+}
+
+.aiPanelHeader {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.aiPanelHeader div {
+  min-width: 0;
+}
+
+.aiPanelHeader span,
+.aiExactTotal span,
+.aiStatGrid span,
+.aiAlternatives > span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 950;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.aiPanelHeader strong {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-strong);
+  font-size: 1.12rem;
+  line-height: 1.2;
+}
+
+.aiPanelHeader p,
+.aiExactTotal p,
+.aiSource {
+  margin: 5px 0 0;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.aiExactTotal {
+  border-radius: 24px;
+  padding: 18px;
+  color: white;
+  background: linear-gradient(135deg, #2454ff, #7c3aed);
+  box-shadow: 0 18px 34px rgba(36, 84, 255, 0.24);
+}
+
+.aiExactTotal span,
+.aiExactTotal p {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.aiExactTotal strong {
+  display: block;
+  margin-top: 4px;
+  font-size: clamp(2rem, 10vw, 3.6rem);
+  line-height: 0.95;
+  color: white;
+}
+
+.aiStatGrid,
+.aiMarketGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.aiStatGrid div,
+.aiMarketGrid span,
+.aiColumns > div {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+:global(.dark) .aiStatGrid div,
+:global(.dark) .aiMarketGrid span,
+:global(.dark) .aiColumns > div {
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.aiStatGrid strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-strong);
+  font-size: 1.05rem;
+}
+
+.aiMarketGrid span {
+  color: var(--text-strong);
+  font-size: 0.8rem;
+  font-weight: 900;
+  text-align: center;
+}
+
+.aiColumns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.aiColumns h3 {
+  margin: 0 0 8px;
+  color: var(--text-strong);
+  font-size: 0.92rem;
+}
+
+.aiColumns p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.aiColumns p + p {
+  margin-top: 8px;
+}
+
+.aiAlternatives {
+  display: grid;
+  gap: 8px;
+}
+
+.aiAlternatives div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.aiAlternatives button {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0 12px;
+  color: var(--text-strong);
+  background: rgba(255, 255, 255, 0.76);
+  font-weight: 900;
+}
+
+:global(.dark) .aiAlternatives button {
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.aiSource {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+  font-size: 0.84rem;
+}
+
 .boqList {
   display: grid;
   gap: 10px;
@@ -614,8 +881,15 @@
   .resultGrid,
   .boqSummary,
   .detailGrid,
-  .itemizedLines {
+  .itemizedLines,
+  .formulaButtons,
+  .aiStatGrid,
+  .aiMarketGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .aiColumns {
+    grid-template-columns: 1fr;
   }
 
   .searchBar {
@@ -626,7 +900,9 @@
     grid-template-columns: 1fr;
   }
 
-  .itemizedHeader {
+  .itemizedHeader,
+  .dimensionHeader,
+  .exactCostBanner {
     flex-direction: column;
   }
 }
@@ -636,7 +912,10 @@
   .resultGrid,
   .boqSummary,
   .detailGrid,
-  .itemizedLines {
+  .itemizedLines,
+  .formulaButtons,
+  .aiStatGrid,
+  .aiMarketGrid {
     grid-template-columns: 1fr;
   }
 }
