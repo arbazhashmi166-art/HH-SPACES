@@ -177,6 +177,9 @@ describe("rate intelligence calculations", () => {
     expect(analysis.estimate?.sellingPrice).toBeGreaterThan(40000);
     expect(analysis.boqRow?.quantity).toBe(220);
     expect(analysis.customerSummary).toContain("estimate");
+    expect(analysis.pricingStrategy?.recommendedTotal).toBeGreaterThan(analysis.pricingStrategy?.negotiationFloor ?? 0);
+    expect(analysis.pricingStrategy?.riskLevel).toBe("medium");
+    expect(analysis.confidenceReasons.some((reason) => reason.includes("Quantity detected"))).toBeTruthy();
     expect(analysis.confidence).toBeGreaterThan(0.55);
   });
 
@@ -193,6 +196,7 @@ describe("rate intelligence calculations", () => {
     expect(analysis.quantity?.quantity).toBe(500);
     expect(analysis.estimate?.materialCost).toBe(0);
     expect(analysis.estimate?.labourCost).toBeGreaterThan(0);
+    expect(analysis.pricingStrategy?.profitMarginPercent).toBeGreaterThan(0);
     expect(analysis.warnings.some((warning) => warning.includes("Material purchase"))).toBeTruthy();
   });
 
@@ -209,6 +213,7 @@ describe("rate intelligence calculations", () => {
     expect(analysis.quantity?.method).toBe("default");
     expect(analysis.missingFields).toContain("Exact measurement or quantity");
     expect(analysis.missingFields).toContain("Waterproofing location");
+    expect(analysis.pricingStrategy?.riskLevel).toBe("high");
     expect(analysis.confidence).toBeLessThan(0.7);
   });
 });

@@ -42,6 +42,7 @@ import styles from "./RateIntelligenceScreen.module.css";
 
 const customRateStorageKey = "hhspaces.customRates.v1";
 const boqStorageKey = "hhspaces.rateBoq.v1";
+const assistantHistoryStorageKey = "hhspaces.rateAssistantHistory.v1";
 
 type BathroomFormState = Omit<BathroomTileInput, "selectedRate" | "labourOnlyRate" | "materialOnlyRate" | "marginPercent" | "gstPercent">;
 
@@ -56,6 +57,17 @@ const rateLevels: { key: RateLevel; label: string }[] = [
   { key: "labourOnly", label: "Labour" },
   { key: "materialOnly", label: "Material" },
   { key: "labourMaterial", label: "L+M" }
+];
+
+const smartPromptPresets = [
+  "4 by 8 bathroom complete tiling cost with 2x4 wall tile",
+  "labour only 500 sqft internal plaster rate",
+  "terrace waterproofing 800 sqft with material",
+  "POP ceiling for 12 by 15 hall modern design",
+  "electrical estimate for 3BHK",
+  "wardrobe 100 sqft labour and material",
+  "kitchen granite top with sink and hob cut",
+  "bathroom waterproofing labour only 120 sqft"
 ];
 
 function loadJson<T>(key: string, fallback: T): T {
@@ -246,6 +258,7 @@ export function RateIntelligenceScreen() {
   const [assistantResult, setAssistantResult] = useState("");
   const [assistantAnalysis, setAssistantAnalysis] = useState<RateAiAnalysis | null>(null);
   const [assistantRow, setAssistantRow] = useState<BoqRow | null>(null);
+  const [assistantHistory, setAssistantHistory] = useState<string[]>([]);
   const [importText, setImportText] = useState("");
   const [measurementDraft, setMeasurementDraft] = useState({
     lengthFt: 4,
@@ -314,6 +327,7 @@ export function RateIntelligenceScreen() {
   useEffect(() => {
     setCustomRates(loadJson<RateItem[]>(customRateStorageKey, []));
     setBoqRows(loadJson<BoqRow[]>(boqStorageKey, []));
+    setAssistantHistory(loadJson<string[]>(assistantHistoryStorageKey, []));
   }, []);
 
   useEffect(() => {
@@ -323,6 +337,10 @@ export function RateIntelligenceScreen() {
   useEffect(() => {
     saveJson(boqStorageKey, boqRows);
   }, [boqRows]);
+
+  useEffect(() => {
+    saveJson(assistantHistoryStorageKey, assistantHistory);
+  }, [assistantHistory]);
 
   useEffect(() => {
     if (!notice) return undefined;
@@ -626,9 +644,15 @@ export function RateIntelligenceScreen() {
     setNotice("Custom rate saved");
   }
 
-  function runAssistant() {
+  function saveAssistantPrompt(text: string) {
+    const cleaned = text.trim();
+    if (!cleaned) return;
+    setAssistantHistory((current) => [cleaned, ...current.filter((item) => item.toLowerCase() !== cleaned.toLowerCase())].slice(0, 8));
+  }
+
+  function analyzeAssistantText(text: string) {
     const analysis = analyzeRatePrompt({
-      text: assistantText,
+      text,
       catalog,
       context,
       gstPercent,
@@ -641,6 +665,7 @@ export function RateIntelligenceScreen() {
     setAssistantAnalysis(analysis);
     setAssistantRow(analysis.boqRow);
     setAssistantResult(analysis.internalSummary);
+    saveAssistantPrompt(text);
 
     if (!analysis.item || !analysis.quantity) {
       setNotice("Add work type and measurement for a stronger estimate");
@@ -675,6 +700,26 @@ export function RateIntelligenceScreen() {
 
     setNotice(`Smart analysis ready: ${Math.round(analysis.confidence * 100)}% confidence`);
     scrollToQuotePanel();
+  }
+
+  function runAssistant() {
+    analyzeAssistantText(assistantText);
+  }
+
+  function applyPrompt(text: string) {
+    setAssistantText(text);
+    analyzeAssistantText(text);
+  }
+
+  function analyzeCurrentCalculator() {
+    if (!selectedItem) {
+      setNotice("Select a rate item first");
+      return;
+    }
+    const modeText = quoteMode === "labourOnly" ? "labour only" : quoteMode === "materialOnly" ? "material only" : "labour and material";
+    const prompt = `${modeText} ${quantity} ${selectedItem.unit} ${selectedItem.work} ${city.city} ${contractType}`;
+    setAssistantText(prompt);
+    analyzeAssistantText(prompt);
   }
 
   const customerMessage = [
@@ -1098,9 +1143,19 @@ export function RateIntelligenceScreen() {
 
       <Card>
         <CardHeader title="Smart Rate AI" subtitle="Type natural language. It finds the work item, calculates quantity, builds exact cost and creates an editable BOQ draft." />
+        <div className={styles.smartPromptGrid} aria-label="Quick estimate prompts">
+          {smartPromptPresets.map((prompt) => (
+            <button key={prompt} type="button" onClick={() => applyPrompt(prompt)}>
+              {prompt}
+            </button>
+          ))}
+        </div>
         <textarea className={styles.assistantInput} value={assistantText} onChange={(event) => setAssistantText(event.target.value)} />
         <div className={styles.actionRow}>
           <Button onClick={runAssistant}>Analyze Text</Button>
+          <Button variant="secondary" onClick={analyzeCurrentCalculator}>
+            Analyze Current Calculator
+          </Button>
           {assistantAnalysis?.estimate ? (
             <Button variant="secondary" onClick={() => void copyText(analysisToWhatsAppMessage(assistantAnalysis), "Smart estimate copied for WhatsApp")}>
               Copy Customer Estimate
@@ -1119,6 +1174,18 @@ export function RateIntelligenceScreen() {
             </Button>
           ) : null}
         </div>
+        {assistantHistory.length ? (
+          <div className={styles.recentPromptBox}>
+            <span>Recent smart estimates</span>
+            <div>
+              {assistantHistory.map((prompt) => (
+                <button key={prompt} type="button" onClick={() => applyPrompt(prompt)}>
+                  {prompt}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
         {assistantAnalysis ? (
           <div className={styles.aiPanel}>
             <div className={styles.aiPanelHeader}>
@@ -1166,6 +1233,31 @@ export function RateIntelligenceScreen() {
               </>
             ) : null}
 
+            {assistantAnalysis.pricingStrategy ? (
+              <div className={styles.aiStrategyGrid}>
+                <div>
+                  <span>Negotiation Floor</span>
+                  <strong>{formatMoney(assistantAnalysis.pricingStrategy.negotiationFloor)}</strong>
+                  <p>Do not go below this without changing scope.</p>
+                </div>
+                <div>
+                  <span>Recommended Quote</span>
+                  <strong>{formatMoney(assistantAnalysis.pricingStrategy.recommendedTotal)}</strong>
+                  <p>{assistantAnalysis.pricingStrategy.profitMarginPercent}% estimated margin.</p>
+                </div>
+                <div>
+                  <span>Premium Quote</span>
+                  <strong>{formatMoney(assistantAnalysis.pricingStrategy.premiumTotal)}</strong>
+                  <p>{assistantAnalysis.pricingStrategy.riskLevel} risk - {assistantAnalysis.pricingStrategy.riskBufferPercent}% buffer.</p>
+                </div>
+                <div>
+                  <span>Break Even</span>
+                  <strong>{formatMoney(assistantAnalysis.pricingStrategy.breakEvenTotal)}</strong>
+                  <p>{formatMoney(assistantAnalysis.pricingStrategy.suggestedPerUnitRate)} / unit suggested.</p>
+                </div>
+              </div>
+            ) : null}
+
             {assistantAnalysis.marketBands ? (
               <div className={styles.aiMarketGrid}>
                 <span>Lowest {formatMoney(assistantAnalysis.marketBands.lowest)}</span>
@@ -1189,6 +1281,15 @@ export function RateIntelligenceScreen() {
                 ))}
               </div>
             </div>
+
+            {assistantAnalysis.confidenceReasons.length ? (
+              <div className={styles.aiReasonBox}>
+                <h3>Why this answer?</h3>
+                {assistantAnalysis.confidenceReasons.map((item) => (
+                  <p key={item}>{item}</p>
+                ))}
+              </div>
+            ) : null}
 
             {assistantAnalysis.alternatives.length ? (
               <div className={styles.aiAlternatives}>

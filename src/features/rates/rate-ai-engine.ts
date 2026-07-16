@@ -48,6 +48,17 @@ export type RateAiAnalysis = {
     materialOnly: number;
     labourMaterial: number;
   } | null;
+  pricingStrategy: {
+    riskLevel: "low" | "medium" | "high";
+    riskBufferPercent: number;
+    negotiationFloor: number;
+    recommendedTotal: number;
+    premiumTotal: number;
+    profitMarginPercent: number;
+    breakEvenTotal: number;
+    suggestedPerUnitRate: number;
+  } | null;
+  confidenceReasons: string[];
   missingFields: string[];
   warnings: string[];
   recommendations: string[];
@@ -60,6 +71,11 @@ export type RateAiAnalysis = {
 function clamp(value: number, min: number, max: number) {
   if (!Number.isFinite(value)) return min;
   return Math.min(Math.max(value, min), max);
+}
+
+function money(value: number) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.round(value);
 }
 
 function normalized(text: string) {
@@ -222,6 +238,56 @@ function buildRecommendations(input: {
   return recommendations;
 }
 
+function buildConfidenceReasons(input: {
+  item: RateItem;
+  quantity: InferredQuantityResult;
+  missingFields: string[];
+  warnings: string[];
+  quoteMode: QuoteMode;
+}) {
+  const reasons = [`Matched "${input.item.work}" from the internal rate database.`];
+  reasons.push(input.quantity.method === "default" ? "Used default quantity because exact measurement was not found." : `Quantity detected by ${input.quantity.method.replace(/-/g, " ")}.`);
+  reasons.push(input.quoteMode === "labourMaterial" ? "Using labour + material pricing." : `Using ${quoteModeLabel(input.quoteMode).toLowerCase()} pricing.`);
+  if (input.missingFields.length) reasons.push(`${input.missingFields.length} field needs confirmation before final quotation.`);
+  if (input.warnings.length) reasons.push(`${input.warnings.length} risk warning${input.warnings.length === 1 ? "" : "s"} applied.`);
+  return reasons;
+}
+
+function buildPricingStrategy(input: {
+  estimate: DetailedEstimateResult;
+  quantity: InferredQuantityResult;
+  missingFields: string[];
+  warnings: string[];
+  context: RateContext;
+  gstPercent: number;
+}) {
+  const riskPoints =
+    input.missingFields.length * 12 +
+    input.warnings.length * 7 +
+    (input.quantity.method === "default" ? 18 : 0) +
+    (input.context.contractType === "Luxury" ? 10 : 0);
+  const riskLevel: "low" | "medium" | "high" = riskPoints >= 35 ? "high" : riskPoints >= 16 ? "medium" : "low";
+  const riskBufferPercent = riskLevel === "high" ? 16 : riskLevel === "medium" ? 10 : 6;
+  const breakEvenTotal = money(input.estimate.baseCost + input.estimate.overheadCost + input.estimate.gstCost);
+  const negotiationFloor = money((input.estimate.baseCost + input.estimate.overheadCost) * (1 + riskBufferPercent / 100) * (1 + input.gstPercent / 100));
+  const recommendedTotal = Math.max(input.estimate.sellingPrice, negotiationFloor);
+  const premiumTotal = money(recommendedTotal * (riskLevel === "high" ? 1.18 : riskLevel === "medium" ? 1.12 : 1.08));
+  const grossProfit = Math.max(0, recommendedTotal - breakEvenTotal);
+  const profitMarginPercent = recommendedTotal > 0 ? Math.round((grossProfit / recommendedTotal) * 100) : 0;
+  const suggestedPerUnitRate = input.quantity.quantity > 0 ? money(recommendedTotal / input.quantity.quantity) : 0;
+
+  return {
+    riskLevel,
+    riskBufferPercent,
+    negotiationFloor,
+    recommendedTotal,
+    premiumTotal,
+    profitMarginPercent,
+    breakEvenTotal,
+    suggestedPerUnitRate
+  };
+}
+
 function sourceFor(item: RateItem, context: RateContext): RateAiSource {
   return {
     itemId: item.id,
@@ -282,6 +348,8 @@ export function analyzeRatePrompt(input: {
       estimate: null,
       boqRow: null,
       marketBands: null,
+      pricingStrategy: null,
+      confidenceReasons: [],
       missingFields: ["Work item is not clear", "Exact measurement or quantity"],
       warnings: ["No matching construction rate item was found in the internal rate database."],
       recommendations: ["Try a clearer prompt like: 500 sqft plaster labour only, 4x8 bathroom tiling, or terrace waterproofing 800 sqft."],
@@ -310,6 +378,8 @@ export function analyzeRatePrompt(input: {
   const missingFields = buildMissingFields(item, quantity, text);
   const warnings = buildWarnings({ item, quantity, estimate, text, mode: quoteMode, context: input.context });
   const recommendations = buildRecommendations({ item, quantity, estimate, text, missingFields });
+  const confidenceReasons = buildConfidenceReasons({ item, quantity, missingFields, warnings, quoteMode });
+  const pricingStrategy = buildPricingStrategy({ estimate, quantity, missingFields, warnings, context: input.context, gstPercent: input.gstPercent });
   const source = sourceFor(item, input.context);
   const marketBands = {
     lowest: rateForItem(item, "lowest", input.context),
@@ -353,6 +423,8 @@ export function analyzeRatePrompt(input: {
     estimate,
     boqRow,
     marketBands,
+    pricingStrategy,
+    confidenceReasons,
     missingFields,
     warnings,
     recommendations,
