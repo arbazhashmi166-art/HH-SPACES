@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isSchemaSetupError, mergeCloudRowsWithLocalPending, queuedInsertPayloadsAsRecords } from "@/lib/repository";
+import { isSchemaSetupError, mergeCloudRowsWithLocalPending, queuedInsertPayloadsAsRecords, shouldDeferSchemaSetupRetry } from "@/lib/repository";
 import type { PendingMutation } from "@/lib/db";
 import type { Site } from "@/types/domain";
 
@@ -117,5 +117,24 @@ describe("repository cloud/local merge", () => {
   it("recognizes missing Supabase schema failures without treating them like data loss", () => {
     expect(isSchemaSetupError("Could not find the table 'public.daily_closings' in the schema cache")).toBe(true);
     expect(isSchemaSetupError("violates row-level security policy")).toBe(false);
+  });
+
+  it("defers missing-table sync retries until the user asks to retry after database setup", () => {
+    const mutation: PendingMutation = {
+      id: "mutation-schema",
+      table: "daily_closings",
+      operationType: "insert",
+      companyId: "company",
+      recordId: "closing-1",
+      idempotencyKey: "idem-closing-1",
+      payload: { id: "closing-1", company_id: "company" },
+      retryCount: 3,
+      lastError: "Could not find the table 'public.daily_closings' in the schema cache",
+      createdAt: "2026-07-17T08:00:00.000Z",
+      updatedAt: "2026-07-17T08:05:00.000Z"
+    };
+
+    expect(shouldDeferSchemaSetupRetry(mutation)).toBe(true);
+    expect(shouldDeferSchemaSetupRetry(mutation, true)).toBe(false);
   });
 });

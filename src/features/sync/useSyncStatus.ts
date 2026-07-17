@@ -8,6 +8,10 @@ import { supabase } from "@/lib/supabase";
 export type SyncTone = "success" | "warning" | "neutral";
 export type SyncState = "synced" | "syncing" | "pending" | "failed" | "setup_needed" | "offline" | "login_required" | "not_configured";
 
+type ManualSyncOptions = {
+  retrySetupBlocked?: boolean;
+};
+
 type SyncStatusInput = {
   companyId?: string;
   offlineMode: boolean;
@@ -52,11 +56,11 @@ export function useSyncStatus({ companyId, offlineMode, hasSession, cloudLoginIs
     };
   }, [refresh]);
 
-  const sync = useCallback(async () => {
+  const sync = useCallback(async (options: ManualSyncOptions = {}) => {
     if (!companyId) return;
     setSyncing(true);
     try {
-      await syncPendingMutations(companyId);
+      await syncPendingMutations(companyId, options);
       await refresh();
     } finally {
       setSyncing(false);

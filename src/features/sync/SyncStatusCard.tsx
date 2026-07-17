@@ -82,7 +82,7 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
     : offlineMode || !session
       ? "Login Required for Sync"
       : syncStatus.state === "setup_needed"
-        ? "Retry After Database Update"
+        ? "Check Again After Database Update"
       : syncStatus.syncing
         ? "Syncing..."
         : syncStatus.pendingCount
@@ -163,7 +163,11 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
       ) : null}
       {!compact ? (
         <div className={styles.actions}>
-          <Button variant="secondary" onClick={syncStatus.sync} disabled={syncStatus.syncing || !syncStatus.online || !syncStatus.cloudReady || offlineMode || !session}>
+          <Button
+            variant="secondary"
+            onClick={() => void syncStatus.sync({ retrySetupBlocked: syncStatus.state === "setup_needed" })}
+            disabled={syncStatus.syncing || !syncStatus.online || !syncStatus.cloudReady || offlineMode || !session}
+          >
             {actionLabel}
           </Button>
           <Button variant="ghost" onClick={() => void syncStatus.refresh()}>

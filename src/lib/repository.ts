@@ -37,6 +37,10 @@ export const syncableTables: TableName[] = [
 
 export const AUTO_SYNC_EVENT = "hh-spaces:auto-sync-request";
 
+type SyncPendingOptions = {
+  retrySetupBlocked?: boolean;
+};
+
 function isBrowserOnline() {
   return typeof navigator === "undefined" ? true : navigator.onLine;
 }
@@ -85,6 +89,10 @@ function cloudSyncedPayload(payload: Record<string, unknown>) {
 export function isSchemaSetupError(message: string) {
   const lower = message.toLowerCase();
   return lower.includes("could not find the table") || lower.includes("schema cache") || lower.includes("pgrst205");
+}
+
+export function shouldDeferSchemaSetupRetry(item: PendingMutation, retrySetupBlocked = false) {
+  return !retrySetupBlocked && Boolean(item.lastError && isSchemaSetupError(item.lastError));
 }
 
 export async function getLocalRecords<T extends TableName>(table: T, companyId: string) {
@@ -363,7 +371,7 @@ export async function deleteRecord<T extends TableName>(table: T, companyId: str
   });
 }
 
-export async function syncPendingMutations(companyId: string) {
+export async function syncPendingMutations(companyId: string, options: SyncPendingOptions = {}) {
   if (!canUseCloud()) return { synced: 0 };
   const pending = await db.pendingMutations.where({ companyId }).sortBy("createdAt");
   let synced = 0;
@@ -374,6 +382,10 @@ export async function syncPendingMutations(companyId: string) {
   }
 
   for (const item of pending) {
+    if (shouldDeferSchemaSetupRetry(item, options.retrySetupBlocked)) {
+      continue;
+    }
+
     const client = requireSupabase().from(item.table);
     const payload = cloudSyncedPayload(item.payload);
     const response =
