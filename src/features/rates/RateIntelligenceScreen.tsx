@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
+import { supabase } from "@/lib/supabase";
 import { formatMoney } from "@/utils/format";
 import {
   calculateBathroomTiles,
@@ -46,6 +47,16 @@ const assistantHistoryStorageKey = "hhspaces.rateAssistantHistory.v1";
 
 type BathroomFormState = Omit<BathroomTileInput, "selectedRate" | "labourOnlyRate" | "materialOnlyRate" | "marginPercent" | "gstPercent">;
 
+type RateAiEdgeResponse = {
+  draft?: {
+    response?: string;
+    confidence?: number;
+    missing_fields?: string[];
+  };
+  source?: string;
+  error?: string;
+};
+
 const rateLevels: { key: RateLevel; label: string }[] = [
   { key: "lowest", label: "Lowest" },
   { key: "standard", label: "Standard" },
@@ -82,7 +93,28 @@ function loadJson<T>(key: string, fallback: T): T {
 
 function saveJson(key: string, value: unknown) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(key, JSON.stringify(value));
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Storage can fail in private mode, low storage, or locked-down browsers.
+  }
+}
+
+function loadArrayJson<T>(key: string): T[] {
+  const value = loadJson<unknown>(key, []);
+  return Array.isArray(value) ? (value as T[]) : [];
+}
+
+function isStoredRateItem(value: unknown): value is RateItem {
+  if (!value || typeof value !== "object") return false;
+  const item = value as Partial<RateItem>;
+  return typeof item.id === "string" && typeof item.work === "string" && typeof item.unit === "string" && Boolean(item.rates);
+}
+
+function isStoredBoqRow(value: unknown): value is BoqRow {
+  if (!value || typeof value !== "object") return false;
+  const row = value as Partial<BoqRow>;
+  return typeof row.id === "string" && typeof row.description === "string" && Number.isFinite(row.quantity) && Number.isFinite(row.rate);
 }
 
 function numberValue(value: string) {
@@ -259,6 +291,10 @@ export function RateIntelligenceScreen() {
   const [assistantAnalysis, setAssistantAnalysis] = useState<RateAiAnalysis | null>(null);
   const [assistantRow, setAssistantRow] = useState<BoqRow | null>(null);
   const [assistantHistory, setAssistantHistory] = useState<string[]>([]);
+  const [cloudAiBusy, setCloudAiBusy] = useState(false);
+  const [cloudAiInsight, setCloudAiInsight] = useState("");
+  const [cloudAiIssue, setCloudAiIssue] = useState("");
+  const [showRateBrowser, setShowRateBrowser] = useState(false);
   const [importText, setImportText] = useState("");
   const [measurementDraft, setMeasurementDraft] = useState({
     lengthFt: 4,
@@ -325,9 +361,9 @@ export function RateIntelligenceScreen() {
   });
 
   useEffect(() => {
-    setCustomRates(loadJson<RateItem[]>(customRateStorageKey, []));
-    setBoqRows(loadJson<BoqRow[]>(boqStorageKey, []));
-    setAssistantHistory(loadJson<string[]>(assistantHistoryStorageKey, []));
+    setCustomRates(loadArrayJson<unknown>(customRateStorageKey).filter(isStoredRateItem));
+    setBoqRows(loadArrayJson<unknown>(boqStorageKey).filter(isStoredBoqRow));
+    setAssistantHistory(loadArrayJson<string>(assistantHistoryStorageKey).filter((item): item is string => typeof item === "string"));
   }, []);
 
   useEffect(() => {
@@ -363,6 +399,8 @@ export function RateIntelligenceScreen() {
     const scoped = source.filter((item) => (normalized ? true : item.category === category));
     return normalized ? scoped : scoped.sort((a, b) => rateForItem(b, rateLevel, context) - rateForItem(a, rateLevel, context));
   }, [catalog, category, context, customRates, query, rateLevel]);
+  const hasRateSearch = query.trim().length > 0;
+  const showRateDatabase = showRateBrowser || hasRateSearch;
 
   const selectedItem = catalog.find((item) => item.id === selectedItemId) ?? filteredRates[0] ?? catalog[0];
   const tileItem = catalog.find((item) => item.id === "tile-wall-2x4") ?? selectedItem;
@@ -722,6 +760,99 @@ export function RateIntelligenceScreen() {
     analyzeAssistantText(prompt);
   }
 
+  function compactRateAnalysis(analysis: RateAiAnalysis) {
+    return {
+      prompt: analysis.prompt,
+      intent: analysis.intent,
+      confidence: analysis.confidence,
+      item: analysis.item
+        ? {
+            id: analysis.item.id,
+            work: analysis.item.work,
+            category: analysis.item.category,
+            unit: analysis.item.unit,
+            specification: analysis.item.specification,
+            caution: analysis.item.caution
+          }
+        : null,
+      quantity: analysis.quantity,
+      quoteMode: analysis.quoteMode,
+      estimate: analysis.estimate
+        ? {
+            labourCost: analysis.estimate.labourCost,
+            materialCost: analysis.estimate.materialCost,
+            overheadCost: analysis.estimate.overheadCost,
+            profitCost: analysis.estimate.profitCost,
+            gstCost: analysis.estimate.gstCost,
+            sellingPrice: analysis.estimate.sellingPrice,
+            perUnitSelling: analysis.estimate.perUnitSelling,
+            productivityDays: analysis.estimate.productivityDays
+          }
+        : null,
+      pricingStrategy: analysis.pricingStrategy,
+      marketBands: analysis.marketBands,
+      missingFields: analysis.missingFields,
+      warnings: analysis.warnings,
+      recommendations: analysis.recommendations,
+      context: {
+        city: city.city,
+        state: city.state,
+        contractType,
+        areaPremiumPercent,
+        gstPercent
+      }
+    };
+  }
+
+  async function askCloudAiForRate() {
+    const analysis =
+      assistantAnalysis ||
+      analyzeRatePrompt({
+        text: assistantText,
+        catalog,
+        context,
+        gstPercent,
+        rateLevel,
+        fallbackItem: selectedItem,
+        defaultWallHeightFt: measurementDraft.heightFt,
+        defaultWastagePercent: measurementDraft.wastagePercent
+      });
+
+    setAssistantAnalysis(analysis);
+    setAssistantRow(analysis.boqRow);
+    setAssistantResult(analysis.internalSummary);
+    setCloudAiIssue("");
+    setCloudAiInsight("");
+
+    if (!analysis.item || !analysis.estimate) {
+      setCloudAiIssue("Add a clear work item and measurement before asking cloud AI.");
+      return;
+    }
+
+    if (!supabase) {
+      setCloudAiIssue("Cloud AI is not connected in this build. Local Smart Rate AI is active.");
+      return;
+    }
+
+    setCloudAiBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke<RateAiEdgeResponse>("ai-assistant", {
+        body: {
+          message: `Review this construction rate estimate and make it safer for customer quotation: ${assistantText}`,
+          rate_analysis: compactRateAnalysis(analysis)
+        }
+      });
+      if (error) throw error;
+      const response = data?.draft?.response || data?.error || "";
+      setCloudAiInsight(response || "Cloud AI checked this estimate. Use the local pricing cards for final numbers.");
+      setNotice(data?.source === "openai" ? "Cloud AI review complete" : "AI fallback review complete");
+    } catch {
+      setCloudAiIssue("Cloud AI could not respond. Local Smart Rate AI is still available.");
+    } finally {
+      setCloudAiBusy(false);
+    }
+  }
+
   const customerMessage = [
     "H&H SPACES Quotation Estimate",
     selectedItem ? `Work: ${selectedItem.work}` : "",
@@ -749,8 +880,16 @@ export function RateIntelligenceScreen() {
         </div>
       </div>
 
-      <Card>
-        <CardHeader title="Market Adjustment" subtitle="Use Pune as the base. Change city and contract type before telling a customer." />
+      <details className={styles.advancedCard}>
+        <summary>
+          <span>
+            <strong>Advanced price settings</strong>
+            <small>
+              {city.city} - {contractType} - {rateLevels.find((level) => level.key === rateLevel)?.label || "Standard"} rate
+            </small>
+          </span>
+          <Badge tone="info">Optional</Badge>
+        </summary>
         <div className={styles.grid3}>
           <label className={styles.field}>
             <span>City</span>
@@ -774,7 +913,7 @@ export function RateIntelligenceScreen() {
           <NumberField label="Area Premium %" value={areaPremiumPercent} min="-30" onChange={setAreaPremiumPercent} />
         </div>
         <p className={styles.helperText}>{city.note}</p>
-      </Card>
+      </details>
 
       <SectionTitle title="Instant Search" subtitle="Find any work: POP, 2x4 tile, waterproofing, electrician point, carpenter, plaster." />
       <div className={styles.searchBar}>
@@ -787,42 +926,71 @@ export function RateIntelligenceScreen() {
           ))}
         </select>
       </div>
-
-      <div className={styles.categoryRail} aria-label="Rate categories">
-        {rateCategories.map((item) => (
-          <button className={item === category ? styles.activeChip : styles.chip} key={item} type="button" onClick={() => setCategory(item)}>
-            {item}
-          </button>
-        ))}
+      <div className={styles.simpleActions}>
+        <Button
+          variant="secondary"
+          onClick={() => {
+            if (showRateDatabase) {
+              setShowRateBrowser(false);
+              setQuery("");
+              return;
+            }
+            setShowRateBrowser(true);
+          }}
+        >
+          {showRateDatabase ? "Hide Rate List" : "Browse Rate List"}
+        </Button>
+        {hasRateSearch ? (
+          <Button variant="ghost" onClick={() => setQuery("")}>
+            Clear Search
+          </Button>
+        ) : null}
       </div>
 
-      <div className={styles.rateList}>
-        {filteredRates.slice(0, 18).map((item) => {
-          const active = item.id === selectedItem?.id;
-          return (
-            <button
-              className={active ? styles.rateCardActive : styles.rateCard}
-              key={item.id}
-              type="button"
-              onClick={() => selectRateItem(item)}
-            >
-              <span className={styles.rateCardTop}>
-                <strong>{item.work}</strong>
-                <Badge tone={active ? "success" : "neutral"}>{item.unit}</Badge>
-              </span>
-              <span>{moneyRange(item, city, contractType, areaPremiumPercent)}</span>
-              <span className={styles.subcategory}>{item.details?.subcategory || item.subcategory}</span>
-              <span className={styles.miniMatrix}>
-                Labour {formatMoney(rateForItem(item, "labourOnly", context))} · Material {formatMoney(rateForItem(item, "materialOnly", context))} · L+M {formatMoney(rateForItem(item, "labourMaterial", context))}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      {showRateDatabase ? (
+        <>
+          <div className={styles.categoryRail} aria-label="Rate categories">
+            {rateCategories.map((item) => (
+              <button className={item === category ? styles.activeChip : styles.chip} key={item} type="button" onClick={() => setCategory(item)}>
+                {item}
+              </button>
+            ))}
+          </div>
 
-      {selectedItem ? (
+          <div className={styles.rateList}>
+            {filteredRates.slice(0, 18).map((item) => {
+              const active = item.id === selectedItem?.id;
+              return (
+                <button
+                  className={active ? styles.rateCardActive : styles.rateCard}
+                  key={item.id}
+                  type="button"
+                  onClick={() => selectRateItem(item)}
+                >
+                  <span className={styles.rateCardTop}>
+                    <strong>{item.work}</strong>
+                    <Badge tone={active ? "success" : "neutral"}>{item.unit}</Badge>
+                  </span>
+                  <span>{moneyRange(item, city, contractType, areaPremiumPercent)}</span>
+                  <span className={styles.subcategory}>{item.details?.subcategory || item.subcategory}</span>
+                  <span className={styles.miniMatrix}>
+                    Labour {formatMoney(rateForItem(item, "labourOnly", context))} - Material {formatMoney(rateForItem(item, "materialOnly", context))} - L+M {formatMoney(rateForItem(item, "labourMaterial", context))}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      ) : (
+        <div className={styles.simpleStart}>
+          <strong>Start simple</strong>
+          <p>Type the work above or use Smart Rate AI. The full market rate list is hidden until you need it.</p>
+        </div>
+      )}
+
+      {selectedItem && showRateDatabase ? (
         <Card>
-          <CardHeader title={selectedItem.work} subtitle={`${selectedItem.category} · ${city.city} · ${contractType}`} action={<Badge tone="info">{selectedItem.unit}</Badge>} />
+          <CardHeader title={selectedItem.work} subtitle={`${selectedItem.category}  -  ${city.city}  -  ${contractType}`} action={<Badge tone="info">{selectedItem.unit}</Badge>} />
           <div className={styles.matrixGrid}>
             {rateLevels.map((level) => (
               <div className={styles.rateBox} key={level.key}>
@@ -852,7 +1020,7 @@ export function RateIntelligenceScreen() {
               <div>
                 <span>Team</span>
                 <strong>
-                  {selectedItem.details.skilledWorkersRequired} skilled · {selectedItem.details.helpersRequired} helper
+                  {selectedItem.details.skilledWorkersRequired} skilled  -  {selectedItem.details.helpersRequired} helper
                 </strong>
               </div>
               <div>
@@ -880,7 +1048,7 @@ export function RateIntelligenceScreen() {
             <span>Exact customer cost</span>
             <strong>{formatMoney(exactCost)}</strong>
             <p>
-              {selectedItem?.work || "Selected work"} · {quantity} {selectedItem?.unit || "unit"} x {formatMoney(exactUnitCost)} / {selectedItem?.unit || "unit"}
+              {selectedItem?.work || "Selected work"}  -  {quantity} {selectedItem?.unit || "unit"} x {formatMoney(exactUnitCost)} / {selectedItem?.unit || "unit"}
             </p>
           </div>
           <Badge tone="success">{quoteMode === "labourOnly" ? "Labour only" : quoteMode === "materialOnly" ? "Material only" : "Labour + Material"}</Badge>
@@ -959,7 +1127,7 @@ export function RateIntelligenceScreen() {
               <div>
                 <strong>Itemized Analyzer</strong>
                 <span>
-                  {detailedEstimate.productivityDays} working day estimate · contractor cost {formatMoney(detailedEstimate.contractorCost)}
+                  {detailedEstimate.productivityDays} working day estimate  -  contractor cost {formatMoney(detailedEstimate.contractorCost)}
                 </span>
               </div>
               <Badge tone="info">{formatMoney(detailedEstimate.perUnitSelling)} / {selectedItem?.unit}</Badge>
@@ -1080,7 +1248,7 @@ export function RateIntelligenceScreen() {
           </div>
           <div className={styles.compactResult}>
             <strong>{formatMoney(labourResult.sellingPrice)}</strong>
-            <span>{formatMoney(labourResult.perUnitCost)} base cost per unit · profit {formatMoney(labourResult.profit)}</span>
+            <span>{formatMoney(labourResult.perUnitCost)} base cost per unit  -  profit {formatMoney(labourResult.profit)}</span>
           </div>
         </Card>
 
@@ -1122,7 +1290,7 @@ export function RateIntelligenceScreen() {
           </div>
           <div className={styles.compactResult}>
             <strong>{formatMoney(electricalResult.sellingPrice)}</strong>
-            <span>{electricalResult.wireLengthFt} ft wire · {electricalResult.conduitLengthFt} ft conduit · {electricalResult.pointCount} points</span>
+            <span>{electricalResult.wireLengthFt} ft wire  -  {electricalResult.conduitLengthFt} ft conduit  -  {electricalResult.pointCount} points</span>
           </div>
         </Card>
 
@@ -1136,12 +1304,12 @@ export function RateIntelligenceScreen() {
           </div>
           <div className={styles.compactResult}>
             <strong>{formatMoney(carpenterResult.sellingPrice)}</strong>
-            <span>{carpenterResult.plywoodSheets} plywood sheets · {carpenterResult.laminateSheets} laminate sheets · hardware {formatMoney(carpenterResult.hardwareCost)}</span>
+            <span>{carpenterResult.plywoodSheets} plywood sheets  -  {carpenterResult.laminateSheets} laminate sheets  -  hardware {formatMoney(carpenterResult.hardwareCost)}</span>
           </div>
         </Card>
       </div>
 
-      <Card>
+      <Card className={styles.aiQuickCard}>
         <CardHeader title="Smart Rate AI" subtitle="Type natural language. It finds the work item, calculates quantity, builds exact cost and creates an editable BOQ draft." />
         <div className={styles.smartPromptGrid} aria-label="Quick estimate prompts">
           {smartPromptPresets.map((prompt) => (
@@ -1150,11 +1318,20 @@ export function RateIntelligenceScreen() {
             </button>
           ))}
         </div>
-        <textarea className={styles.assistantInput} value={assistantText} onChange={(event) => setAssistantText(event.target.value)} />
+        <textarea
+          aria-label="Describe work for AI estimate"
+          className={styles.assistantInput}
+          placeholder="Example: 4 by 8 bathroom tiling labour and material"
+          value={assistantText}
+          onChange={(event) => setAssistantText(event.target.value)}
+        />
         <div className={styles.actionRow}>
           <Button onClick={runAssistant}>Analyze Text</Button>
           <Button variant="secondary" onClick={analyzeCurrentCalculator}>
             Analyze Current Calculator
+          </Button>
+          <Button variant="secondary" onClick={() => void askCloudAiForRate()} disabled={cloudAiBusy}>
+            {cloudAiBusy ? "AI Checking..." : "AI Deep Check"}
           </Button>
           {assistantAnalysis?.estimate ? (
             <Button variant="secondary" onClick={() => void copyText(analysisToWhatsAppMessage(assistantAnalysis), "Smart estimate copied for WhatsApp")}>
@@ -1186,6 +1363,12 @@ export function RateIntelligenceScreen() {
             </div>
           </div>
         ) : null}
+        {cloudAiInsight || cloudAiIssue ? (
+          <div className={cloudAiIssue ? styles.aiCloudIssue : styles.aiCloudInsight}>
+            <strong>{cloudAiIssue ? "Cloud AI Status" : "Cloud AI Review"}</strong>
+            <p>{cloudAiIssue || cloudAiInsight}</p>
+          </div>
+        ) : null}
         {assistantAnalysis ? (
           <div className={styles.aiPanel}>
             <div className={styles.aiPanelHeader}>
@@ -1193,7 +1376,7 @@ export function RateIntelligenceScreen() {
                 <span>AI Rate Brain</span>
                 <strong>{assistantAnalysis.item?.work || "Need more information"}</strong>
                 <p>
-                  {assistantAnalysis.item?.category || "No category"} · {assistantAnalysis.quoteMode.replace(/([A-Z])/g, " $1").toLowerCase()} ·{" "}
+                  {assistantAnalysis.item?.category || "No category"}  -  {assistantAnalysis.quoteMode.replace(/([A-Z])/g, " $1").toLowerCase()}  - {" "}
                   {Math.round(assistantAnalysis.confidence * 100)}% confidence
                 </p>
               </div>
@@ -1208,7 +1391,7 @@ export function RateIntelligenceScreen() {
                   <span>Exact customer estimate</span>
                   <strong>{formatMoney(assistantAnalysis.estimate.sellingPrice)}</strong>
                   <p>
-                    {assistantAnalysis.quantity.quantity} {assistantAnalysis.item?.unit} · {formatMoney(assistantAnalysis.estimate.perUnitSelling)} / {assistantAnalysis.item?.unit}
+                    {assistantAnalysis.quantity.quantity} {assistantAnalysis.item?.unit}  -  {formatMoney(assistantAnalysis.estimate.perUnitSelling)} / {assistantAnalysis.item?.unit}
                   </p>
                 </div>
 
@@ -1306,7 +1489,7 @@ export function RateIntelligenceScreen() {
 
             {assistantAnalysis.source ? (
               <p className={styles.aiSource}>
-                Source: {assistantAnalysis.source.category} · {assistantAnalysis.source.city} · rate valid {assistantAnalysis.source.rateValidityDate || "as per database"}
+                Source: {assistantAnalysis.source.category}  -  {assistantAnalysis.source.city}  -  rate valid {assistantAnalysis.source.rateValidityDate || "as per database"}
               </p>
             ) : null}
           </div>
@@ -1338,7 +1521,7 @@ export function RateIntelligenceScreen() {
                   <span>#{index + 1}</span>
                   <strong>{row.description}</strong>
                   <p>
-                    {row.quantity} {row.unit} x {formatMoney(row.rate)} · GST {row.gstPercent}%
+                    {row.quantity} {row.unit} x {formatMoney(row.rate)}  -  GST {row.gstPercent}%
                   </p>
                 </div>
                 <div>

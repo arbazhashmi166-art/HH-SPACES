@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { db, lastSyncMetaKey, type PendingMutation } from "@/lib/db";
-import { AUTO_SYNC_EVENT, syncPendingMutations } from "@/lib/repository";
+import { AUTO_SYNC_EVENT, isSchemaSetupError, syncPendingMutations } from "@/lib/repository";
 import { supabase } from "@/lib/supabase";
 
 export type SyncTone = "success" | "warning" | "neutral";
-export type SyncState = "synced" | "syncing" | "pending" | "failed" | "offline" | "login_required" | "not_configured";
+export type SyncState = "synced" | "syncing" | "pending" | "failed" | "setup_needed" | "offline" | "login_required" | "not_configured";
 
 type SyncStatusInput = {
   companyId?: string;
@@ -67,51 +67,59 @@ export function useSyncStatus({ companyId, offlineMode, hasSession, cloudLoginIs
     const failedRows = pendingRows.filter((row) => row.lastError);
     const pendingCount = pendingRows.length;
     const failedCount = failedRows.length;
+    const schemaSetupCount = failedRows.filter((row) => row.lastError && isSchemaSetupError(row.lastError)).length;
+    const onlySchemaSetupIssues = failedCount > 0 && schemaSetupCount === failedCount;
     const firstIssue = failedRows[0]?.lastError || null;
     const friendlyIssue = firstIssue ? explainSyncIssue(firstIssue) : null;
     const state: SyncState = !cloudReady
       ? "not_configured"
       : offlineMode || !online
         ? "offline"
-        : failedCount
-          ? "failed"
-          : syncing
-            ? "syncing"
-            : pendingCount
-              ? "pending"
-              : hasSession
-                ? "synced"
-                : "login_required";
+        : onlySchemaSetupIssues
+          ? "setup_needed"
+          : failedCount
+            ? "failed"
+            : syncing
+              ? "syncing"
+              : pendingCount
+                ? "pending"
+                : hasSession
+                  ? "synced"
+                  : "login_required";
     const label =
       state === "not_configured"
         ? "Cloud not connected"
         : state === "offline"
           ? "Offline - saved on phone"
-          : state === "failed"
-            ? `${failedCount} sync ${failedCount === 1 ? "failed" : "failed"}`
-            : state === "syncing"
-              ? `Syncing ${pendingCount} ${pendingCount === 1 ? "entry" : "entries"}...`
-              : state === "pending"
-                ? `${pendingCount} waiting to sync`
-                : state === "synced"
-                  ? "All synced"
-                  : "Login for cloud sync";
+          : state === "setup_needed"
+            ? "Cloud setup needed"
+            : state === "failed"
+              ? `${failedCount} sync ${failedCount === 1 ? "failed" : "failed"}`
+              : state === "syncing"
+                ? `Syncing ${pendingCount} ${pendingCount === 1 ? "entry" : "entries"}...`
+                : state === "pending"
+                  ? `${pendingCount} waiting to sync`
+                  : state === "synced"
+                    ? "All synced"
+                    : "Login for cloud sync";
     const detail =
       state === "not_configured"
         ? "Supabase keys are missing in this build."
         : state === "offline"
           ? cloudLoginIssue || "Entries are saved on this phone until internet/cloud login works."
-          : state === "failed"
-            ? friendlyIssue || "Open Sync Centre and retry upload."
-            : state === "syncing"
-              ? "Uploading phone entries to Supabase."
-              : state === "pending"
-                ? "Entries are safe on this phone and will upload automatically."
-                : state === "synced"
-                  ? lastSyncedAt
-                    ? `Last checked ${new Date(lastSyncedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}.`
-                    : "Phone and cloud are connected."
-                  : "Sign in to share data across phone and laptop.";
+          : state === "setup_needed"
+            ? "Your entries are safe on this phone. Update Supabase tables once, then tap Retry Sync."
+            : state === "failed"
+              ? friendlyIssue || "Open Sync Centre and retry upload."
+              : state === "syncing"
+                ? "Uploading phone entries to Supabase."
+                : state === "pending"
+                  ? "Entries are safe on this phone and will upload automatically."
+                  : state === "synced"
+                    ? lastSyncedAt
+                      ? `Last checked ${new Date(lastSyncedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}.`
+                      : "Phone and cloud are connected."
+                    : "Sign in to share data across phone and laptop.";
     const tone: SyncTone = state === "synced" ? "success" : state === "login_required" ? "neutral" : "warning";
 
     return {
@@ -119,6 +127,7 @@ export function useSyncStatus({ companyId, offlineMode, hasSession, cloudLoginIs
       failedRows,
       pendingCount,
       failedCount,
+      schemaSetupCount,
       firstIssue,
       friendlyIssue,
       online,

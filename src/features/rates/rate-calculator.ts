@@ -245,14 +245,14 @@ export function inferQuantityFromText(input: {
     };
   }
 
-  const dimensionMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:x|×|by|\*)\s*(\d+(?:\.\d+)?)(?:\s*(?:x|×|by|\*)\s*(\d+(?:\.\d+)?))?/);
+  const dimensionMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:x|\u00d7|by|\*)\s*(\d+(?:\.\d+)?)(?:\s*(?:x|\u00d7|by|\*)\s*(\d+(?:\.\d+)?))?/);
   if (dimensionMatch?.[1] && dimensionMatch[2]) {
     const lengthFt = clampNumber(Number(dimensionMatch[1]));
     const widthFt = clampNumber(Number(dimensionMatch[2]));
     const heightFt = clampNumber(Number(dimensionMatch[3] || defaultWallHeightFt), 1, 50);
     const bathroomLike = hasAny(text, ["bathroom", "toilet", "washroom", "shower", "wc"]);
     const tileLike = hasAny(text + " " + workText, ["tile", "tiling", "dado"]);
-    const wallLike = hasAny(text + " " + workText, ["wall", "plaster", "painting", "paint", "cladding", "elevation", "facade", "façade"]);
+    const wallLike = hasAny(text + " " + workText, ["wall", "plaster", "painting", "paint", "cladding", "elevation", "facade"]);
     const floorLike = hasAny(text + " " + workText, ["floor", "ceiling", "pop", "gypsum", "false ceiling", "hall", "room", "slab", "terrace"]);
     const looksLikeTileSize = tileLike && lengthFt <= 4 && widthFt <= 4 && !bathroomLike && !hasAny(text, ["area", "room", "hall", "bathroom", "toilet", "wall size"]);
 

@@ -3,6 +3,7 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import type { PendingMutation } from "@/lib/db";
+import { isSchemaSetupError } from "@/lib/repository";
 import type { TableName } from "@/types/domain";
 import { explainSyncIssue, useSyncStatus } from "./useSyncStatus";
 import styles from "./SyncStatusCard.module.css";
@@ -70,7 +71,9 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
       : syncStatus.online
         ? session
           ? syncStatus.pendingCount
-            ? "Supabase login is active. New entries are saved safely on this phone first, then uploaded to Supabase. The pending entries will show on other devices after upload finishes."
+            ? syncStatus.state === "setup_needed"
+              ? "Your entries are safe on this phone. Supabase needs the latest database setup before these entries can appear on other devices."
+              : "Supabase login is active. New entries are saved safely on this phone first, then uploaded to Supabase. The pending entries will show on other devices after upload finishes."
             : "Supabase login is active. Entries save instantly on this phone and are already synced to Supabase."
           : "Supabase is configured. Login with ARBAZ123 or SAHIL123 to sync this device."
         : "No internet. Entries are saved locally and queued until this device is online.";
@@ -78,6 +81,8 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
     ? "Supabase Not Configured"
     : offlineMode || !session
       ? "Login Required for Sync"
+      : syncStatus.state === "setup_needed"
+        ? "Retry After Database Update"
       : syncStatus.syncing
         ? "Syncing..."
         : syncStatus.pendingCount
@@ -117,7 +122,7 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
               : "Entries are saving on this phone. Login for cloud sharing when needed."
             : session
               ? syncStatus.pendingCount
-                ? `${syncStatus.pendingCount} ${syncStatus.pendingCount === 1 ? "entry is" : "entries are"} backed up on this phone and waiting to upload to Supabase. ${syncStatus.friendlyIssue ? `Reason: ${syncStatus.friendlyIssue}` : "Auto-sync will retry every few seconds."}`
+                ? `${syncStatus.pendingCount} ${syncStatus.pendingCount === 1 ? "entry is" : "entries are"} backed up on this phone. ${syncStatus.friendlyIssue ? `Reason: ${syncStatus.friendlyIssue}` : "They will upload automatically when cloud sync is ready."}`
                 : "All entries are synced with Supabase. New entries will auto-save on this phone first, then sync to cloud."
               : "Use ARBAZ123 or SAHIL123 login when you want the same data on laptop and phone."}
         </p>
@@ -139,7 +144,9 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
                     </p>
                     {row.lastError ? <small>{explainSyncIssue(row.lastError)}</small> : null}
                   </div>
-                  <Badge tone={row.lastError ? "danger" : "warning"}>{row.lastError ? "Retry needed" : "Waiting"}</Badge>
+                  <Badge tone={row.lastError ? "danger" : "warning"}>
+                    {row.lastError && isSchemaSetupError(row.lastError) ? "Database update needed" : row.lastError ? "Retry needed" : "Waiting"}
+                  </Badge>
                 </div>
               ))}
               {syncStatus.pendingRows.length > 6 ? (

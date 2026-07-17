@@ -16,6 +16,8 @@ type Draft = {
   response: string;
 };
 
+type QueryResult<T> = { data: T[] | null };
+
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -102,10 +104,72 @@ function localDraft(message: string): Draft {
   };
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
+
+function asNumber(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function asStringArray(value: unknown) {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function rateFallback(message: string, rateAnalysis: unknown): Draft {
+  const analysis = asRecord(rateAnalysis);
+  const item = asRecord(analysis.item);
+  const quantity = asRecord(analysis.quantity);
+  const estimate = asRecord(analysis.estimate);
+  const strategy = asRecord(analysis.pricingStrategy);
+  const missingFields = asStringArray(analysis.missingFields);
+  const warnings = asStringArray(analysis.warnings);
+  const work = String(item.work || "Selected work");
+  const unit = String(item.unit || "unit");
+  const qty = asNumber(quantity.quantity);
+  const sellingPrice = asNumber(estimate.sellingPrice);
+  const recommendedTotal = asNumber(strategy.recommendedTotal) || sellingPrice;
+  const floor = asNumber(strategy.negotiationFloor);
+  const premium = asNumber(strategy.premiumTotal);
+  const riskLevel = String(strategy.riskLevel || "medium");
+  const response = [
+    `AI rate review: ${work} for ${qty || "given"} ${unit}.`,
+    `Customer estimate is ₹${Math.round(sellingPrice).toLocaleString("en-IN")}. Recommended quote is ₹${Math.round(recommendedTotal).toLocaleString("en-IN")}.`,
+    floor ? `Do not negotiate below ₹${Math.round(floor).toLocaleString("en-IN")} unless scope or material quality changes.` : "",
+    premium ? `Premium quote option: ₹${Math.round(premium).toLocaleString("en-IN")} for higher-risk or urgent work.` : "",
+    `Risk level: ${riskLevel}.`,
+    missingFields.length ? `Confirm before final quote: ${missingFields.join(", ")}.` : "",
+    warnings.length ? `Watch-outs: ${warnings.slice(0, 3).join(" ")}` : "",
+    "Final amount should still be checked after site measurement, brand selection and surface condition."
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return {
+    intent: "rate_estimate",
+    confidence: asNumber(analysis.confidence) || 0.7,
+    missing_fields: missingFields,
+    original_text: message,
+    draft: {
+      work,
+      unit,
+      quantity: qty,
+      selling_price: sellingPrice,
+      recommended_total: recommendedTotal,
+      negotiation_floor: floor,
+      premium_total: premium,
+      risk_level: riskLevel
+    },
+    response
+  };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
-    const { message, company_id } = await req.json();
+    const { message, company_id, rate_analysis } = await req.json();
+    const hasRateAnalysis = Boolean(rate_analysis && typeof rate_analysis === "object");
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
     const openAiKey = Deno.env.get("OPENAI_API_KEY") || "";
@@ -113,17 +177,21 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization") || "";
     const supabase = createClient(supabaseUrl, supabaseAnonKey, { global: { headers: { Authorization: authHeader } } });
 
-    const [sites, payments, expenses, materials, extraWorks, partnerDraws] = await Promise.all([
-      supabase.from("sites").select("id,name,client_name,budget,progress_percent,status").eq("company_id", company_id).limit(50),
-      supabase.from("client_payments").select("site_id,received_amount,pending_amount,payment_date").eq("company_id", company_id).limit(100),
-      supabase.from("expenses").select("site_id,category,amount,date").eq("company_id", company_id).limit(100),
-      supabase.from("materials").select("site_id,material_name,total,date,payment_status").eq("company_id", company_id).limit(100),
-      supabase.from("extra_works").select("site_id,work_type,description,amount,status,client_approved,date").eq("company_id", company_id).limit(100),
-      supabase.from("partner_draws").select("partner_name,category,amount,payment_mode,date,notes").eq("company_id", company_id).limit(100)
-    ]);
+    const emptyResult: QueryResult<Record<string, unknown>> = { data: [] };
+    const shouldLoadCompany = typeof company_id === "string" && company_id.length > 0;
+    const [sites, payments, expenses, materials, extraWorks, partnerDraws] = shouldLoadCompany
+      ? await Promise.all([
+          supabase.from("sites").select("id,name,client_name,budget,progress_percent,status").eq("company_id", company_id).limit(50),
+          supabase.from("client_payments").select("site_id,received_amount,pending_amount,payment_date").eq("company_id", company_id).limit(100),
+          supabase.from("expenses").select("site_id,category,amount,date").eq("company_id", company_id).limit(100),
+          supabase.from("materials").select("site_id,material_name,total,date,payment_status").eq("company_id", company_id).limit(100),
+          supabase.from("extra_works").select("site_id,work_type,description,amount,status,client_approved,date").eq("company_id", company_id).limit(100),
+          supabase.from("partner_draws").select("partner_name,category,amount,payment_mode,date,notes").eq("company_id", company_id).limit(100)
+        ])
+      : [emptyResult, emptyResult, emptyResult, emptyResult, emptyResult, emptyResult];
 
     if (!openAiKey) {
-      return new Response(JSON.stringify({ draft: localDraft(String(message || "")), source: "local" }), {
+      return new Response(JSON.stringify({ draft: hasRateAnalysis ? rateFallback(String(message || ""), rate_analysis) : localDraft(String(message || "")), source: "local" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
@@ -131,7 +199,8 @@ serve(async (req) => {
     const system = `You are H&H SPACES AI. Use only supplied company records. Return strict JSON with keys:
 intent, confidence, missing_fields, original_text, draft, response.
 Never say data was saved. Never create final records. If site_id is missing for site records, include "site_id" in missing_fields.
-Supported intents include attendance, material, expense, extra_work, partner_draw, client_payment, supplier_payment, progress, labour, reminder, and unknown.
+Supported intents include attendance, material, expense, extra_work, partner_draw, client_payment, supplier_payment, progress, labour, reminder, rate_estimate, and unknown.
+If rate_analysis is supplied, review that estimate as a construction pricing advisor. Use its item, quantity, estimate, pricing strategy, missing fields and warnings. Do not invent market rates outside the supplied analysis.
 Money must be numeric INR values. For questions, intent should be "unknown" and response must cite relevant source counts/totals.`;
 
     const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -154,7 +223,8 @@ Money must be numeric INR values. For questions, intent should be "unknown" and 
                 materials: materials.data || [],
                 extra_works: extraWorks.data || [],
                 partner_draws: partnerDraws.data || []
-              }
+              },
+              rate_analysis: hasRateAnalysis ? rate_analysis : null
             })
           }
         ]
