@@ -51,6 +51,47 @@
   font-weight: 950;
 }
 
+.setupHelp {
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(245, 158, 11, 0.14), rgba(245, 158, 11, 0.08)),
+    var(--app-surface);
+  padding: 14px;
+}
+
+.setupHelp strong {
+  display: block;
+  color: var(--app-text);
+  font-size: 14px;
+  font-weight: 950;
+  line-height: 1.25;
+}
+
+.setupHelp p {
+  margin: 7px 0 12px;
+  color: var(--app-muted);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.45;
+}
+
+.setupHelp span {
+  color: var(--app-text);
+  font-weight: 950;
+}
+
+.setupHelp button {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid color-mix(in srgb, var(--app-border) 90%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--app-surface) 94%, transparent);
+  color: var(--app-text);
+  font-size: 13px;
+  font-weight: 950;
+}
+
 .pendingList {
   display: grid;
   gap: 9px;

@@ -207,6 +207,9 @@ export default function LoginPage() {
               <Button type="button" full disabled>
                 Loading...
               </Button>
+              <Button type="button" full variant="secondary" onClick={() => setOfflineWarningOpen(true)}>
+                Continue Offline
+              </Button>
             </div>
           ) : mode === "login" ? (
             <form className={styles.form} onSubmit={onLogin}>

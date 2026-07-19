@@ -150,17 +150,29 @@ export function useSyncStatus({ companyId, offlineMode, hasSession, cloudLoginIs
 
 export function explainSyncIssue(issue: string) {
   const lower = issue.toLowerCase();
-  if (lower.includes("row-level security") || lower.includes("violates row level security")) {
+  if (
+    lower.includes("42501") ||
+    lower.includes("permission denied") ||
+    lower.includes("insufficient_privilege") ||
+    lower.includes("row-level security") ||
+    lower.includes("violates row level security")
+  ) {
     return "Supabase security rules blocked the upload. Run the latest supabase/schema.sql once, then tap Retry Sync.";
   }
-  if (lower.includes("could not find the table") || lower.includes("schema cache")) {
-    return "Supabase database tables are missing or outdated. Run supabase/schema.sql in Supabase SQL Editor.";
+  if (isSchemaSetupError(issue)) {
+    return "Supabase database tables are missing or outdated. Run supabase/schema.sql in Supabase SQL Editor, then tap Check Again.";
   }
   if (lower.includes("foreign key")) {
     return "A linked record, like the selected site or supplier, has not synced yet. Retry sync after a few seconds.";
   }
   if (lower.includes("duplicate") || lower.includes("unique")) {
     return "Supabase found a duplicate entry. The app will keep the phone copy and avoid creating another duplicate.";
+  }
+  if (lower.includes("jwt") || lower.includes("session") || lower.includes("auth")) {
+    return "Cloud login session needs refresh. Logout and login again, then retry sync.";
+  }
+  if (lower.includes("failed to fetch") || lower.includes("network") || lower.includes("timeout")) {
+    return "Internet or Supabase connection failed. Your entry is safe on this phone; retry when the network is stable.";
   }
   return issue;
 }

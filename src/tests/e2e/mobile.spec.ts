@@ -41,7 +41,8 @@ test("mobile app shell opens login and offline dashboard", async ({ page }) => {
   await page.getByRole("button", { name: "I Understand, Continue Offline" }).click();
   await expect(page.getByRole("heading", { name: "Home" })).toBeVisible();
   await expect(page.getByTestId("ask-ai-button")).toBeVisible();
-  await expect(page.getByText("All Active Sites").first()).toBeVisible();
+  await expect(page.getByLabel("Current site selector")).toContainText("All Sites");
+  await expect(page.getByRole("heading", { name: "All Active Sites" })).toBeVisible();
   const dashboardFilterPosition = await page.locator('[aria-label="Dashboard filters"]').evaluate((element) => getComputedStyle(element).position);
   expect(dashboardFilterPosition).toBe("static");
 
@@ -141,7 +142,7 @@ test("permanent site selector defaults quick entry forms to the current site", a
   await saveAndExpect(page, dialog, siteName);
 
   await page.getByLabel("Select current site").selectOption({ label: `${siteName} - Selector Client ${suffix}` });
-  await expect(page.getByText("Working Scope")).toBeVisible();
+  await expect(page.getByText("Site", { exact: true }).first()).toBeVisible();
   await expect(page.getByText(siteName).first()).toBeVisible();
 
   await expect(page.getByRole("navigation", { name: "Main navigation" }).getByRole("button", { name: "Add", exact: true })).toBeVisible();

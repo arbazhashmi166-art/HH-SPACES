@@ -417,9 +417,8 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
           </div>
           <div className={styles.siteDock} aria-label="Current site selector">
             <div className={styles.siteDockText}>
-              <span>Working Scope</span>
-              <strong>{selectedSite ? selectedSite.name : "All Active Sites"}</strong>
-              <small>{selectedSite ? `${selectedSite.client_name || "Client"} - ${selectedSite.status}` : `Company overview - ${activeSites.length} active sites`}</small>
+              <span>Site</span>
+              <strong>{selectedSite ? selectedSite.name : "All Sites"}</strong>
             </div>
             <select
               aria-label="Select current site"

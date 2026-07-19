@@ -25,6 +25,8 @@ const tableLabels: Partial<Record<TableName, string>> = {
   activity_logs: "Activity"
 };
 
+const schemaSqlUrl = "https://raw.githubusercontent.com/arbazhashmi166-art/HH-SPACES/main/supabase/schema.sql";
+
 function operationLabel(operation: PendingMutation["operationType"]) {
   if (operation === "insert") return "New entry";
   if (operation === "update") return "Updated entry";
@@ -86,8 +88,12 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
       : syncStatus.syncing
         ? "Syncing..."
         : syncStatus.pendingCount
-          ? "Retry Upload"
-          : "Sync Now";
+        ? "Retry Upload"
+        : "Sync Now";
+  const copySchemaLink = () => {
+    if (typeof navigator === "undefined" || !navigator.clipboard) return;
+    void navigator.clipboard.writeText(schemaSqlUrl);
+  };
 
   if (compact && syncStatus.pendingCount === 0 && syncStatus.online && syncStatus.cloudReady && !offlineMode) return null;
 
@@ -133,6 +139,18 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
             <strong>Sync Centre</strong>
             <span>{syncStatus.pendingCount ? "Entries below are safe on this phone." : "No waiting phone entries."}</span>
           </div>
+          {syncStatus.state === "setup_needed" ? (
+            <div className={styles.setupHelp}>
+              <strong>One-time Supabase database update needed</strong>
+              <p>
+                Your phone saved the entries. To show them on laptop and other users, open Supabase SQL Editor, run the latest
+                <span> supabase/schema.sql</span>, then come back and tap Check Again.
+              </p>
+              <button type="button" onClick={copySchemaLink}>
+                Copy schema.sql link
+              </button>
+            </div>
+          ) : null}
           {syncStatus.pendingRows.length ? (
             <div className={styles.pendingList}>
               {syncStatus.pendingRows.slice(0, 6).map((row) => (

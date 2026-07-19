@@ -41,6 +41,13 @@ type SyncPendingOptions = {
   retrySetupBlocked?: boolean;
 };
 
+type CloudErrorLike = {
+  code?: string | null;
+  message?: string | null;
+  details?: string | null;
+  hint?: string | null;
+};
+
 function isBrowserOnline() {
   return typeof navigator === "undefined" ? true : navigator.onLine;
 }
@@ -88,7 +95,17 @@ function cloudSyncedPayload(payload: Record<string, unknown>) {
 
 export function isSchemaSetupError(message: string) {
   const lower = message.toLowerCase();
-  return lower.includes("could not find the table") || lower.includes("schema cache") || lower.includes("pgrst205");
+  return (
+    lower.includes("pgrst204") ||
+    lower.includes("pgrst205") ||
+    lower.includes("schema cache") ||
+    lower.includes("could not find the table") ||
+    (lower.includes("relation") && lower.includes("does not exist"))
+  );
+}
+
+export function formatCloudError(error: CloudErrorLike) {
+  return [error.code, error.message, error.details, error.hint].filter(Boolean).join(" | ") || "Cloud sync failed";
 }
 
 export function shouldDeferSchemaSetupRetry(item: PendingMutation, retrySetupBlocked = false) {
@@ -176,7 +193,7 @@ export async function fetchRecords<T extends TableName>(table: T, companyId: str
     .order("updated_at", { ascending: false });
 
   if (error) {
-    if (error.code === "PGRST205" || error.message.toLowerCase().includes("could not find the table")) return localRows;
+    if (isSchemaSetupError(formatCloudError(error))) return localRows;
     if (localRows.length) return localRows;
     throw error;
   }
@@ -226,7 +243,7 @@ export async function createRecord<T extends TableName>(
       await applyLocal(table, companyId, cloudRecord);
       return cloudRecord;
     }
-    lastError = error.message;
+    lastError = formatCloudError(error);
   }
 
   await queueMutation({
@@ -287,7 +304,7 @@ export async function updateRecord<T extends TableName>(
       await applyLocal(table, companyId, syncedRecord);
       return syncedRecord;
     }
-    lastError = error.message;
+    lastError = formatCloudError(error);
   }
 
   await queueMutation({
@@ -353,7 +370,7 @@ export async function deleteRecord<T extends TableName>(table: T, companyId: str
       .eq("id", recordId)
       .eq("company_id", companyId);
     if (!error) return;
-    lastError = error.message;
+    lastError = formatCloudError(error);
   }
 
   await queueMutation({
@@ -396,12 +413,13 @@ export async function syncPendingMutations(companyId: string, options: SyncPendi
           : await client.update(payload).eq("id", item.recordId).eq("company_id", companyId);
 
     if (response.error) {
+      const lastError = formatCloudError(response.error);
       await db.pendingMutations.update(item.id, {
         retryCount: item.retryCount + 1,
-        lastError: response.error.message,
+        lastError,
         updatedAt: nowIso()
       });
-      if (isSchemaSetupError(response.error.message)) continue;
+      if (isSchemaSetupError(lastError)) continue;
       break;
     }
     if (item.operationType !== "delete") {

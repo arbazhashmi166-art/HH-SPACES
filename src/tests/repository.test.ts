@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { isSchemaSetupError, mergeCloudRowsWithLocalPending, queuedInsertPayloadsAsRecords, shouldDeferSchemaSetupRetry } from "@/lib/repository";
+import {
+  formatCloudError,
+  isSchemaSetupError,
+  mergeCloudRowsWithLocalPending,
+  queuedInsertPayloadsAsRecords,
+  shouldDeferSchemaSetupRetry
+} from "@/lib/repository";
 import type { PendingMutation } from "@/lib/db";
 import type { Site } from "@/types/domain";
 
@@ -116,7 +122,20 @@ describe("repository cloud/local merge", () => {
 
   it("recognizes missing Supabase schema failures without treating them like data loss", () => {
     expect(isSchemaSetupError("Could not find the table 'public.daily_closings' in the schema cache")).toBe(true);
+    expect(isSchemaSetupError("PGRST205 | Could not find the table 'public.partner_draws' in the schema cache")).toBe(true);
+    expect(isSchemaSetupError("PGRST204 | Could not find the 'sync_status' column of 'materials' in the schema cache")).toBe(true);
+    expect(isSchemaSetupError('42P01 | relation "public.daily_closings" does not exist')).toBe(true);
     expect(isSchemaSetupError("violates row-level security policy")).toBe(false);
+  });
+
+  it("keeps Supabase error codes with messages so sync status can classify failures", () => {
+    expect(
+      formatCloudError({
+        code: "PGRST204",
+        message: "Could not find the 'sync_status' column of 'materials' in the schema cache",
+        hint: "Reload the schema cache"
+      })
+    ).toBe("PGRST204 | Could not find the 'sync_status' column of 'materials' in the schema cache | Reload the schema cache");
   });
 
   it("defers missing-table sync retries until the user asks to retry after database setup", () => {
