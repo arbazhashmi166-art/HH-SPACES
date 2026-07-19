@@ -89,6 +89,31 @@ describe("rate intelligence calculations", () => {
     expect(pointCount.quantity).toBe(1);
   });
 
+  test("does not confuse 2x4 tile size with bathroom measurement", () => {
+    const tile = searchRateDatabase("2x4 bathroom wall tile 4 by 8 bathroom", 1)[0]!;
+    const bathroom = inferQuantityFromText({ text: "2x4 bathroom wall tile 4 by 8 bathroom", item: tile });
+    const onlyTileSize = inferQuantityFromText({ text: "2x4 bathroom wall tile", item: tile });
+
+    expect(tile.work).toContain("Bathroom");
+    expect(bathroom.method).toBe("bathroom-area");
+    expect(bathroom.lengthFt).toBe(4);
+    expect(bathroom.widthFt).toBe(8);
+    expect(bathroom.quantity).toBe(220);
+    expect(bathroom.note).toContain("Tile size 2x4");
+    expect(onlyTileSize.method).toBe("default");
+    expect(onlyTileSize.note).toContain("Only tile size 2x4");
+  });
+
+  test("calculates room wall area for painting from room size and height", () => {
+    const paint = searchRateDatabase("10x12 room painting full system height 9", 1)[0]!;
+    const area = inferQuantityFromText({ text: "10x12 room painting full system height 9", item: paint });
+
+    expect(paint.work).toContain("Painting");
+    expect(area.method).toBe("room-wall-area");
+    expect(area.quantity).toBe(396);
+    expect(area.heightFt).toBe(9);
+  });
+
   test("calculates labour per unit and selling price", () => {
     const result = calculateLabour({
       masons: 2,
@@ -177,6 +202,10 @@ describe("rate intelligence calculations", () => {
     expect(analysis.estimate?.sellingPrice).toBeGreaterThan(40000);
     expect(analysis.boqRow?.quantity).toBe(220);
     expect(analysis.customerSummary).toContain("estimate");
+    expect(analysis.precision.score).toBeGreaterThan(55);
+    expect(analysis.ratePlans.map((plan) => plan.label)).toContain("Standard L+M");
+    expect(analysis.assumptions.some((entry) => entry.label === "Measurement")).toBeTruthy();
+    expect(analysis.formulaLines.some((line) => line.includes("Calculated bathroom tile area"))).toBeTruthy();
     expect(analysis.pricingStrategy?.recommendedTotal).toBeGreaterThan(analysis.pricingStrategy?.negotiationFloor ?? 0);
     expect(analysis.pricingStrategy?.riskLevel).toBe("medium");
     expect(analysis.confidenceReasons.some((reason) => reason.includes("Quantity detected"))).toBeTruthy();

@@ -797,14 +797,38 @@ export function searchRateDatabase(query: string, limit = 20) {
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
-      const phraseScore = haystack.includes(query.toLowerCase().trim()) ? 8 : 0;
+      const normalizedQuery = query.toLowerCase().trim();
+      const phraseScore = haystack.includes(normalizedQuery) ? 18 : 0;
+      const packageScore =
+        /complete\s+bathroom|bathroom\s+complete/.test(normalizedQuery) && workText.includes("complete bathroom")
+          ? 24
+          : /complete\s+(?:2bhk|3bhk|interior)|(?:2bhk|3bhk)\s+interior/.test(normalizedQuery) && workText.includes("interior estimate")
+            ? 18
+            : 0;
+      const categoryScore =
+        /(?:tile|tiling|dado)/.test(normalizedQuery) && item.category === "Tiling"
+          ? 10
+          : /(?:waterproof|leakage|membrane|coating)/.test(normalizedQuery) && (item.category === "Waterproofing" || item.category === "Waterproof Coating")
+            ? 10
+            : /(?:paint|painting|putty|primer)/.test(normalizedQuery) && item.category === "Painting"
+              ? 10
+              : /(?:pop|ceiling|cove|gypsum)/.test(normalizedQuery) && (item.category === "POP" || item.category === "False Ceiling")
+                ? 10
+                : /(?:electrical|wire|wiring|point|switch|mcb)/.test(normalizedQuery) && item.category === "Electrical"
+                  ? 10
+                  : 0;
+      const bathroomTileScore =
+        /(?:bathroom|toilet|washroom)/.test(normalizedQuery) && /(?:tile|tiling|dado)/.test(normalizedQuery) && /(?:complete bathroom|bathroom wall tile|2x4 wall tile)/.test(haystack)
+          ? 20
+          : 0;
+      const genericSystemScore = /waterproof/.test(normalizedQuery) && workText.includes("waterproof") ? 14 : 0;
       const score = terms.reduce((sum, term) => {
         const genericWeight = genericTerms.has(term) ? 0.25 : 1;
         if (containsTerm(workText, term)) return sum + 4 * genericWeight;
         if (containsTerm(aliasText, term)) return sum + 2 * genericWeight;
         if (containsTerm(detailText, term)) return sum + 1 * genericWeight;
         return sum;
-      }, phraseScore);
+      }, phraseScore + packageScore + categoryScore + bathroomTileScore + genericSystemScore);
       return { item, score };
     })
     .filter((entry) => entry.score > 0)

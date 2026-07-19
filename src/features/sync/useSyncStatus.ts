@@ -112,7 +112,7 @@ export function useSyncStatus({ companyId, offlineMode, hasSession, cloudLoginIs
         : state === "offline"
           ? cloudLoginIssue || "Entries are saved on this phone until internet/cloud login works."
           : state === "setup_needed"
-            ? "Your entries are safe on this phone. Update Supabase tables once, then tap Retry Sync."
+            ? "Your entries are safe on this phone. Update Supabase tables once, then tap Check Again."
             : state === "failed"
               ? friendlyIssue || "Open Sync Centre and retry upload."
               : state === "syncing"

@@ -79,6 +79,7 @@ export default function LoginPage() {
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [offlineWarningOpen, setOfflineWarningOpen] = useState(false);
+  const [ready, setReady] = useState(false);
 
   const loginForm = useForm<LoginValues>({ resolver: zodResolver(loginSchema), defaultValues: { email: "", password: "" } });
   const signupForm = useForm<SignupValues>({
@@ -93,6 +94,7 @@ export default function LoginPage() {
   }, [company, loading, router]);
 
   useEffect(() => {
+    setReady(true);
     const remembered = typeof window === "undefined" ? null : window.localStorage.getItem(rememberLoginKey);
     if (remembered) loginForm.setValue("email", remembered);
   }, [loginForm]);
@@ -199,7 +201,14 @@ export default function LoginPage() {
           {error ? <p className={styles.error}>{error}</p> : null}
           {success ? <p className={styles.success}>{success}</p> : null}
 
-          {mode === "login" ? (
+          {!ready ? (
+            <div className={styles.form} aria-label="Preparing secure login">
+              <p className={styles.note}>Preparing secure login on this device...</p>
+              <Button type="button" full disabled>
+                Loading...
+              </Button>
+            </div>
+          ) : mode === "login" ? (
             <form className={styles.form} onSubmit={onLogin}>
               <FieldShell label="Username or Email" error={loginForm.formState.errors.email?.message}>
                 <TextInput

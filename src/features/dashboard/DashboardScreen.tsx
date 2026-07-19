@@ -29,18 +29,14 @@ import {
   attendanceBreakdown,
   getDashboardDateRange,
   getDashboardGreeting,
+  scopeSiteRowsForDashboard,
+  scopeSitesForDashboard,
   isWithinDateRange,
   type DashboardDatePreset
 } from "./dashboard-utils";
 import styles from "./Dashboard.module.css";
 
-type SiteScoped = { site_id?: string | null };
 type AttentionItem = { title: string; message: string; route: string; severity: "critical" | "warning" | "info"; action: string };
-
-function scopeRows<T extends SiteScoped>(rows: T[], siteId: string) {
-  if (!siteId) return rows;
-  return rows.filter((row) => row.site_id === siteId);
-}
 
 function withSite(path: string, siteId: string) {
   const currentSiteId = siteId || (typeof window === "undefined" ? "" : window.localStorage.getItem(selectedSiteStorageKey) || "");
@@ -113,21 +109,19 @@ export function DashboardScreen() {
   };
 
   const selectedSite = useMemo(() => (sites.data || []).find((site) => site.id === selectedSiteId) || null, [selectedSiteId, sites.data]);
-  const scopedSites = useMemo(() => (selectedSiteId ? (sites.data || []).filter((site) => site.id === selectedSiteId) : sites.data || []), [selectedSiteId, sites.data]);
-  const scopedAttendance = useMemo(() => scopeRows(attendance.data || [], selectedSiteId), [attendance.data, selectedSiteId]);
-  const scopedMaterials = useMemo(() => scopeRows(materials.data || [], selectedSiteId), [materials.data, selectedSiteId]);
-  const scopedExpenses = useMemo(() => scopeRows(expenses.data || [], selectedSiteId), [expenses.data, selectedSiteId]);
-  const scopedPayments = useMemo(() => scopeRows(payments.data || [], selectedSiteId), [payments.data, selectedSiteId]);
-  const scopedSupplierPayments = useMemo(() => scopeRows(supplierPayments.data || [], selectedSiteId), [selectedSiteId, supplierPayments.data]);
-  const scopedPartnerDraws = useMemo(() => scopeRows(partnerDraws.data || [], selectedSiteId), [partnerDraws.data, selectedSiteId]);
-  const scopedProgress = useMemo(() => scopeRows(progress.data || [], selectedSiteId), [progress.data, selectedSiteId]);
-  const scopedExtraWorks = useMemo(() => scopeRows(extraWorks.data || [], selectedSiteId), [extraWorks.data, selectedSiteId]);
-  const scopedLabour = useMemo(
-    () => (selectedSiteId ? (labour.data || []).filter((item) => item.site_id === selectedSiteId) : labour.data || []),
-    [labour.data, selectedSiteId]
-  );
-  const scopedReminders = useMemo(() => scopeRows(reminders.data || [], selectedSiteId), [reminders.data, selectedSiteId]);
-  const scopedActivity = useMemo(() => scopeRows(activity.data || [], selectedSiteId), [activity.data, selectedSiteId]);
+  const scopedSites = useMemo(() => scopeSitesForDashboard(sites.data || [], selectedSiteId), [selectedSiteId, sites.data]);
+  const openSiteIds = useMemo(() => new Set(scopeSitesForDashboard(sites.data || [], "").map((site) => site.id)), [sites.data]);
+  const scopedAttendance = useMemo(() => scopeSiteRowsForDashboard(attendance.data || [], selectedSiteId, openSiteIds), [attendance.data, openSiteIds, selectedSiteId]);
+  const scopedMaterials = useMemo(() => scopeSiteRowsForDashboard(materials.data || [], selectedSiteId, openSiteIds), [materials.data, openSiteIds, selectedSiteId]);
+  const scopedExpenses = useMemo(() => scopeSiteRowsForDashboard(expenses.data || [], selectedSiteId, openSiteIds), [expenses.data, openSiteIds, selectedSiteId]);
+  const scopedPayments = useMemo(() => scopeSiteRowsForDashboard(payments.data || [], selectedSiteId, openSiteIds), [payments.data, openSiteIds, selectedSiteId]);
+  const scopedSupplierPayments = useMemo(() => scopeSiteRowsForDashboard(supplierPayments.data || [], selectedSiteId, openSiteIds), [openSiteIds, selectedSiteId, supplierPayments.data]);
+  const scopedPartnerDraws = useMemo(() => scopeSiteRowsForDashboard(partnerDraws.data || [], selectedSiteId, openSiteIds), [openSiteIds, partnerDraws.data, selectedSiteId]);
+  const scopedProgress = useMemo(() => scopeSiteRowsForDashboard(progress.data || [], selectedSiteId, openSiteIds), [openSiteIds, progress.data, selectedSiteId]);
+  const scopedExtraWorks = useMemo(() => scopeSiteRowsForDashboard(extraWorks.data || [], selectedSiteId, openSiteIds), [extraWorks.data, openSiteIds, selectedSiteId]);
+  const scopedLabour = useMemo(() => scopeSiteRowsForDashboard(labour.data || [], selectedSiteId, openSiteIds), [labour.data, openSiteIds, selectedSiteId]);
+  const scopedReminders = useMemo(() => scopeSiteRowsForDashboard(reminders.data || [], selectedSiteId, openSiteIds), [openSiteIds, reminders.data, selectedSiteId]);
+  const scopedActivity = useMemo(() => scopeSiteRowsForDashboard(activity.data || [], selectedSiteId, openSiteIds), [activity.data, openSiteIds, selectedSiteId]);
 
   const periodAttendance = useMemo(() => scopedAttendance.filter((item) => isWithinDateRange(item.date, dateRange)), [dateRange, scopedAttendance]);
   const periodMaterials = useMemo(() => scopedMaterials.filter((item) => isWithinDateRange(item.date, dateRange)), [dateRange, scopedMaterials]);
@@ -251,7 +245,15 @@ export function DashboardScreen() {
           action: "Open labour"
         }
       : null,
-    syncStatus.failedCount > 0
+    syncStatus.state === "setup_needed"
+      ? {
+          title: "Cloud database update needed",
+          message: syncStatus.detail,
+          route: "/settings#supabase-sync",
+          severity: "warning" as const,
+          action: "Open sync centre"
+        }
+      : syncStatus.failedCount > 0
       ? {
           title: "Sync failed",
           message: syncStatus.detail,

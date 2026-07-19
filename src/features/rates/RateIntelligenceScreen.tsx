@@ -777,6 +777,7 @@ export function RateIntelligenceScreen() {
         : null,
       quantity: analysis.quantity,
       quoteMode: analysis.quoteMode,
+      precision: analysis.precision,
       estimate: analysis.estimate
         ? {
             labourCost: analysis.estimate.labourCost,
@@ -791,6 +792,9 @@ export function RateIntelligenceScreen() {
         : null,
       pricingStrategy: analysis.pricingStrategy,
       marketBands: analysis.marketBands,
+      assumptions: analysis.assumptions,
+      ratePlans: analysis.ratePlans,
+      formulaLines: analysis.formulaLines,
       missingFields: analysis.missingFields,
       warnings: analysis.warnings,
       recommendations: analysis.recommendations,
@@ -1413,6 +1417,35 @@ export function RateIntelligenceScreen() {
                     <strong>{formatMoney(assistantAnalysis.estimate.gstCost)}</strong>
                   </div>
                 </div>
+
+                <div className={styles.aiPrecisionStrip}>
+                  <div>
+                    <span>Precision</span>
+                    <strong>{assistantAnalysis.precision.label}</strong>
+                    <p>
+                      {assistantAnalysis.precision.score}% - {assistantAnalysis.precision.reason}
+                    </p>
+                  </div>
+                  <div>
+                    <span>Best customer rate</span>
+                    <strong>{formatMoney(assistantAnalysis.pricingStrategy?.suggestedPerUnitRate || assistantAnalysis.estimate.perUnitSelling)} / {assistantAnalysis.item?.unit}</strong>
+                    <p>Use this for a quick customer discussion, then confirm site measurements.</p>
+                  </div>
+                </div>
+
+                {assistantAnalysis.ratePlans.length ? (
+                  <div className={styles.aiPlanGrid}>
+                    {assistantAnalysis.ratePlans.map((plan) => (
+                      <div key={`${plan.label}-${plan.rateLevel}`}>
+                        <span>{plan.label}</span>
+                        <strong>{formatMoney(plan.total)}</strong>
+                        <p>
+                          {formatMoney(plan.unitRate)} / {assistantAnalysis.item?.unit} - {plan.useCase}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </>
             ) : null}
 
@@ -1447,6 +1480,25 @@ export function RateIntelligenceScreen() {
                 <span>Standard {formatMoney(assistantAnalysis.marketBands.standard)}</span>
                 <span>Premium {formatMoney(assistantAnalysis.marketBands.premium)}</span>
                 <span>Luxury {formatMoney(assistantAnalysis.marketBands.luxury)}</span>
+              </div>
+            ) : null}
+
+            {(assistantAnalysis.assumptions.length || assistantAnalysis.formulaLines.length) && assistantAnalysis.item ? (
+              <div className={styles.aiExplainGrid}>
+                <div>
+                  <h3>Assumptions</h3>
+                  {assistantAnalysis.assumptions.slice(0, 6).map((item) => (
+                    <p key={`${item.label}-${item.value}`}>
+                      <strong>{item.label}:</strong> {item.value}
+                    </p>
+                  ))}
+                </div>
+                <div>
+                  <h3>Formula Used</h3>
+                  {assistantAnalysis.formulaLines.slice(0, 6).map((item) => (
+                    <p key={item}>{item}</p>
+                  ))}
+                </div>
               </div>
             ) : null}
 

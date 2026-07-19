@@ -326,6 +326,17 @@ export const defaultRateCatalog: RateItem[] = [
     scope: ["Ready or cast cornice", "Fixing", "Finishing"]
   },
   {
+    id: "pop-modern-cove-ceiling",
+    category: "POP",
+    subcategory: "POP and designer ceiling",
+    work: "POP Modern Cove Ceiling",
+    unit: "sqft",
+    aliases: ["pop cove ceiling", "modern pop ceiling", "cove light pop", "profile light groove pop", "hall pop design"],
+    rates: matrix(95, 145, 220, 340, 52, 93),
+    scope: ["POP base", "Cove detail", "Profile groove", "Mesh and finishing", "Labour"],
+    caution: "LED profile, complex curves, double height, and paint finish are quoted separately unless included."
+  },
+  {
     id: "false-gypsum",
     category: "False Ceiling",
     work: "Gypsum False Ceiling",
@@ -369,6 +380,17 @@ export const defaultRateCatalog: RateItem[] = [
     aliases: ["2x4 tile", "bathroom wall tile", "wall tile", "dado"],
     rates: matrix(145, 180, 230, 290, 45, 135),
     scope: ["2x4 tile", "Adhesive", "Grout", "Labour", "Normal pattern"]
+  },
+  {
+    id: "tile-bathroom-complete-package",
+    category: "Tiling",
+    subcategory: "Bathroom special tile work",
+    work: "Complete Bathroom Tiling Package",
+    unit: "sqft",
+    aliases: ["complete bathroom tiling", "bathroom complete tiling", "4x8 bathroom tiling", "2x4 bathroom wall tile", "bathroom wall and floor tile", "bathroom tile labour material"],
+    rates: matrix(150, 190, 255, 340, 48, 142),
+    scope: ["Wall tile", "Floor tile", "Adhesive", "Grout", "Normal cutouts", "Labour", "Cleaning"],
+    caution: "Confirm wall height, plumbing cutouts, niche work, tile brand, waterproofing status and slope before final quote."
   },
   {
     id: "tile-highlighter",
@@ -434,6 +456,17 @@ export const defaultRateCatalog: RateItem[] = [
     scope: ["Brick bat", "Cement mortar", "Slope", "Labour"]
   },
   {
+    id: "waterproof-bathroom-complete-system",
+    category: "Waterproofing",
+    subcategory: "Waterproofing systems",
+    work: "Bathroom Waterproofing Complete System",
+    unit: "sqft",
+    aliases: ["complete bathroom waterproofing", "bathroom waterproofing with material", "toilet waterproofing with material", "sunken waterproofing", "bathroom leakage treatment"],
+    rates: matrix(95, 155, 225, 320, 38, 117),
+    scope: ["Surface cleaning", "Corner fillet", "Pipe junction treatment", "Chemical coating", "Flood test support", "Labour"],
+    caution: "Leakage repair rate can increase if old tile removal, crack injection, hacking, or screed replacement is needed."
+  },
+  {
     id: "waterproof-pu",
     category: "Waterproof Coating",
     work: "PU Waterproof Coating",
@@ -488,6 +521,17 @@ export const defaultRateCatalog: RateItem[] = [
     scope: ["Profile", "LED strip", "Driver basis", "Labour"]
   },
   {
+    id: "electrical-3bhk-point-package",
+    category: "Electrical",
+    subcategory: "Residential electrical package",
+    work: "Complete 3BHK Electrical Point Package",
+    unit: "point",
+    aliases: ["3bhk electrical estimate", "complete electrical points", "flat wiring estimate", "electrical point package", "house wiring with material"],
+    rates: matrix(1350, 1900, 2800, 4200, 650, 1250),
+    scope: ["Conduit basis", "Wire basis", "Switch box", "Point wiring", "Testing", "Labour"],
+    caution: "DB, main cable, premium switches, smart automation, core cutting and false ceiling coordination may be separate."
+  },
+  {
     id: "plumbing-point",
     category: "Plumbing",
     work: "Plumbing Point",
@@ -531,6 +575,17 @@ export const defaultRateCatalog: RateItem[] = [
     aliases: ["texture", "designer paint", "wall texture"],
     rates: matrix(75, 130, 220, 380, 45, 85),
     scope: ["Texture material", "Pattern labour", "Finishing"]
+  },
+  {
+    id: "paint-interior-full-system",
+    category: "Painting",
+    subcategory: "Interior painting system",
+    work: "Interior Painting Full System",
+    unit: "sqft",
+    aliases: ["complete painting", "wall putty primer paint", "interior paint with material", "room painting full system", "house painting estimate"],
+    rates: matrix(32, 48, 72, 110, 18, 30),
+    scope: ["Sanding", "Two coat putty basis", "Primer", "Two coat emulsion", "Labour", "Basic masking"],
+    caution: "Damp walls, texture, premium paint brand, high ceiling and furniture protection can change the final rate."
   },
   {
     id: "fabrication-railing",
@@ -587,6 +642,17 @@ export const defaultRateCatalog: RateItem[] = [
     scope: ["Plywood", "Laminate", "Hardware basic", "Labour"]
   },
   {
+    id: "carpentry-wardrobe-standard",
+    category: "Carpentry",
+    subcategory: "Wardrobe work",
+    work: "Wardrobe With Laminate Finish",
+    unit: "sqft",
+    aliases: ["wardrobe rate", "cupboard rate", "laminate wardrobe", "sliding wardrobe", "hinged wardrobe", "carpenter wardrobe"],
+    rates: matrix(950, 1350, 1850, 2800, 320, 1030),
+    scope: ["Plywood or HDHMR basis", "Laminate", "Edge band", "Basic hardware", "Carpenter labour", "Installation"],
+    caution: "Premium hardware, acrylic, glass shutter, profile handle, sensor light and factory finish can change the rate."
+  },
+  {
     id: "furniture-tv-unit",
     category: "Furniture",
     work: "TV Unit",
@@ -603,6 +669,17 @@ export const defaultRateCatalog: RateItem[] = [
     aliases: ["kitchen", "base cabinet", "modular kitchen"],
     rates: matrix(1400, 2100, 3200, 4800, 450, 1650),
     scope: ["Plywood carcass", "Laminate", "Basic hardware", "Labour"]
+  },
+  {
+    id: "modular-kitchen-standard-package",
+    category: "Modular Kitchen",
+    subcategory: "Kitchen cabinet package",
+    work: "Modular Kitchen Standard Package",
+    unit: "sqft",
+    aliases: ["modular kitchen cost", "kitchen cabinet rate", "kitchen furniture", "kitchen trolly", "kitchen shutters"],
+    rates: matrix(1450, 2100, 3200, 5200, 420, 1680),
+    scope: ["Base cabinets", "Wall cabinets", "Laminate shutters", "Standard hardware", "Installation"],
+    caution: "Granite top, baskets, tandem, premium hardware, acrylic shutters, appliances and civil changes are separate unless selected."
   },
   {
     id: "door-flush",
@@ -750,7 +827,7 @@ export const contractTypeMultipliers = {
 export type ContractType = keyof typeof contractTypeMultipliers;
 
 export const rateSourceNotes = [
-  "Indicative India/Pune planning ranges only. Final quote should be checked against current supplier and labour rates.",
+  "Indicative India/Pune planning ranges, reviewed for July 2026 estimator use. Final quote should be checked against current supplier and labour rates.",
   "Waterproofing can vary sharply by surface condition, cracks, slope, product system, warranty and leakage severity.",
   "Tile, carpentry and false ceiling rates depend heavily on brand, hardware, design complexity, wastage and access."
 ];

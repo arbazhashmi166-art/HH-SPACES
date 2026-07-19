@@ -854,7 +854,10 @@
 
 .aiStatGrid,
 .aiStrategyGrid,
-.aiMarketGrid {
+.aiMarketGrid,
+.aiPlanGrid,
+.aiPrecisionStrip,
+.aiExplainGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
@@ -862,6 +865,9 @@
 
 .aiStatGrid div,
 .aiStrategyGrid div,
+.aiPlanGrid div,
+.aiPrecisionStrip div,
+.aiExplainGrid > div,
 .aiMarketGrid span,
 .aiColumns > div,
 .aiReasonBox {
@@ -873,6 +879,9 @@
 
 :global(.dark) .aiStatGrid div,
 :global(.dark) .aiStrategyGrid div,
+:global(.dark) .aiPlanGrid div,
+:global(.dark) .aiPrecisionStrip div,
+:global(.dark) .aiExplainGrid > div,
 :global(.dark) .aiMarketGrid span,
 :global(.dark) .aiColumns > div,
 :global(.dark) .aiReasonBox {
@@ -880,7 +889,9 @@
 }
 
 .aiStatGrid strong,
-.aiStrategyGrid strong {
+.aiStrategyGrid strong,
+.aiPlanGrid strong,
+.aiPrecisionStrip strong {
   display: block;
   margin-top: 6px;
   color: var(--text-strong);
@@ -888,6 +899,8 @@
 }
 
 .aiStrategyGrid span,
+.aiPlanGrid span,
+.aiPrecisionStrip span,
 .aiReasonBox h3 {
   color: var(--text-muted);
   font-size: 0.78rem;
@@ -897,11 +910,36 @@
 }
 
 .aiStrategyGrid p,
+.aiPlanGrid p,
+.aiPrecisionStrip p,
+.aiExplainGrid p,
 .aiReasonBox p {
   margin: 6px 0 0;
   color: var(--text-muted);
   font-size: 0.84rem;
   line-height: 1.4;
+}
+
+.aiPrecisionStrip {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.aiPlanGrid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.aiExplainGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.aiExplainGrid h3 {
+  margin: 0 0 8px;
+  color: var(--text-strong);
+  font-size: 0.92rem;
+}
+
+.aiExplainGrid p strong {
+  color: var(--text-strong);
 }
 
 .aiReasonBox {
@@ -1085,6 +1123,9 @@
   .formulaButtons,
   .aiStatGrid,
   .aiStrategyGrid,
+  .aiPlanGrid,
+  .aiPrecisionStrip,
+  .aiExplainGrid,
   .aiMarketGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1117,6 +1158,9 @@
   .formulaButtons,
   .aiStatGrid,
   .aiStrategyGrid,
+  .aiPlanGrid,
+  .aiPrecisionStrip,
+  .aiExplainGrid,
   .aiMarketGrid {
     grid-template-columns: 1fr;
   }

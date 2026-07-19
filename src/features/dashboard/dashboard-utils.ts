@@ -1,4 +1,4 @@
-import type { Attendance } from "@/types/domain";
+import type { Attendance, Site } from "@/types/domain";
 
 export type DashboardDatePreset = "today" | "yesterday" | "this_week" | "this_month";
 
@@ -54,6 +54,20 @@ export function attendanceBreakdown(rows: Attendance[]) {
     total: rows.length,
     effectivePresent: present + halfDay * 0.5
   };
+}
+
+export function isOpenDashboardSite(site: Pick<Site, "status">) {
+  return site.status !== "completed";
+}
+
+export function scopeSitesForDashboard(sites: Site[], selectedSiteId: string) {
+  if (selectedSiteId) return sites.filter((site) => site.id === selectedSiteId);
+  return sites.filter(isOpenDashboardSite);
+}
+
+export function scopeSiteRowsForDashboard<T extends { site_id?: string | null }>(rows: T[], selectedSiteId: string, openSiteIds: Set<string>) {
+  if (selectedSiteId) return rows.filter((row) => row.site_id === selectedSiteId);
+  return rows.filter((row) => !row.site_id || openSiteIds.has(row.site_id));
 }
 
 function startOfDay(date: Date) {

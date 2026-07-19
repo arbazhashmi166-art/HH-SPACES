@@ -25,10 +25,32 @@ export type RateAiSource = {
   rateValidityDate?: string;
 };
 
+export type RatePrecision = {
+  level: "exact" | "strong" | "planning";
+  label: string;
+  score: number;
+  reason: string;
+};
+
+export type RatePlan = {
+  label: string;
+  quoteMode: QuoteMode;
+  rateLevel: RateLevel;
+  unitRate: number;
+  total: number;
+  useCase: string;
+};
+
+export type RateAssumption = {
+  label: string;
+  value: string;
+};
+
 export type RateAiAnalysis = {
   prompt: string;
   intent: RateAiIntent;
   confidence: number;
+  precision: RatePrecision;
   item: RateItem | null;
   alternatives: RateItem[];
   quantity: InferredQuantityResult | null;
@@ -58,6 +80,9 @@ export type RateAiAnalysis = {
     breakEvenTotal: number;
     suggestedPerUnitRate: number;
   } | null;
+  assumptions: RateAssumption[];
+  ratePlans: RatePlan[];
+  formulaLines: string[];
   confidenceReasons: string[];
   missingFields: string[];
   warnings: string[];
@@ -122,13 +147,30 @@ function scoreCatalogItem(item: RateItem, text: string) {
   const work = `${item.category} ${item.subcategory || ""} ${item.work}`.toLowerCase();
   const aliases = [...item.aliases, ...(item.details?.commonAlternativeNames || [])].join(" ").toLowerCase();
   const details = `${item.specification || ""} ${item.details?.detailedSpecification || ""} ${item.details?.materialConsumptionFormula || ""}`.toLowerCase();
+  const haystack = `${work} ${aliases} ${details}`;
+  const itemWords = item.work
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((word) => word.length > 2);
+  let score = 0;
+
+  if (haystack.includes(text.trim())) score += 24;
+  if (itemWords.length && itemWords.every((word) => text.includes(word))) score += 14;
+  if (hasAny(text, ["complete bathroom", "bathroom complete"]) && hasAny(work, ["complete bathroom"])) score += 22;
+  if (hasAny(text, ["bathroom tiling", "bathroom tile", "toilet tiling", "toilet tile"]) && !hasAny(text, ["wall only", "only wall", "dado only"]) && work.includes("complete bathroom")) {
+    score += 18;
+  }
+  if (hasAny(text, ["2bhk", "3bhk", "complete interior"]) && hasAny(work, ["complete 2bhk", "complete 3bhk", "interior estimate"])) score += 18;
+  if (hasAny(text, ["waterproof", "waterproofing"]) && work.includes("waterproof")) score += 14;
+  if (hasAny(text, ["labour only", "labor only", "without material"]) && item.rates.labourOnly > 0) score += 4;
+  if (hasAny(text, ["with material", "labour and material", "complete"]) && item.rates.labourMaterial > 0) score += 4;
 
   return terms.reduce((sum, term) => {
     if (work.includes(term)) return sum + 5;
     if (aliases.includes(term)) return sum + 3;
     if (details.includes(term)) return sum + 1;
     return sum;
-  }, 0);
+  }, score);
 }
 
 function uniqueItems(items: RateItem[]) {
@@ -149,7 +191,9 @@ function findBestItems(text: string, catalog: RateItem[], fallbackItem?: RateIte
     .slice(0, 10)
     .map((entry) => entry.item);
 
-  return uniqueItems([...databaseMatches, ...catalogMatches, ...(fallbackItem ? [fallbackItem] : [])]);
+  return uniqueItems([...databaseMatches, ...catalogMatches, ...(fallbackItem ? [fallbackItem] : [])]).sort(
+    (a, b) => scoreCatalogItem(b, text) - scoreCatalogItem(a, text) || b.rates.standard - a.rates.standard
+  );
 }
 
 function detectChargeFlags(text: string, item: RateItem, quantity: InferredQuantityResult) {
@@ -288,6 +332,98 @@ function buildPricingStrategy(input: {
   };
 }
 
+function buildPrecision(input: {
+  quantity: InferredQuantityResult;
+  missingFields: string[];
+  warnings: string[];
+  confidence: number;
+}) {
+  const defaultPenalty = input.quantity.method === "default" ? 30 : 0;
+  const missingPenalty = input.missingFields.length * 9;
+  const warningPenalty = Math.min(input.warnings.length, 4) * 4;
+  const score = clamp(Math.round(input.confidence * 100) - defaultPenalty - missingPenalty - warningPenalty + 18, 10, 98);
+  const level: RatePrecision["level"] = score >= 82 ? "exact" : score >= 58 ? "strong" : "planning";
+
+  return {
+    level,
+    score,
+    label: level === "exact" ? "Site-ready estimate" : level === "strong" ? "Strong estimate" : "Planning estimate",
+    reason:
+      level === "exact"
+        ? "Clear work item and measurement were detected."
+        : level === "strong"
+          ? "Main rate is clear, but a few details should be confirmed."
+          : "Use this for quick discussion only; exact measurement or scope is still missing."
+  };
+}
+
+function buildRatePlans(input: {
+  item: RateItem;
+  quantity: InferredQuantityResult;
+  context: RateContext;
+  gstPercent: number;
+}): RatePlan[] {
+  const plans: Array<Pick<RatePlan, "label" | "quoteMode" | "rateLevel" | "useCase">> = [
+    { label: "Labour only", quoteMode: "labourOnly", rateLevel: "labourOnly", useCase: "Customer buys all material." },
+    { label: "Material only", quoteMode: "materialOnly", rateLevel: "materialOnly", useCase: "Only material supply or stock estimate." },
+    { label: "Standard L+M", quoteMode: "labourMaterial", rateLevel: "standard", useCase: "Normal customer quote." },
+    { label: "Premium finish", quoteMode: "labourMaterial", rateLevel: "premium", useCase: "Better brand, finish, and supervision." },
+    { label: "Luxury finish", quoteMode: "labourMaterial", rateLevel: "luxury", useCase: "High-end design, brand, and detailing." }
+  ];
+
+  return plans.map((plan) => {
+    const unitRate = rateForItem(input.item, plan.rateLevel, input.context);
+    return {
+      ...plan,
+      unitRate,
+      total: money(input.quantity.quantity * unitRate * (1 + input.gstPercent / 100))
+    };
+  });
+}
+
+function buildAssumptions(input: {
+  item: RateItem;
+  quantity: InferredQuantityResult;
+  quoteMode: QuoteMode;
+  context: RateContext;
+  gstPercent: number;
+  text: string;
+}) {
+  const assumptions: RateAssumption[] = [
+    { label: "City rate", value: `${input.context.city.city}, ${input.context.city.state} (${input.context.city.note})` },
+    { label: "Project type", value: input.context.contractType },
+    { label: "Scope", value: quoteModeLabel(input.quoteMode) },
+    { label: "Measurement", value: input.quantity.note },
+    { label: "GST", value: `${input.gstPercent}% included in customer total.` }
+  ];
+
+  if (input.quantity.heightFt && !hasAny(input.text, ["height", "wall height", " ht", " h "])) {
+    assumptions.push({ label: "Default height", value: `${input.quantity.heightFt} ft wall height assumed. Change it for exact bathroom or wall work.` });
+  }
+  if (input.quantity.wastagePercent && input.quantity.wastagePercent > 0) {
+    assumptions.push({ label: "Wastage", value: `${input.quantity.wastagePercent}% wastage included.` });
+  }
+  if (input.item.details?.minimumCharge) {
+    assumptions.push({ label: "Minimum charge", value: `${formatMoney(input.item.details.minimumCharge)} minimum billing protected for small work.` });
+  }
+
+  return assumptions;
+}
+
+function buildFormulaLines(input: {
+  item: RateItem;
+  quantity: InferredQuantityResult;
+  estimate: DetailedEstimateResult;
+  context: RateContext;
+}) {
+  return [
+    input.quantity.note,
+    `Adjusted for ${input.context.city.city} and project type before final quote.`,
+    `Customer rate: ${formatMoney(input.estimate.perUnitSelling)} / ${input.item.unit}.`,
+    ...input.estimate.itemizedLines.map((line) => `${line.label}: ${formatMoney(line.amount)}`)
+  ];
+}
+
 function sourceFor(item: RateItem, context: RateContext): RateAiSource {
   return {
     itemId: item.id,
@@ -300,6 +436,7 @@ function sourceFor(item: RateItem, context: RateContext): RateAiSource {
 
 export function analysisToWhatsAppMessage(analysis: RateAiAnalysis) {
   if (!analysis.item || !analysis.quantity || !analysis.estimate) return "Please add work type and measurement for estimate.";
+  const premiumPlan = analysis.ratePlans.find((plan) => plan.label === "Premium finish");
   return [
     "H&H SPACES - Smart Estimate",
     `Work: ${analysis.item.work}`,
@@ -307,6 +444,8 @@ export function analysisToWhatsAppMessage(analysis: RateAiAnalysis) {
     `Qty: ${analysis.quantity.quantity} ${analysis.item.unit}`,
     `Rate: ${formatMoney(analysis.estimate.perUnitSelling)} / ${analysis.item.unit}`,
     `Estimated Total: ${formatMoney(analysis.estimate.sellingPrice)}`,
+    `Precision: ${analysis.precision.label} (${analysis.precision.score}%)`,
+    premiumPlan ? `Premium option: ${formatMoney(premiumPlan.total)}` : "",
     analysis.missingFields.length ? `Need to confirm: ${analysis.missingFields.join(", ")}` : "",
     "Final quote may change after site measurement, material brand, design and surface condition."
   ]
@@ -337,6 +476,12 @@ export function analyzeRatePrompt(input: {
       prompt,
       intent,
       confidence: 0.1,
+      precision: {
+        level: "planning",
+        label: "Needs work item",
+        score: 10,
+        reason: "No matching construction rate item was found."
+      },
       item: null,
       alternatives: [],
       quantity: null,
@@ -349,6 +494,9 @@ export function analyzeRatePrompt(input: {
       boqRow: null,
       marketBands: null,
       pricingStrategy: null,
+      assumptions: [],
+      ratePlans: [],
+      formulaLines: [],
       confidenceReasons: [],
       missingFields: ["Work item is not clear", "Exact measurement or quantity"],
       warnings: ["No matching construction rate item was found in the internal rate database."],
@@ -406,12 +554,17 @@ export function analyzeRatePrompt(input: {
     missingFields.length * 0.06 -
     Math.min(warnings.length, 3) * 0.03;
   const finalConfidence = clamp(confidence, 0.12, 0.98);
+  const precision = buildPrecision({ quantity, missingFields, warnings, confidence: finalConfidence });
+  const assumptions = buildAssumptions({ item, quantity, quoteMode, context: input.context, gstPercent: input.gstPercent, text });
+  const ratePlans = buildRatePlans({ item, quantity, context: input.context, gstPercent: input.gstPercent });
+  const formulaLines = buildFormulaLines({ item, quantity, estimate, context: input.context });
   const exactness = quantity.method === "default" ? "planning" : "measurement-based";
 
   return {
     prompt,
     intent,
     confidence: finalConfidence,
+    precision,
     item,
     alternatives,
     quantity,
@@ -424,6 +577,9 @@ export function analyzeRatePrompt(input: {
     boqRow,
     marketBands,
     pricingStrategy,
+    assumptions,
+    ratePlans,
+    formulaLines,
     confidenceReasons,
     missingFields,
     warnings,

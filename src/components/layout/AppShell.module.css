@@ -6,7 +6,7 @@
 .content {
   width: min(100%, 720px);
   margin: 0 auto;
-  padding: 16px 14px calc(126px + env(safe-area-inset-bottom));
+  padding: 16px 14px calc(152px + env(safe-area-inset-bottom));
 }
 
 .shellLoading {
@@ -234,7 +234,7 @@
 .aiButton {
   position: fixed;
   right: max(14px, env(safe-area-inset-right));
-  bottom: calc(91px + env(safe-area-inset-bottom));
+  bottom: calc(112px + env(safe-area-inset-bottom));
   z-index: 50;
   min-height: 52px;
   display: inline-flex;
@@ -260,7 +260,7 @@
 .addButton {
   position: fixed;
   left: max(14px, env(safe-area-inset-left));
-  bottom: calc(91px + env(safe-area-inset-bottom));
+  bottom: calc(112px + env(safe-area-inset-bottom));
   z-index: 50;
   min-height: 52px;
   display: inline-flex;

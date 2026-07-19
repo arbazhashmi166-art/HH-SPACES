@@ -49,7 +49,7 @@ export type DetailedEstimateResult = QuoteBreakdown & {
 
 export type InferredQuantityResult = {
   quantity: number;
-  method: "explicit-area" | "bathroom-area" | "floor-area" | "wall-area" | "running-length" | "count" | "volume" | "default";
+  method: "explicit-area" | "bathroom-area" | "floor-area" | "wall-area" | "room-wall-area" | "running-length" | "count" | "volume" | "default";
   note: string;
   lengthFt?: number;
   widthFt?: number;
@@ -184,6 +184,60 @@ function hasAny(text: string, words: string[]) {
   return words.some((word) => text.includes(word));
 }
 
+type DimensionCandidate = {
+  lengthFt: number;
+  widthFt: number;
+  heightFt?: number;
+  raw: string;
+  context: string;
+  isLikelyTileSize: boolean;
+};
+
+function isCommonTileSize(lengthFt: number, widthFt: number, context: string) {
+  const normalizedSize = `${lengthFt}x${widthFt}`;
+  const reversedSize = `${widthFt}x${lengthFt}`;
+  const hasTileHint = hasAny(context, ["tile", "tiles", "tiling", "dado", "highlighter", "slab"]);
+  const hasRoomSizeHint = hasAny(context, ["bathroom size", "room size", "hall size", "wall size", "floor size", "area size"]);
+  const commonFeetSizes = new Set(["1x1", "1x2", "2x1", "2x2", "2x4", "4x2", "4x4"]);
+  const isMetricTile = /\b(?:mm|millimetre|millimeter)\b/.test(context) || lengthFt >= 300 || widthFt >= 300;
+
+  return hasTileHint && !hasRoomSizeHint && (commonFeetSizes.has(normalizedSize) || commonFeetSizes.has(reversedSize) || isMetricTile);
+}
+
+function extractDimensionCandidates(text: string): DimensionCandidate[] {
+  const candidates: DimensionCandidate[] = [];
+  const pattern = /(\d+(?:\.\d+)?)\s*(?:x|\u00d7|by|\*)\s*(\d+(?:\.\d+)?)(?:\s*(?:x|\u00d7|by|\*)\s*(\d+(?:\.\d+)?))?/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(text))) {
+    const lengthFt = clampNumber(Number(match[1]));
+    const widthFt = clampNumber(Number(match[2]));
+    const heightFt = match[3] ? clampNumber(Number(match[3]), 1, 50) : undefined;
+    const start = Math.max(0, match.index - 28);
+    const end = Math.min(text.length, match.index + match[0].length + 28);
+    const context = text.slice(start, end);
+    candidates.push({
+      lengthFt,
+      widthFt,
+      heightFt,
+      raw: match[0],
+      context,
+      isLikelyTileSize: isCommonTileSize(lengthFt, widthFt, context)
+    });
+  }
+
+  return candidates;
+}
+
+function findExplicitHeight(text: string) {
+  const match = text.match(/(?:height|wall\s*height|ht|h)\s*(?:is|:|=)?\s*(\d+(?:\.\d+)?)\s*(?:ft|feet|foot)?\b/);
+  return match?.[1] ? clampNumber(Number(match[1]), 1, 50) : null;
+}
+
+function bestMeasurementDimension(candidates: DimensionCandidate[]) {
+  return candidates.find((candidate) => !candidate.isLikelyTileSize) ?? null;
+}
+
 export function defaultQuantityForRateItem(item: RateItem) {
   if (["point", "nos", "visit", "trip", "lot", "day", "set"].includes(item.unit)) return 1;
   if (item.unit === "kg") return 100;
@@ -245,25 +299,30 @@ export function inferQuantityFromText(input: {
     };
   }
 
-  const dimensionMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:x|\u00d7|by|\*)\s*(\d+(?:\.\d+)?)(?:\s*(?:x|\u00d7|by|\*)\s*(\d+(?:\.\d+)?))?/);
-  if (dimensionMatch?.[1] && dimensionMatch[2]) {
-    const lengthFt = clampNumber(Number(dimensionMatch[1]));
-    const widthFt = clampNumber(Number(dimensionMatch[2]));
-    const heightFt = clampNumber(Number(dimensionMatch[3] || defaultWallHeightFt), 1, 50);
+  const dimensionCandidates = extractDimensionCandidates(text);
+  const measurementDimension = bestMeasurementDimension(dimensionCandidates);
+  const tileSizeCandidate = dimensionCandidates.find((candidate) => candidate.isLikelyTileSize);
+
+  if (measurementDimension) {
+    const lengthFt = measurementDimension.lengthFt;
+    const widthFt = measurementDimension.widthFt;
+    const explicitHeight = findExplicitHeight(text);
+    const heightFt = clampNumber(measurementDimension.heightFt || explicitHeight || defaultWallHeightFt, 1, 50);
     const bathroomLike = hasAny(text, ["bathroom", "toilet", "washroom", "shower", "wc"]);
     const tileLike = hasAny(text + " " + workText, ["tile", "tiling", "dado"]);
+    const roomLike = hasAny(text, ["room", "hall", "bedroom", "living", "kitchen", "office", "shop"]);
     const wallLike = hasAny(text + " " + workText, ["wall", "plaster", "painting", "paint", "cladding", "elevation", "facade"]);
     const floorLike = hasAny(text + " " + workText, ["floor", "ceiling", "pop", "gypsum", "false ceiling", "hall", "room", "slab", "terrace"]);
-    const looksLikeTileSize = tileLike && lengthFt <= 4 && widthFt <= 4 && !bathroomLike && !hasAny(text, ["area", "room", "hall", "bathroom", "toilet", "wall size"]);
+    const tileSizeNote = tileSizeCandidate ? ` Tile size ${tileSizeCandidate.raw} was treated as tile size, not site measurement.` : "";
 
-    if (unit === "sqft" && bathroomLike && tileLike && !looksLikeTileSize) {
+    if (unit === "sqft" && bathroomLike && tileLike) {
       const floorArea = lengthFt * widthFt;
       const wallArea = 2 * (lengthFt + widthFt) * heightFt;
       const quantity = roundMeasure((floorArea + wallArea) * (1 + wastagePercent / 100));
       return {
         quantity,
         method: "bathroom-area",
-        note: `Calculated bathroom tile area from ${lengthFt}x${widthFt} ft, ${heightFt} ft height and ${wastagePercent}% wastage: ${quantity} sqft.`,
+        note: `Calculated bathroom tile area from ${lengthFt}x${widthFt} ft, ${heightFt} ft height and ${wastagePercent}% wastage: ${quantity} sqft.${tileSizeNote}`,
         lengthFt,
         widthFt,
         heightFt,
@@ -271,12 +330,12 @@ export function inferQuantityFromText(input: {
       };
     }
 
-    if (unit === "sqft" && wallLike && !looksLikeTileSize) {
-      const quantity = roundMeasure(lengthFt * widthFt);
+    if (unit === "sqft" && roomLike && wallLike && !tileLike) {
+      const wallArea = roundMeasure(2 * (lengthFt + widthFt) * heightFt);
       return {
-        quantity,
-        method: "wall-area",
-        note: `Calculated wall/surface area from ${lengthFt}x${widthFt} ft: ${quantity} sqft.`,
+        quantity: wallArea,
+        method: "room-wall-area",
+        note: `Calculated room wall area from ${lengthFt}x${widthFt} ft room and ${heightFt} ft height: ${wallArea} sqft.`,
         lengthFt,
         widthFt,
         heightFt,
@@ -284,12 +343,25 @@ export function inferQuantityFromText(input: {
       };
     }
 
-    if (unit === "sqft" && (floorLike || !looksLikeTileSize)) {
+    if (unit === "sqft" && wallLike) {
+      const quantity = roundMeasure(lengthFt * widthFt);
+      return {
+        quantity,
+        method: "wall-area",
+        note: `Calculated wall/surface area from ${lengthFt}x${widthFt} ft: ${quantity} sqft.${tileSizeNote}`,
+        lengthFt,
+        widthFt,
+        heightFt,
+        wastagePercent: 0
+      };
+    }
+
+    if (unit === "sqft" && floorLike) {
       const quantity = roundMeasure(lengthFt * widthFt);
       return {
         quantity,
         method: "floor-area",
-        note: `Calculated floor/ceiling area from ${lengthFt}x${widthFt} ft: ${quantity} sqft.`,
+        note: `Calculated floor/ceiling area from ${lengthFt}x${widthFt} ft: ${quantity} sqft.${tileSizeNote}`,
         lengthFt,
         widthFt,
         heightFt,
@@ -320,6 +392,14 @@ export function inferQuantityFromText(input: {
         heightFt
       };
     }
+  }
+
+  if (tileSizeCandidate && unit === "sqft") {
+    return {
+      quantity: defaultQuantity,
+      method: "default",
+      note: `Only tile size ${tileSizeCandidate.raw} was found. Using default ${defaultQuantity} ${unit}; enter bathroom or wall length x width for exact cost.`
+    };
   }
 
   return {
