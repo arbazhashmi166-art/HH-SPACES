@@ -942,6 +942,111 @@
   color: var(--text-strong);
 }
 
+.aiCustomerBox {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  border-radius: 22px;
+  padding: 14px;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(16, 185, 129, 0.08));
+}
+
+.aiCustomerBox > div:first-child span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 950;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.aiCustomerBox > div:first-child strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-strong);
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.aiCustomerBox > div:first-child p {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.aiScopeGrid,
+.aiLogicChecks {
+  display: grid;
+  gap: 10px;
+}
+
+.aiScopeGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.aiScopeGrid > div,
+.aiLogicChecks > div {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+:global(.dark) .aiScopeGrid > div,
+:global(.dark) .aiLogicChecks > div {
+  background: rgba(15, 23, 42, 0.7);
+}
+
+.aiScopeGrid h3 {
+  margin: 0 0 8px;
+  color: var(--text-strong);
+  font-size: 0.92rem;
+}
+
+.aiScopeGrid p,
+.aiLogicChecks p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  line-height: 1.42;
+}
+
+.aiScopeGrid p + p {
+  margin-top: 7px;
+}
+
+.aiLogicChecks {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.aiLogicChecks span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 950;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.aiLogicChecks strong {
+  display: inline-flex;
+  margin: 7px 0;
+  border-radius: 999px;
+  padding: 5px 9px;
+  color: #064e3b;
+  background: rgba(16, 185, 129, 0.15);
+  font-size: 0.76rem;
+}
+
+.aiLogicChecks [data-status="check"] strong {
+  color: #92400e;
+  background: rgba(245, 158, 11, 0.18);
+}
+
+.aiLogicChecks [data-status="risk"] strong {
+  color: #991b1b;
+  background: rgba(239, 68, 68, 0.16);
+}
+
 .aiReasonBox {
   display: grid;
   gap: 8px;
@@ -1126,6 +1231,8 @@
   .aiPlanGrid,
   .aiPrecisionStrip,
   .aiExplainGrid,
+  .aiScopeGrid,
+  .aiLogicChecks,
   .aiMarketGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1161,6 +1268,8 @@
   .aiPlanGrid,
   .aiPrecisionStrip,
   .aiExplainGrid,
+  .aiScopeGrid,
+  .aiLogicChecks,
   .aiMarketGrid {
     grid-template-columns: 1fr;
   }

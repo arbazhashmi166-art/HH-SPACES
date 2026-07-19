@@ -46,6 +46,22 @@ export type RateAssumption = {
   value: string;
 };
 
+export type RateLogicCheck = {
+  label: string;
+  status: "ok" | "check" | "risk";
+  detail: string;
+};
+
+export type CustomerRateExplanation = {
+  customerSpecification: string;
+  plainLanguageSummary: string;
+  included: string[];
+  notIncluded: string[];
+  confirmBeforeFinal: string[];
+  talkingPoints: string[];
+  logicChecks: RateLogicCheck[];
+};
+
 export type RateAiAnalysis = {
   prompt: string;
   intent: RateAiIntent;
@@ -83,6 +99,7 @@ export type RateAiAnalysis = {
   assumptions: RateAssumption[];
   ratePlans: RatePlan[];
   formulaLines: string[];
+  customerExplanation: CustomerRateExplanation;
   confidenceReasons: string[];
   missingFields: string[];
   warnings: string[];
@@ -424,6 +441,91 @@ function buildFormulaLines(input: {
   ];
 }
 
+function buildCustomerExplanation(input: {
+  item: RateItem;
+  quantity: InferredQuantityResult;
+  quoteMode: QuoteMode;
+  estimate: DetailedEstimateResult;
+  missingFields: string[];
+  warnings: string[];
+  pricingStrategy: NonNullable<RateAiAnalysis["pricingStrategy"]>;
+}) {
+  const included = [
+    ...input.item.scope,
+    input.quoteMode === "labourOnly" ? "Labour execution only" : input.quoteMode === "materialOnly" ? "Material supply estimate only" : "Labour and material basis",
+    "Normal site access and standard working hours"
+  ].filter(Boolean);
+  const exclusions = input.item.details?.exclusions ?? [];
+  const notIncluded = [
+    ...exclusions,
+    input.quoteMode === "labourOnly" ? "Material, wastage, transport and brand price" : "",
+    input.quoteMode === "materialOnly" ? "Labour, supervision, finishing and site handling" : "",
+    "Major hidden repair, demolition, society restrictions, night work and design changes unless written in scope"
+  ].filter(Boolean);
+  const confirmBeforeFinal = [
+    ...input.missingFields,
+    input.quantity.method === "default" ? "Final measurement" : "",
+    input.item.category === "Tiling" ? "Tile brand, size, pattern, cutouts, grout type and wastage" : "",
+    input.item.category === "Waterproofing" || input.item.category === "Waterproof Coating" ? "Surface condition, crack treatment, slope, flood test and warranty system" : "",
+    input.item.category === "Carpentry" || input.item.category === "Furniture" || input.item.category === "Modular Kitchen" ? "Board type, laminate brand, hardware brand, shutter finish and accessories" : "",
+    input.item.category === "Electrical" ? "Switch brand, wire brand, DB/main cable scope, chasing and false-ceiling coordination" : "",
+    input.item.category === "Painting" ? "Paint brand, putty coats, wall dampness, furniture protection and colour count" : "",
+    input.item.category === "POP" || input.item.category === "False Ceiling" ? "Design complexity, light grooves, trap doors, board/POP system and paint inclusion" : ""
+  ].filter(Boolean);
+
+  const talkingPoints = [
+    `This estimate is for ${input.quantity.quantity} ${input.item.unit} of ${input.item.work}.`,
+    `The current customer rate is ${formatMoney(input.estimate.perUnitSelling)} per ${input.item.unit}, making the total ${formatMoney(input.estimate.sellingPrice)}.`,
+    `A safe negotiation floor is ${formatMoney(input.pricingStrategy.negotiationFloor)}; below this, scope or quality should be reduced.`,
+    input.pricingStrategy.riskLevel === "high"
+      ? "Tell the customer this needs site verification before final commitment."
+      : "Tell the customer this is workable after confirming measurement and material quality."
+  ];
+
+  const logicChecks: RateLogicCheck[] = [
+    {
+      label: "Work match",
+      status: "ok",
+      detail: `Matched internal rate item: ${input.item.work}.`
+    },
+    {
+      label: "Measurement",
+      status: input.quantity.method === "default" ? "risk" : input.quantity.method === "room-wall-area" || input.quantity.method === "bathroom-area" ? "ok" : "check",
+      detail: input.quantity.note
+    },
+    {
+      label: "Scope clarity",
+      status: input.missingFields.length ? "check" : "ok",
+      detail: input.missingFields.length ? `${input.missingFields.length} detail${input.missingFields.length === 1 ? "" : "s"} still need confirmation.` : "Scope is clear enough for a working quote."
+    },
+    {
+      label: "Risk buffer",
+      status: input.pricingStrategy.riskLevel === "high" ? "risk" : input.pricingStrategy.riskLevel === "medium" ? "check" : "ok",
+      detail: `${input.pricingStrategy.riskBufferPercent}% buffer applied for ${input.pricingStrategy.riskLevel} risk.`
+    },
+    {
+      label: "Risk warnings",
+      status: input.warnings.length ? "check" : "ok",
+      detail: input.warnings[0] ?? "No major risk warning detected from the prompt."
+    },
+    {
+      label: "Customer total",
+      status: "ok",
+      detail: `${formatMoney(input.estimate.sellingPrice)} including GST basis and recorded overhead/profit.`
+    }
+  ];
+
+  return {
+    customerSpecification: `${input.item.work} - ${quoteModeLabel(input.quoteMode)} for ${input.quantity.quantity} ${input.item.unit}. Includes ${included.slice(0, 4).join(", ")}.`,
+    plainLanguageSummary: `You can tell the customer: ${input.item.work} will cost about ${formatMoney(input.estimate.sellingPrice)} for ${input.quantity.quantity} ${input.item.unit}, subject to final measurement, material brand and site condition.`,
+    included: Array.from(new Set(included)).slice(0, 8),
+    notIncluded: Array.from(new Set(notIncluded)).slice(0, 8),
+    confirmBeforeFinal: Array.from(new Set(confirmBeforeFinal)).slice(0, 8),
+    talkingPoints,
+    logicChecks
+  };
+}
+
 function sourceFor(item: RateItem, context: RateContext): RateAiSource {
   return {
     itemId: item.id,
@@ -445,6 +547,9 @@ export function analysisToWhatsAppMessage(analysis: RateAiAnalysis) {
     `Rate: ${formatMoney(analysis.estimate.perUnitSelling)} / ${analysis.item.unit}`,
     `Estimated Total: ${formatMoney(analysis.estimate.sellingPrice)}`,
     `Precision: ${analysis.precision.label} (${analysis.precision.score}%)`,
+    analysis.customerExplanation.customerSpecification ? `Specification: ${analysis.customerExplanation.customerSpecification}` : "",
+    analysis.customerExplanation.included.length ? `Included: ${analysis.customerExplanation.included.slice(0, 5).join(", ")}` : "",
+    analysis.customerExplanation.notIncluded.length ? `Not included: ${analysis.customerExplanation.notIncluded.slice(0, 4).join(", ")}` : "",
     premiumPlan ? `Premium option: ${formatMoney(premiumPlan.total)}` : "",
     analysis.missingFields.length ? `Need to confirm: ${analysis.missingFields.join(", ")}` : "",
     "Final quote may change after site measurement, material brand, design and surface condition."
@@ -497,6 +602,21 @@ export function analyzeRatePrompt(input: {
       assumptions: [],
       ratePlans: [],
       formulaLines: [],
+      customerExplanation: {
+        customerSpecification: "",
+        plainLanguageSummary: "I need a clearer work item and measurement before calculating a customer amount.",
+        included: [],
+        notIncluded: [],
+        confirmBeforeFinal: ["Work item", "Measurement"],
+        talkingPoints: ["Ask the customer for work type, area, location and material quality."],
+        logicChecks: [
+          {
+            label: "Work match",
+            status: "risk",
+            detail: "No matching construction rate item was found."
+          }
+        ]
+      },
       confidenceReasons: [],
       missingFields: ["Work item is not clear", "Exact measurement or quantity"],
       warnings: ["No matching construction rate item was found in the internal rate database."],
@@ -558,6 +678,7 @@ export function analyzeRatePrompt(input: {
   const assumptions = buildAssumptions({ item, quantity, quoteMode, context: input.context, gstPercent: input.gstPercent, text });
   const ratePlans = buildRatePlans({ item, quantity, context: input.context, gstPercent: input.gstPercent });
   const formulaLines = buildFormulaLines({ item, quantity, estimate, context: input.context });
+  const customerExplanation = buildCustomerExplanation({ item, quantity, quoteMode, estimate, missingFields, warnings, pricingStrategy });
   const exactness = quantity.method === "default" ? "planning" : "measurement-based";
 
   return {
@@ -580,6 +701,7 @@ export function analyzeRatePrompt(input: {
     assumptions,
     ratePlans,
     formulaLines,
+    customerExplanation,
     confidenceReasons,
     missingFields,
     warnings,

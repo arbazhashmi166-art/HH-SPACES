@@ -11,7 +11,7 @@ import {
   rowsToCsv,
   toBoqRow
 } from "@/features/rates/rate-calculator";
-import { analyzeRatePrompt } from "@/features/rates/rate-ai-engine";
+import { analysisToWhatsAppMessage, analyzeRatePrompt } from "@/features/rates/rate-ai-engine";
 import { cityRateProfiles } from "@/features/rates/rate-catalog";
 import { constructionRateStats, expandedRateCatalog, searchRateDatabase } from "@/features/rates/expanded-rate-database";
 
@@ -206,6 +206,11 @@ describe("rate intelligence calculations", () => {
     expect(analysis.ratePlans.map((plan) => plan.label)).toContain("Standard L+M");
     expect(analysis.assumptions.some((entry) => entry.label === "Measurement")).toBeTruthy();
     expect(analysis.formulaLines.some((line) => line.includes("Calculated bathroom tile area"))).toBeTruthy();
+    expect(analysis.customerExplanation.customerSpecification).toContain("Complete Bathroom");
+    expect(analysis.customerExplanation.included.length).toBeGreaterThan(3);
+    expect(analysis.customerExplanation.confirmBeforeFinal.some((item) => item.includes("Tile brand"))).toBeTruthy();
+    expect(analysis.customerExplanation.logicChecks.some((check) => check.label === "Customer total" && check.status === "ok")).toBeTruthy();
+    expect(analysisToWhatsAppMessage(analysis)).toContain("Specification:");
     expect(analysis.pricingStrategy?.recommendedTotal).toBeGreaterThan(analysis.pricingStrategy?.negotiationFloor ?? 0);
     expect(analysis.pricingStrategy?.riskLevel).toBe("medium");
     expect(analysis.confidenceReasons.some((reason) => reason.includes("Quantity detected"))).toBeTruthy();

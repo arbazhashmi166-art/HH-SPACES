@@ -795,6 +795,7 @@ export function RateIntelligenceScreen() {
       assumptions: analysis.assumptions,
       ratePlans: analysis.ratePlans,
       formulaLines: analysis.formulaLines,
+      customerExplanation: analysis.customerExplanation,
       missingFields: analysis.missingFields,
       warnings: analysis.warnings,
       recommendations: analysis.recommendations,
@@ -1497,6 +1498,45 @@ export function RateIntelligenceScreen() {
                   <h3>Formula Used</h3>
                   {assistantAnalysis.formulaLines.slice(0, 6).map((item) => (
                     <p key={item}>{item}</p>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {assistantAnalysis.customerExplanation.customerSpecification ? (
+              <div className={styles.aiCustomerBox}>
+                <div>
+                  <span>Customer-ready explanation</span>
+                  <strong>{assistantAnalysis.customerExplanation.plainLanguageSummary}</strong>
+                  <p>{assistantAnalysis.customerExplanation.customerSpecification}</p>
+                </div>
+                <div className={styles.aiScopeGrid}>
+                  <div>
+                    <h3>Included</h3>
+                    {assistantAnalysis.customerExplanation.included.slice(0, 6).map((item) => (
+                      <p key={item}>{item}</p>
+                    ))}
+                  </div>
+                  <div>
+                    <h3>Not Included</h3>
+                    {assistantAnalysis.customerExplanation.notIncluded.slice(0, 6).map((item) => (
+                      <p key={item}>{item}</p>
+                    ))}
+                  </div>
+                  <div>
+                    <h3>Confirm Before Final</h3>
+                    {assistantAnalysis.customerExplanation.confirmBeforeFinal.slice(0, 6).map((item) => (
+                      <p key={item}>{item}</p>
+                    ))}
+                  </div>
+                </div>
+                <div className={styles.aiLogicChecks}>
+                  {assistantAnalysis.customerExplanation.logicChecks.map((check) => (
+                    <div key={check.label} data-status={check.status}>
+                      <span>{check.label}</span>
+                      <strong>{check.status === "ok" ? "OK" : check.status === "check" ? "Check" : "Risk"}</strong>
+                      <p>{check.detail}</p>
+                    </div>
                   ))}
                 </div>
               </div>
