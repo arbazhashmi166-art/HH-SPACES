@@ -4,9 +4,9 @@
 }
 
 .content {
-  width: min(100%, 720px);
+  width: min(100%, 680px);
   margin: 0 auto;
-  padding: 16px 14px calc(152px + env(safe-area-inset-bottom));
+  padding: 14px 14px calc(154px + env(safe-area-inset-bottom));
 }
 
 .shellLoading {
@@ -24,13 +24,14 @@
 .appHeader {
   position: relative;
   z-index: 30;
-  padding: calc(10px + env(safe-area-inset-top)) 14px 12px;
+  padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
   border-bottom: 0;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--app-bg) 96%, transparent), color-mix(in srgb, var(--app-bg) 82%, transparent)),
+    linear-gradient(180deg, color-mix(in srgb, var(--app-bg) 95%, transparent), color-mix(in srgb, var(--app-bg) 76%, transparent)),
     linear-gradient(115deg, color-mix(in srgb, var(--app-primary) 13%, transparent), transparent 44%),
     linear-gradient(245deg, color-mix(in srgb, var(--app-accent) 12%, transparent), transparent 48%);
-  backdrop-filter: blur(26px);
+  backdrop-filter: var(--app-blur);
+  -webkit-backdrop-filter: var(--app-blur);
 }
 
 .topBar {
@@ -42,12 +43,13 @@
   min-height: 66px;
   padding: 9px;
   border: 1px solid color-mix(in srgb, var(--app-border) 88%, transparent);
-  border-radius: 25px;
+  border-radius: 30px;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 94%, transparent), color-mix(in srgb, var(--app-surface) 84%, transparent)),
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 96%, transparent), color-mix(in srgb, var(--app-glass) 82%, transparent)),
     linear-gradient(135deg, color-mix(in srgb, var(--app-primary) 7%, transparent), transparent 44%);
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.1);
-  backdrop-filter: blur(22px);
+  box-shadow: var(--app-shadow);
+  backdrop-filter: var(--app-blur);
+  -webkit-backdrop-filter: var(--app-blur);
 }
 
 .brandCluster {
@@ -60,7 +62,7 @@
 .brandMark {
   width: 46px;
   height: 46px;
-  border-radius: 17px;
+  border-radius: 18px;
   display: grid;
   place-items: center;
   flex: 0 0 auto;
@@ -92,7 +94,7 @@
 
 .title {
   margin: 0;
-  font-size: 24px;
+  font-size: 25px;
   line-height: 1.15;
   font-weight: 950;
   letter-spacing: 0;
@@ -105,16 +107,18 @@
 }
 
 .iconButton {
-  width: 46px;
-  height: 46px;
+  width: 48px;
+  height: 48px;
   border: 1px solid color-mix(in srgb, var(--app-border) 90%, transparent);
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--app-surface-3), transparent 4%);
+  border-radius: 19px;
+  background: color-mix(in srgb, var(--app-glass-control) 86%, transparent);
   color: var(--app-text);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 12px 24px rgba(17, 24, 39, 0.08);
+  box-shadow: var(--app-shadow-soft);
+  backdrop-filter: var(--app-blur);
+  -webkit-backdrop-filter: var(--app-blur);
   transition:
     transform 150ms ease,
     box-shadow 150ms ease,
@@ -134,16 +138,18 @@
 
 .statusDock button {
   min-width: 0;
-  min-height: 46px;
+  min-height: 50px;
   border: 1px solid color-mix(in srgb, var(--app-border) 85%, transparent);
-  border-radius: 18px;
+  border-radius: 20px;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 90%, transparent), color-mix(in srgb, var(--app-surface-2) 78%, transparent));
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 92%, transparent), color-mix(in srgb, var(--app-glass-control) 72%, transparent));
   color: var(--app-text);
   padding: 0 10px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 900;
-  box-shadow: 0 12px 24px rgba(17, 24, 39, 0.07);
+  box-shadow: var(--app-shadow-soft);
+  backdrop-filter: var(--app-blur);
+  -webkit-backdrop-filter: var(--app-blur);
   transition:
     transform 150ms ease,
     box-shadow 150ms ease;
@@ -163,16 +169,19 @@
 
 .siteDock {
   display: grid;
-  grid-template-columns: minmax(92px, 0.72fr) minmax(0, 1fr);
+  grid-template-columns: minmax(84px, 0.55fr) minmax(0, 1fr);
   gap: 8px;
   align-items: center;
-  margin-top: 9px;
-  min-height: 48px;
-  border: 1px solid color-mix(in srgb, var(--app-border) 90%, transparent);
-  border-radius: 18px;
-  padding: 7px 8px 7px 11px;
-  background: color-mix(in srgb, var(--app-surface) 92%, transparent);
-  box-shadow: 0 10px 22px rgba(17, 24, 39, 0.06);
+  margin: 0 0 14px;
+  min-height: 50px;
+  border: 1px solid color-mix(in srgb, var(--app-border) 82%, transparent);
+  border-radius: 22px;
+  padding: 6px 7px 6px 12px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 94%, transparent), color-mix(in srgb, var(--app-glass) 78%, transparent));
+  box-shadow: var(--app-shadow-soft);
+  backdrop-filter: var(--app-blur);
+  -webkit-backdrop-filter: var(--app-blur);
 }
 
 .siteDockText {
@@ -210,14 +219,15 @@
 .siteDock select {
   min-width: 0;
   width: 100%;
-  min-height: 42px;
+  min-height: 44px;
   border: 1px solid color-mix(in srgb, var(--app-border) 88%, transparent);
-  border-radius: 15px;
-  background: var(--app-surface-2);
+  border-radius: 17px;
+  background: color-mix(in srgb, var(--app-glass-control) 88%, transparent);
   color: var(--app-text);
   padding: 0 10px;
   font-size: 13px;
   font-weight: 900;
+  box-shadow: inset 0 1px 0 var(--app-glass-line);
 }
 
 @media (max-width: 430px) {
@@ -236,17 +246,17 @@
   right: max(14px, env(safe-area-inset-right));
   bottom: calc(112px + env(safe-area-inset-bottom));
   z-index: 50;
-  min-height: 52px;
+  min-height: 56px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   border: 0;
   border-radius: 999px;
-  padding: 0 18px;
+  padding: 0 20px;
   background: linear-gradient(135deg, #101827, var(--app-primary) 54%, var(--app-primary-2));
   color: #fff;
   font-weight: 950;
-  box-shadow: 0 24px 46px rgba(49, 87, 255, 0.36);
+  box-shadow: 0 24px 46px rgba(49, 87, 255, 0.38);
   border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
@@ -262,7 +272,7 @@
   left: max(14px, env(safe-area-inset-left));
   bottom: calc(112px + env(safe-area-inset-bottom));
   z-index: 50;
-  min-height: 52px;
+  min-height: 56px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -270,10 +280,12 @@
   border-radius: 999px;
   padding: 0 16px;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 96%, transparent), color-mix(in srgb, var(--app-surface-2) 66%, transparent));
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 96%, transparent), color-mix(in srgb, var(--app-glass-control) 66%, transparent));
   color: var(--app-text);
   font-weight: 950;
   box-shadow: 0 18px 34px rgba(17, 24, 39, 0.16);
+  backdrop-filter: var(--app-blur);
+  -webkit-backdrop-filter: var(--app-blur);
 }
 
 :global(body.record-sheet-open) .aiButton,
@@ -291,12 +303,13 @@
   min-height: 88px;
   padding: 9px;
   border: 1px solid color-mix(in srgb, var(--app-border) 86%, transparent);
-  border-radius: 30px;
+  border-radius: 32px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(246, 249, 255, 0.86)),
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 98%, transparent), color-mix(in srgb, var(--app-glass) 86%, transparent)),
     linear-gradient(135deg, rgba(49, 87, 255, 0.08), transparent 44%);
   box-shadow: 0 -18px 42px rgba(15, 23, 42, 0.14);
-  backdrop-filter: blur(28px);
+  backdrop-filter: var(--app-blur);
+  -webkit-backdrop-filter: var(--app-blur);
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 4px;
@@ -310,9 +323,9 @@
 
 .navButton {
   min-width: 0;
-  min-height: 68px;
+  min-height: 70px;
   border: 0;
-  border-radius: 22px;
+  border-radius: 24px;
   background: transparent;
   color: var(--app-muted);
   display: flex;
@@ -328,8 +341,8 @@
 }
 
 .navButton ion-icon {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   flex: 0 0 auto;
   transition:
     transform 150ms ease,
@@ -373,15 +386,17 @@
   z-index: 1;
   width: min(100%, 640px);
   border: 1px solid color-mix(in srgb, var(--app-border) 86%, transparent);
-  border-radius: 32px 32px 26px 26px;
+  border-radius: 34px 34px 28px 28px;
   padding: 18px 16px calc(24px + env(safe-area-inset-bottom));
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 84%, transparent), var(--app-bg) 22%),
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 90%, transparent), var(--app-bg) 24%),
     var(--app-bg);
   color: var(--app-text);
   max-height: min(86vh, 760px);
   overflow: auto;
   box-shadow: 0 -30px 76px rgba(15, 23, 42, 0.28);
+  backdrop-filter: var(--app-blur);
+  -webkit-backdrop-filter: var(--app-blur);
   animation: sheetIn 160ms ease-out;
 }
 
@@ -453,9 +468,9 @@
 .quickCard {
   min-height: 104px;
   border: 1px solid var(--app-border);
-  border-radius: 24px;
+  border-radius: 26px;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 96%, transparent), color-mix(in srgb, var(--app-surface-2) 58%, transparent));
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 96%, transparent), color-mix(in srgb, var(--app-glass-control) 58%, transparent));
   color: var(--app-text);
   display: grid;
   grid-template-columns: 34px 1fr;
@@ -463,7 +478,7 @@
   align-items: center;
   padding: 14px;
   font-weight: 900;
-  box-shadow: 0 14px 28px rgba(17, 24, 39, 0.08);
+  box-shadow: var(--app-shadow-soft);
   transition:
     transform 150ms ease,
     box-shadow 150ms ease;
@@ -503,9 +518,9 @@
 .searchItem {
   min-height: 72px;
   border: 1px solid var(--app-border);
-  border-radius: 20px;
+  border-radius: 22px;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 96%, transparent), color-mix(in srgb, var(--app-surface-2) 42%, transparent));
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 96%, transparent), color-mix(in srgb, var(--app-glass-control) 62%, transparent));
   padding: 12px;
   display: grid;
   grid-template-columns: 44px 1fr;
@@ -597,6 +612,27 @@
 }
 
 @media (max-width: 360px) {
+  .content {
+    padding-inline: 12px;
+  }
+
+  .topBar {
+    border-radius: 26px;
+  }
+
+  .title {
+    font-size: 23px;
+  }
+
+  .statusDock {
+    gap: 7px;
+  }
+
+  .statusDock button {
+    padding: 0 7px;
+    font-size: 12px;
+  }
+
   .bottomNav {
     left: max(8px, env(safe-area-inset-left));
     right: max(8px, env(safe-area-inset-right));

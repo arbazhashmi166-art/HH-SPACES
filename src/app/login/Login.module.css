@@ -72,8 +72,11 @@
   color: var(--app-text);
   font-size: 12px;
   font-weight: 900;
-  background: color-mix(in srgb, var(--app-surface) 82%, transparent);
-  border: 1px solid color-mix(in srgb, var(--app-border) 76%, transparent);
+  background: color-mix(in srgb, var(--app-glass-control) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--app-glass-line) 82%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  backdrop-filter: var(--app-blur);
+  -webkit-backdrop-filter: var(--app-blur);
 }
 
 .formHeader {
@@ -118,11 +121,14 @@
 .form {
   display: grid;
   gap: 11px;
-  border: 1px solid color-mix(in srgb, var(--app-border) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--app-glass-line) 92%, transparent);
   border-radius: 30px;
   padding: 13px;
-  background: color-mix(in srgb, var(--app-surface) 96%, transparent);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 98%, transparent), color-mix(in srgb, var(--app-glass) 92%, transparent));
   box-shadow: var(--app-shadow-strong);
+  backdrop-filter: var(--app-blur);
+  -webkit-backdrop-filter: var(--app-blur);
 }
 
 @media (max-height: 760px) {
@@ -299,7 +305,8 @@
   display: grid;
   align-items: end;
   padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
-  background: rgba(15, 23, 42, 0.42);
+  background: color-mix(in srgb, #0f172a 44%, transparent);
+  touch-action: none;
 }
 
 .modal {
@@ -310,9 +317,13 @@
   border-radius: 30px;
   padding: 18px;
   color: var(--app-text);
-  background: var(--app-surface);
-  border: 1px solid color-mix(in srgb, var(--app-border) 90%, transparent);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 98%, transparent), color-mix(in srgb, var(--app-glass) 94%, transparent));
+  border: 1px solid color-mix(in srgb, var(--app-glass-line) 92%, transparent);
   box-shadow: 0 -18px 60px rgba(15, 23, 42, 0.24);
+  transform: translateZ(0);
+  backdrop-filter: var(--app-blur);
+  -webkit-backdrop-filter: var(--app-blur);
 }
 
 .modal h2 {
@@ -333,6 +344,16 @@
 .modalActions {
   display: grid;
   gap: 10px;
+  position: relative;
+  z-index: 1;
+}
+
+.modalActions :global(button) {
+  transition: none;
+}
+
+.modalActions :global(button:active) {
+  transform: none;
 }
 
 @media (max-width: 360px) {

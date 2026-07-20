@@ -1,8 +1,8 @@
 .button {
-  min-height: 48px;
+  min-height: 52px;
   border: 0;
-  border-radius: 18px;
-  padding: 0 19px;
+  border-radius: 20px;
+  padding: 0 20px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -10,6 +10,7 @@
   font-weight: 900;
   letter-spacing: 0;
   cursor: pointer;
+  box-shadow: var(--app-shadow-soft);
   transition:
     transform 160ms ease,
     box-shadow 160ms ease,
@@ -40,14 +41,18 @@
 .secondary {
   color: var(--app-text);
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--app-surface-2) 96%, transparent), color-mix(in srgb, var(--app-surface) 88%, transparent));
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 96%, transparent), color-mix(in srgb, var(--app-glass-control) 88%, transparent));
   border: 1px solid var(--app-border);
+  backdrop-filter: var(--app-blur);
+  -webkit-backdrop-filter: var(--app-blur);
 }
 
 .ghost {
   color: var(--app-text);
-  background: color-mix(in srgb, var(--app-surface) 50%, transparent);
+  background: color-mix(in srgb, var(--app-glass-control) 72%, transparent);
   border: 1px solid color-mix(in srgb, var(--app-border) 74%, transparent);
+  backdrop-filter: var(--app-blur);
+  -webkit-backdrop-filter: var(--app-blur);
 }
 
 .danger {

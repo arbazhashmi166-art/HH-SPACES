@@ -16,8 +16,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ToastMessage } from "@/components/ui/toast-message";
 import { buildLookupFields, resources, type FieldConfig, type LookupContext, type ResourceConfig } from "@/config/resources";
 import { useAuth } from "@/lib/auth";
-import { createRecord, useCreateRecord, useDeleteRecord, useRecords, useUpdateRecord } from "@/lib/repository";
+import { useCreateRecord, useDeleteRecord, useRecords, useUpdateRecord } from "@/lib/repository";
 import { selectedSiteStorageKey, useUiStore } from "@/lib/ui-store";
+import { createActivityLogSafely } from "@/services/activity-log";
 import { canArchive, canCreate, canUpdate } from "@/services/permissions";
 import type { AnyEntity, EntityMap, TableName } from "@/types/domain";
 import { formatMoney, toTitle } from "@/utils/format";
@@ -285,32 +286,34 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
 
   const submit = form.handleSubmit(
     async (raw) => {
-      const values = autoCalculate(table, raw);
-      const duplicate = duplicateMessage(table, records, values, editing?.id);
-      if (duplicate && !warning) {
-        setWarning(`${duplicate} Submit again only if this is intentional.`);
-        return;
-      }
+      try {
+        const values = autoCalculate(table, raw);
+        const duplicate = duplicateMessage(table, records, values, editing?.id);
+        if (duplicate && !warning) {
+          setWarning(`${duplicate} Submit again only if this is intentional.`);
+          return;
+        }
 
-      if (editing) {
-        const saved = await updateMutation.mutateAsync({ id: editing.id, values: values as never, userId: user?.id || null });
-        setToast(saveStatusMessage(config.title, saved as AnyEntity));
-      } else {
-        const saved = await createMutation.mutateAsync({ values: values as never, userId: user?.id || null, source: "manual" });
-        if (company?.id) {
-          await createRecord("activity_logs", company.id, {
+        if (editing) {
+          const saved = await updateMutation.mutateAsync({ id: editing.id, values: values as never, userId: user?.id || null });
+          setToast(saveStatusMessage(config.title, saved as AnyEntity));
+        } else {
+          const saved = await createMutation.mutateAsync({ values: values as never, userId: user?.id || null, source: "manual" });
+          const historySaved = await createActivityLogSafely(company?.id, {
             site_id: safeString(values.site_id) || null,
             entity_table: table,
             entity_id: (saved as { id: string }).id,
             action: "create",
             description: `${config.title} entry created`
-          } as never, { userId: user?.id || null });
+          }, user?.id || null);
+          setToast(historySaved ? saveStatusMessage(config.title, saved as AnyEntity) : `${config.title} saved. Activity history could not be updated.`);
         }
-        setToast(saveStatusMessage(config.title, saved as AnyEntity));
+        if (safeString(values.site_id)) setSelectedSiteId(safeString(values.site_id));
+        setWarning(null);
+        setOpen(false);
+      } catch {
+        setToast(`Could not save ${config.title.toLowerCase()}. Check storage/cloud sync and try again.`);
       }
-      if (safeString(values.site_id)) setSelectedSiteId(safeString(values.site_id));
-      setWarning(null);
-      setOpen(false);
     },
     () => {
       setToast("Check the highlighted fields and try again");
@@ -323,8 +326,12 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
       ? "Delete this site from the active site list? Old linked entries stay safe for reports."
       : `Archive this ${config.title} record?`;
     if (!window.confirm(confirmMessage)) return;
-    await deleteMutation.mutateAsync({ id: record.id, userId: user?.id || null });
-    setToast(isSite ? "Site deleted" : "Record archived");
+    try {
+      await deleteMutation.mutateAsync({ id: record.id, userId: user?.id || null });
+      setToast(isSite ? "Site deleted" : "Record archived");
+    } catch {
+      setToast(isSite ? "Could not delete site. Check cloud sync and try again." : "Could not archive record. Check cloud sync and try again.");
+    }
   };
 
   const copySummary = async (record: AnyEntity) => {

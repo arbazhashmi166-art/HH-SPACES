@@ -79,6 +79,7 @@ export default function LoginPage() {
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [offlineWarningOpen, setOfflineWarningOpen] = useState(false);
+  const [offlineContinuing, setOfflineContinuing] = useState(false);
   const [ready, setReady] = useState(false);
 
   const loginForm = useForm<LoginValues>({ resolver: zodResolver(loginSchema), defaultValues: { email: "", password: "" } });
@@ -162,8 +163,13 @@ export default function LoginPage() {
   });
 
   const offline = () => {
+    if (offlineContinuing) return;
+    setOfflineContinuing(true);
     const nextCompany = continueOffline();
-    if (!nextCompany.id) return;
+    if (!nextCompany.id) {
+      setOfflineContinuing(false);
+      return;
+    }
     router.replace("/dashboard");
   };
 
@@ -372,8 +378,8 @@ export default function LoginPage() {
               <Button type="button" full variant="secondary" onClick={() => setOfflineWarningOpen(false)}>
                 Stay on Sign In
               </Button>
-              <Button type="button" full variant="danger" onClick={offline}>
-                I Understand, Continue Offline
+              <Button type="button" full variant="danger" disabled={offlineContinuing} onClick={offline}>
+                {offlineContinuing ? "Opening Offline App..." : "I Understand, Continue Offline"}
               </Button>
             </div>
           </section>

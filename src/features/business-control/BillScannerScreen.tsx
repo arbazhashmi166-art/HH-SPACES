@@ -7,8 +7,9 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ToastMessage } from "@/components/ui/toast-message";
 import { useAuth } from "@/lib/auth";
-import { createRecord, useCreateRecord, useRecords } from "@/lib/repository";
+import { useCreateRecord, useRecords } from "@/lib/repository";
 import { selectedSiteStorageKey, useUiStore } from "@/lib/ui-store";
+import { createActivityLogSafely } from "@/services/activity-log";
 import { scanBillWithAi } from "@/services/ai-bill-ocr";
 import { scanBillImage, type BillOcrLineItem, type BillOcrPass, type BillOcrResult } from "@/services/bill-ocr";
 import { createBillPhotoReference } from "@/services/photo-storage";
@@ -309,29 +310,28 @@ export function BillScannerScreen() {
     } finally {
       setSavingPhoto(false);
     }
-    const saved = await createMaterial.mutateAsync({
-      values: {
-        site_id: draft.site_id,
-        supplier_id: null,
-        date: draft.date,
-        material_name: draft.material_name.trim(),
-        quantity: Number(draft.quantity || 0),
-        unit: draft.unit,
-        rate: Number(draft.rate || 0),
-        total: amount,
-        supplier_name: draft.supplier_name || null,
-        supplier_mobile: draft.supplier_mobile || null,
-        bill_number: draft.bill_number || null,
-        bill_photo_url: billPhotoUrl,
-        payment_status: "unpaid",
-        notes: draft.notes ? `OCR bill scan:\n${draft.notes}` : "Saved from Bill Scanner"
-      },
-      userId: user?.id || null,
-      source: "manual"
-    });
-    if (company?.id) {
-      await createRecord(
-        "activity_logs",
+    try {
+      const saved = await createMaterial.mutateAsync({
+        values: {
+          site_id: draft.site_id,
+          supplier_id: null,
+          date: draft.date,
+          material_name: draft.material_name.trim(),
+          quantity: Number(draft.quantity || 0),
+          unit: draft.unit,
+          rate: Number(draft.rate || 0),
+          total: amount,
+          supplier_name: draft.supplier_name || null,
+          supplier_mobile: draft.supplier_mobile || null,
+          bill_number: draft.bill_number || null,
+          bill_photo_url: billPhotoUrl,
+          payment_status: "unpaid",
+          notes: draft.notes ? `OCR bill scan:\n${draft.notes}` : "Saved from Bill Scanner"
+        },
+        userId: user?.id || null,
+        source: "manual"
+      });
+      const historySaved = await createActivityLogSafely(
         company.id,
         {
           site_id: draft.site_id,
@@ -340,10 +340,12 @@ export function BillScannerScreen() {
           action: "create",
           description: `Material saved from bill scanner: ${draft.material_name}`
         },
-        { userId: user?.id || null }
+        user?.id || null
       );
+      setToast(historySaved ? "Material saved from bill" : "Material saved. Activity history could not be updated.");
+    } catch {
+      setToast("Could not save material from bill. Check storage/cloud sync and try again.");
     }
-    setToast("Material saved from bill");
   };
 
   const saveSelectedMaterials = async () => {
@@ -378,51 +380,61 @@ export function BillScannerScreen() {
     }
 
     const savedRows = [];
-    for (const item of rows) {
-      const saved = await createMaterial.mutateAsync({
-        values: {
-          site_id: draft.site_id,
-          supplier_id: null,
-          date: draft.date,
-          material_name: item.description.trim(),
-          quantity: Number(item.quantity || 0),
-          unit: item.unit || "Nos",
-          rate: Number(item.rate || 0),
-          total: Number(item.amount || 0),
-          supplier_name: draft.supplier_name || null,
-          supplier_mobile: draft.supplier_mobile || null,
-          bill_number: draft.bill_number || null,
-          bill_photo_url: billPhotoUrl,
-          payment_status: "unpaid",
-          notes: [
-            "Saved from AI Bill Scanner item row",
-            draft.gst_number ? `GSTIN: ${draft.gst_number}` : "",
-            item.gst_percent && Number(item.gst_percent) > 0 ? `GST %: ${item.gst_percent}` : "",
-            draft.notes || ""
-          ]
-            .filter(Boolean)
-            .join("\n")
-        },
-        userId: user?.id || null,
-        source: "manual"
-      });
-      savedRows.push(saved);
+    try {
+      for (const item of rows) {
+        const saved = await createMaterial.mutateAsync({
+          values: {
+            site_id: draft.site_id,
+            supplier_id: null,
+            date: draft.date,
+            material_name: item.description.trim(),
+            quantity: Number(item.quantity || 0),
+            unit: item.unit || "Nos",
+            rate: Number(item.rate || 0),
+            total: Number(item.amount || 0),
+            supplier_name: draft.supplier_name || null,
+            supplier_mobile: draft.supplier_mobile || null,
+            bill_number: draft.bill_number || null,
+            bill_photo_url: billPhotoUrl,
+            payment_status: "unpaid",
+            notes: [
+              "Saved from AI Bill Scanner item row",
+              draft.gst_number ? `GSTIN: ${draft.gst_number}` : "",
+              item.gst_percent && Number(item.gst_percent) > 0 ? `GST %: ${item.gst_percent}` : "",
+              draft.notes || ""
+            ]
+              .filter(Boolean)
+              .join("\n")
+          },
+          userId: user?.id || null,
+          source: "manual"
+        });
+        savedRows.push(saved);
+      }
+    } catch {
+      setToast(savedRows.length ? `${savedRows.length} bill items saved. Some remaining items could not be saved.` : "Could not save selected bill items. Check storage/cloud sync and try again.");
+      return;
     }
 
-    await createRecord(
-      "activity_logs",
+    const firstSaved = savedRows[0];
+    if (!firstSaved) {
+      setToast("No bill items were saved. Select at least one valid row and try again.");
+      return;
+    }
+
+    const historySaved = await createActivityLogSafely(
       company.id,
       {
         site_id: draft.site_id,
         entity_table: "materials",
-        entity_id: savedRows[0]?.id,
+        entity_id: firstSaved.id,
         action: "create",
         description: `Saved ${savedRows.length} material rows from bill scanner: ${formatMoney(rows.reduce((sum, item) => sum + Number(item.amount || 0), 0))}`
       },
-      { userId: user?.id || null }
+      user?.id || null
     );
 
-    setToast(`${savedRows.length} material items saved from bill`);
+    setToast(historySaved ? `${savedRows.length} material items saved from bill` : `${savedRows.length} material items saved. Activity history could not be updated.`);
   };
 
   const saveExpense = async () => {
@@ -449,22 +461,21 @@ export function BillScannerScreen() {
     } finally {
       setSavingPhoto(false);
     }
-    const saved = await createExpense.mutateAsync({
-      values: {
-        site_id: draft.site_id || null,
-        date: draft.date,
-        category: "material",
-        amount,
-        payment_mode: "cash",
-        notes: `${draft.supplier_name || "Bill"} ${draft.material_name || "expense"}${draft.bill_number ? `\nBill No: ${draft.bill_number}` : ""}${draft.gst_number ? `\nGSTIN: ${draft.gst_number}` : ""}${draft.notes ? `\n${draft.notes}` : ""}`,
-        receipt_photo_url: receiptPhotoUrl
-      },
-      userId: user?.id || null,
-      source: "manual"
-    });
-    if (company?.id) {
-      await createRecord(
-        "activity_logs",
+    try {
+      const saved = await createExpense.mutateAsync({
+        values: {
+          site_id: draft.site_id || null,
+          date: draft.date,
+          category: "material",
+          amount,
+          payment_mode: "cash",
+          notes: `${draft.supplier_name || "Bill"} ${draft.material_name || "expense"}${draft.bill_number ? `\nBill No: ${draft.bill_number}` : ""}${draft.gst_number ? `\nGSTIN: ${draft.gst_number}` : ""}${draft.notes ? `\n${draft.notes}` : ""}`,
+          receipt_photo_url: receiptPhotoUrl
+        },
+        userId: user?.id || null,
+        source: "manual"
+      });
+      const historySaved = await createActivityLogSafely(
         company.id,
         {
           site_id: draft.site_id || null,
@@ -473,10 +484,12 @@ export function BillScannerScreen() {
           action: "create",
           description: `Expense saved from bill scanner: ${formatMoney(amount)}`
         },
-        { userId: user?.id || null }
+        user?.id || null
       );
+      setToast(historySaved ? "Expense saved from bill" : "Expense saved. Activity history could not be updated.");
+    } catch {
+      setToast("Could not save expense from bill. Check storage/cloud sync and try again.");
     }
-    setToast("Expense saved from bill");
   };
 
   return (

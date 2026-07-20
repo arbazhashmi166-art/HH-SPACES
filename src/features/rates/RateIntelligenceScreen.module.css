@@ -10,13 +10,14 @@
   align-items: stretch;
   justify-content: space-between;
   gap: 14px;
-  border-radius: 30px;
+  border-radius: 34px;
   padding: 22px;
   color: #fff;
   background:
     radial-gradient(circle at top left, rgba(255, 255, 255, 0.28), transparent 34%),
     linear-gradient(135deg, #132454 0%, #2848e6 47%, #7f49ff 100%);
   box-shadow: 0 24px 58px rgba(45, 68, 191, 0.3);
+  isolation: isolate;
 }
 
 .hero span {
@@ -113,23 +114,26 @@
 .searchBar select,
 .assistantInput {
   width: 100%;
-  min-height: 52px;
+  min-height: 56px;
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: 20px;
   padding: 0 14px;
   color: var(--text-strong);
-  background: rgba(255, 255, 255, 0.88);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 96%, transparent), color-mix(in srgb, var(--app-glass-control) 78%, transparent));
   font: inherit;
   font-size: 16px;
   outline: none;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  box-shadow: inset 0 1px 0 var(--app-glass-line), var(--app-shadow-soft);
+  backdrop-filter: var(--app-blur);
+  -webkit-backdrop-filter: var(--app-blur);
 }
 
-:global(.dark) .field input,
-:global(.dark) .field select,
-:global(.dark) .searchBar input,
-:global(.dark) .searchBar select,
-:global(.dark) .assistantInput {
+:global(:root[data-theme="dark"]) .field input,
+:global(:root[data-theme="dark"]) .field select,
+:global(:root[data-theme="dark"]) .searchBar input,
+:global(:root[data-theme="dark"]) .searchBar select,
+:global(:root[data-theme="dark"]) .assistantInput {
   background: rgba(15, 23, 42, 0.82);
 }
 
@@ -151,13 +155,16 @@
 .advancedCard,
 .simpleStart {
   border: 1px solid var(--line);
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.84);
-  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.06);
+  border-radius: 26px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 94%, transparent), color-mix(in srgb, var(--app-glass) 78%, transparent));
+  box-shadow: var(--app-shadow-soft);
+  backdrop-filter: var(--app-blur);
+  -webkit-backdrop-filter: var(--app-blur);
 }
 
-:global(.dark) .advancedCard,
-:global(.dark) .simpleStart {
+:global(:root[data-theme="dark"]) .advancedCard,
+:global(:root[data-theme="dark"]) .simpleStart {
   background: rgba(15, 23, 42, 0.8);
 }
 
@@ -238,7 +245,7 @@
 
 .chip,
 .activeChip {
-  min-height: 48px;
+  min-height: 52px;
   flex: 0 0 auto;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -256,7 +263,7 @@
   box-shadow: 0 18px 36px rgba(79, 70, 229, 0.2);
 }
 
-:global(.dark) .chip {
+:global(:root[data-theme="dark"]) .chip {
   background: rgba(15, 23, 42, 0.8);
 }
 
@@ -270,18 +277,21 @@
 .rateCardActive {
   display: grid;
   gap: 10px;
-  min-height: 148px;
+  min-height: 154px;
   border: 1px solid var(--line);
-  border-radius: 24px;
+  border-radius: 26px;
   padding: 16px;
   text-align: left;
   color: var(--text-strong);
-  background: rgba(255, 255, 255, 0.86);
-  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.07);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 94%, transparent), color-mix(in srgb, var(--app-glass) 76%, transparent));
+  box-shadow: var(--app-shadow-soft);
+  backdrop-filter: var(--app-blur);
+  -webkit-backdrop-filter: var(--app-blur);
 }
 
-:global(.dark) .rateCard,
-:global(.dark) .rateCardActive {
+:global(:root[data-theme="dark"]) .rateCard,
+:global(:root[data-theme="dark"]) .rateCardActive {
   background: rgba(15, 23, 42, 0.8);
 }
 
@@ -332,12 +342,12 @@
   gap: 8px;
   min-height: 82px;
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: 20px;
   padding: 12px;
-  background: rgba(246, 248, 255, 0.72);
+  background: color-mix(in srgb, var(--app-glass-control) 72%, transparent);
 }
 
-:global(.dark) .rateBox {
+:global(:root[data-theme="dark"]) .rateBox {
   background: rgba(30, 41, 59, 0.72);
 }
 
@@ -371,8 +381,8 @@
   font-weight: 800;
 }
 
-:global(.dark) .scopeList span,
-:global(.dark) .materialChips span {
+:global(:root[data-theme="dark"]) .scopeList span,
+:global(:root[data-theme="dark"]) .materialChips span {
   background: rgba(51, 65, 85, 0.75);
 }
 
@@ -396,12 +406,12 @@
   display: grid;
   gap: 7px;
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: 20px;
   padding: 13px;
-  background: rgba(248, 250, 252, 0.78);
+  background: color-mix(in srgb, var(--app-glass-control) 76%, transparent);
 }
 
-:global(.dark) .detailGrid div {
+:global(:root[data-theme="dark"]) .detailGrid div {
   background: rgba(30, 41, 59, 0.74);
 }
 
@@ -430,13 +440,13 @@
   display: grid;
   gap: 7px;
   border: 1px solid var(--line);
-  border-radius: 20px;
+  border-radius: 22px;
   padding: 14px;
-  background: linear-gradient(180deg, rgba(248, 250, 252, 0.94), rgba(241, 245, 249, 0.68));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 94%, transparent), color-mix(in srgb, var(--app-glass-control) 68%, transparent));
 }
 
-:global(.dark) .resultGrid div,
-:global(.dark) .boqSummary div {
+:global(:root[data-theme="dark"]) .resultGrid div,
+:global(:root[data-theme="dark"]) .boqSummary div {
   background: linear-gradient(180deg, rgba(30, 41, 59, 0.92), rgba(15, 23, 42, 0.72));
 }
 
@@ -499,7 +509,7 @@
   display: grid;
   gap: 14px;
   border: 1px solid rgba(80, 101, 255, 0.14);
-  border-radius: 24px;
+  border-radius: 26px;
   padding: 16px;
   background: linear-gradient(135deg, rgba(36, 84, 255, 0.08), rgba(127, 73, 255, 0.08));
 }
@@ -545,7 +555,7 @@
   text-align: center;
 }
 
-:global(.dark) .formulaButtons button {
+:global(:root[data-theme="dark"]) .formulaButtons button {
   background: rgba(15, 23, 42, 0.78);
 }
 
@@ -567,7 +577,7 @@
   font-weight: 900;
 }
 
-:global(.dark) .toggleRow label {
+:global(:root[data-theme="dark"]) .toggleRow label {
   background: rgba(15, 23, 42, 0.82);
 }
 
@@ -575,7 +585,7 @@
   display: grid;
   gap: 12px;
   border: 1px solid rgba(80, 101, 255, 0.16);
-  border-radius: 24px;
+  border-radius: 26px;
   padding: 16px;
   background: linear-gradient(135deg, rgba(36, 84, 255, 0.1), rgba(127, 73, 255, 0.1));
 }
@@ -620,7 +630,7 @@
   background: rgba(255, 255, 255, 0.72);
 }
 
-:global(.dark) .itemizedLines div {
+:global(:root[data-theme="dark"]) .itemizedLines div {
   background: rgba(15, 23, 42, 0.68);
 }
 
@@ -645,7 +655,7 @@
   background: rgba(255, 255, 255, 0.68);
 }
 
-:global(.dark) .quoteLevels span {
+:global(:root[data-theme="dark"]) .quoteLevels span {
   background: rgba(15, 23, 42, 0.72);
 }
 
@@ -692,7 +702,7 @@
   border-radius: 18px;
   padding: 10px 12px;
   color: var(--text-strong);
-  background: rgba(255, 255, 255, 0.78);
+  background: color-mix(in srgb, var(--app-glass-control) 86%, transparent);
   font: inherit;
   font-size: 0.86rem;
   font-weight: 900;
@@ -700,8 +710,8 @@
   text-align: left;
 }
 
-:global(.dark) .smartPromptGrid button,
-:global(.dark) .recentPromptBox button {
+:global(:root[data-theme="dark"]) .smartPromptGrid button,
+:global(:root[data-theme="dark"]) .recentPromptBox button {
   background: rgba(15, 23, 42, 0.76);
 }
 
@@ -779,15 +789,17 @@
   display: grid;
   gap: 14px;
   border: 1px solid rgba(80, 101, 255, 0.18);
-  border-radius: 26px;
+  border-radius: 28px;
   padding: 16px;
   background:
     radial-gradient(circle at 10% 0%, rgba(80, 101, 255, 0.16), transparent 34%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(245, 248, 255, 0.84));
+    linear-gradient(145deg, color-mix(in srgb, var(--app-glass-strong) 94%, transparent), color-mix(in srgb, var(--app-glass) 84%, transparent));
   box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+  backdrop-filter: var(--app-blur);
+  -webkit-backdrop-filter: var(--app-blur);
 }
 
-:global(.dark) .aiPanel {
+:global(:root[data-theme="dark"]) .aiPanel {
   background:
     radial-gradient(circle at 10% 0%, rgba(80, 101, 255, 0.22), transparent 34%),
     linear-gradient(145deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.84));
@@ -872,19 +884,19 @@
 .aiColumns > div,
 .aiReasonBox {
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: 20px;
   padding: 12px;
-  background: rgba(255, 255, 255, 0.76);
+  background: color-mix(in srgb, var(--app-glass-control) 76%, transparent);
 }
 
-:global(.dark) .aiStatGrid div,
-:global(.dark) .aiStrategyGrid div,
-:global(.dark) .aiPlanGrid div,
-:global(.dark) .aiPrecisionStrip div,
-:global(.dark) .aiExplainGrid > div,
-:global(.dark) .aiMarketGrid span,
-:global(.dark) .aiColumns > div,
-:global(.dark) .aiReasonBox {
+:global(:root[data-theme="dark"]) .aiStatGrid div,
+:global(:root[data-theme="dark"]) .aiStrategyGrid div,
+:global(:root[data-theme="dark"]) .aiPlanGrid div,
+:global(:root[data-theme="dark"]) .aiPrecisionStrip div,
+:global(:root[data-theme="dark"]) .aiExplainGrid > div,
+:global(:root[data-theme="dark"]) .aiMarketGrid span,
+:global(:root[data-theme="dark"]) .aiColumns > div,
+:global(:root[data-theme="dark"]) .aiReasonBox {
   background: rgba(15, 23, 42, 0.72);
 }
 
@@ -991,8 +1003,8 @@
   background: rgba(255, 255, 255, 0.72);
 }
 
-:global(.dark) .aiScopeGrid > div,
-:global(.dark) .aiLogicChecks > div {
+:global(:root[data-theme="dark"]) .aiScopeGrid > div,
+:global(:root[data-theme="dark"]) .aiLogicChecks > div {
   background: rgba(15, 23, 42, 0.7);
 }
 
@@ -1107,7 +1119,7 @@
   font-weight: 900;
 }
 
-:global(.dark) .aiAlternatives button {
+:global(:root[data-theme="dark"]) .aiAlternatives button {
   background: rgba(15, 23, 42, 0.72);
 }
 
@@ -1128,12 +1140,12 @@
   gap: 12px;
   align-items: center;
   border: 1px solid var(--line);
-  border-radius: 20px;
+  border-radius: 22px;
   padding: 14px;
-  background: rgba(255, 255, 255, 0.8);
+  background: color-mix(in srgb, var(--app-glass-control) 80%, transparent);
 }
 
-:global(.dark) .boqRow {
+:global(:root[data-theme="dark"]) .boqRow {
   background: rgba(15, 23, 42, 0.78);
 }
 
@@ -1181,7 +1193,7 @@
   line-height: 1.45;
 }
 
-:global(.dark) .noteList p {
+:global(:root[data-theme="dark"]) .noteList p {
   background: rgba(51, 65, 85, 0.72);
 }
 

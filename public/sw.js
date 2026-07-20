@@ -1,5 +1,29 @@
-const CACHE_NAME = "hh-spaces-v5";
+const CACHE_NAME = "hh-spaces-v6";
 const APP_SHELL = ["./", "./dashboard/", "./login/", "./manifest.json", "./offline.html", "./icons/icon.svg"];
+
+function sameOriginRequest(request) {
+  try {
+    return new URL(request.url).origin === self.location.origin;
+  } catch {
+    return false;
+  }
+}
+
+function cacheableAsset(request) {
+  if (!sameOriginRequest(request)) return false;
+  const url = new URL(request.url);
+  return (
+    request.destination === "script" ||
+    request.destination === "style" ||
+    request.destination === "image" ||
+    request.destination === "font" ||
+    request.destination === "manifest" ||
+    url.pathname.includes("/_next/static/") ||
+    url.pathname.includes("/icons/") ||
+    url.pathname.endsWith("/manifest.json") ||
+    url.pathname.endsWith("/offline.html")
+  );
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));
@@ -21,22 +45,27 @@ self.addEventListener("message", (event) => {
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET") return;
+  if (!sameOriginRequest(request)) return;
 
   if (request.mode === "navigate") {
     event.respondWith(fetch(request).catch(() => caches.match("./offline.html")));
     return;
   }
 
+  if (!cacheableAsset(request)) return;
+
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached;
       return fetch(request)
         .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
           return response;
         })
-        .catch(() => caches.match("./offline.html"));
+        .catch(() => Response.error());
     })
   );
 });

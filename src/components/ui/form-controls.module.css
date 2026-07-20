@@ -14,15 +14,18 @@
 .input {
   width: 100%;
   min-width: 0;
-  min-height: 54px;
-  border-radius: 18px;
+  min-height: 56px;
+  border-radius: 20px;
   border: 1px solid color-mix(in srgb, var(--app-border) 90%, transparent);
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 96%, transparent), color-mix(in srgb, var(--app-surface-3) 80%, transparent));
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 96%, transparent), color-mix(in srgb, var(--app-glass-control) 78%, transparent));
   color: var(--app-text);
   padding: 12px 14px;
   outline: none;
   font-size: 16px;
+  box-shadow: inset 0 1px 0 var(--app-glass-line);
+  backdrop-filter: var(--app-blur);
+  -webkit-backdrop-filter: var(--app-blur);
   transition:
     border-color 160ms ease,
     box-shadow 160ms ease;

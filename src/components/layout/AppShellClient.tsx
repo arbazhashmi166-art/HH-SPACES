@@ -415,29 +415,25 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
               <span>{syncStatus.label}</span>
             </button>
           </div>
-          <div className={styles.siteDock} aria-label="Current site selector">
-            <div className={styles.siteDockText}>
-              <span>Site</span>
-              <strong>{selectedSite ? selectedSite.name : "All Sites"}</strong>
-            </div>
-            <select
-              aria-label="Select current site"
-              value={selectedSiteId}
-              onChange={(event) => setSelectedSiteId(event.target.value)}
-            >
-              <option value="">All Active Sites</option>
-              {activeSites.map((site) => (
-                <option key={site.id} value={site.id}>
-                  {site.name} - {site.client_name || "Client"}
-                </option>
-              ))}
-            </select>
-          </div>
         </header>
 
         <IonContent className={styles.page}>
           <main className={styles.content}>
             {subtitle ? <p className={styles.sheetSub}>{subtitle}</p> : null}
+            <div className={styles.siteDock} aria-label="Current site selector">
+              <div className={styles.siteDockText}>
+                <span>Site</span>
+                <strong>{selectedSite ? selectedSite.name : "All Sites"}</strong>
+              </div>
+              <select aria-label="Select current site" value={selectedSiteId} onChange={(event) => setSelectedSiteId(event.target.value)}>
+                <option value="">All Active Sites</option>
+                {activeSites.map((site) => (
+                  <option key={site.id} value={site.id}>
+                    {site.name} - {site.client_name || "Client"}
+                  </option>
+                ))}
+              </select>
+            </div>
             {offlineMode && !pathname.startsWith("/settings") ? <SyncStatusCard compact /> : null}
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }}>
               {children}

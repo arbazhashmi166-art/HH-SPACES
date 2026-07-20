@@ -4,11 +4,12 @@
   border: 1px solid color-mix(in srgb, var(--app-border) 88%, transparent);
   border-radius: var(--app-radius);
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 96%, transparent), color-mix(in srgb, var(--app-surface-3) 78%, transparent)),
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 96%, transparent), color-mix(in srgb, var(--app-glass) 84%, transparent)),
     linear-gradient(135deg, color-mix(in srgb, var(--app-primary) 5%, transparent), transparent 48%);
   box-shadow: var(--app-shadow);
-  padding: 17px;
-  backdrop-filter: blur(18px);
+  padding: 18px;
+  backdrop-filter: var(--app-blur);
+  -webkit-backdrop-filter: var(--app-blur);
   transition:
     transform 160ms ease,
     box-shadow 160ms ease,
@@ -19,8 +20,10 @@
   content: "";
   position: absolute;
   inset: 0 0 auto;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--app-primary) 32%, transparent), transparent);
+  height: 50%;
+  border-radius: inherit;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--app-glass-line) 70%, transparent), transparent);
+  opacity: 0.58;
   pointer-events: none;
 }
 
@@ -54,8 +57,8 @@
 .header p {
   margin: 6px 0 0;
   color: var(--app-muted);
-  line-height: 1.4;
-  font-size: 13px;
+  line-height: 1.45;
+  font-size: 14px;
   overflow-wrap: anywhere;
   word-break: break-word;
 }

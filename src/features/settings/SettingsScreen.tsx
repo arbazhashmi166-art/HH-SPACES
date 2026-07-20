@@ -12,6 +12,7 @@ import { SyncStatusCard } from "@/features/sync/SyncStatusCard";
 import { useAuth } from "@/lib/auth";
 import { useUiStore } from "@/lib/ui-store";
 import { requireSupabase, supabase } from "@/lib/supabase";
+import { friendlyCloudWriteMessage } from "@/utils/cloud-error-message";
 import styles from "./Settings.module.css";
 
 const localCompanySettingsKey = "sitetracker.offlineCompanySettings";
@@ -85,7 +86,7 @@ export function SettingsScreen() {
     if (supabase) {
       const { error } = await requireSupabase().from("companies").update(form).eq("id", company.id);
       if (error) {
-        setToast(error.message);
+        setToast(friendlyCloudWriteMessage(error));
         return;
       }
       await refreshCompany();

@@ -7,12 +7,13 @@
   position: relative;
   overflow: hidden;
   border-radius: 34px;
-  padding: 22px;
+  padding: 23px;
   color: #fff;
   background:
-    linear-gradient(120deg, rgba(255, 255, 255, 0.18), transparent 24%, rgba(255, 255, 255, 0.1) 64%, transparent 100%),
+    linear-gradient(120deg, rgba(255, 255, 255, 0.22), transparent 24%, rgba(255, 255, 255, 0.1) 64%, transparent 100%),
     linear-gradient(145deg, #0c1424 0%, #3157ff 46%, #8b5cf6 72%, #00a7b5 100%);
   box-shadow: 0 30px 72px rgba(49, 87, 255, 0.32);
+  isolation: isolate;
 }
 
 .hero::after {
@@ -41,7 +42,7 @@
 }
 
 .heroTop button {
-  min-height: 44px;
+  min-height: 48px;
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 999px;
   padding: 0 14px;
@@ -55,10 +56,11 @@
 .hero h2 {
   position: relative;
   z-index: 1;
-  font-size: 38px;
-  line-height: 1;
+  font-size: clamp(2.1rem, 9vw, 3rem);
+  line-height: 0.98;
   letter-spacing: 0;
   margin-top: 14px;
+  overflow-wrap: anywhere;
 }
 
 .hero p {
@@ -77,10 +79,11 @@
   position: relative;
   z-index: 1;
   border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 22px;
+  border-radius: 24px;
   background: rgba(255, 255, 255, 0.14);
   padding: 13px;
   backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   color: #fff;
   text-align: left;
   font: inherit;
@@ -107,17 +110,20 @@
   gap: 10px;
   padding: 6px;
   border: 1px solid color-mix(in srgb, var(--app-border) 88%, transparent);
-  border-radius: 24px;
-  background: color-mix(in srgb, var(--app-surface) 96%, transparent);
-  box-shadow: 0 14px 30px rgba(17, 24, 39, 0.08);
+  border-radius: 26px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 94%, transparent), color-mix(in srgb, var(--app-glass) 76%, transparent));
+  box-shadow: var(--app-shadow-soft);
+  backdrop-filter: var(--app-blur);
+  -webkit-backdrop-filter: var(--app-blur);
 }
 
 .filterBar button,
 .filterBar select {
   min-height: 46px;
   border: 1px solid color-mix(in srgb, var(--app-border) 90%, transparent);
-  border-radius: 18px;
-  background: var(--app-surface-2);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--app-glass-control) 88%, transparent);
   color: var(--app-text);
   font-size: 13px;
   font-weight: 900;
@@ -177,7 +183,7 @@
   border-radius: 30px;
   padding: 17px;
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--app-surface) 92%, transparent), color-mix(in srgb, var(--app-surface-2) 92%, transparent)),
+    linear-gradient(135deg, color-mix(in srgb, var(--app-glass-strong) 92%, transparent), color-mix(in srgb, var(--app-glass-control) 92%, transparent)),
     linear-gradient(120deg, color-mix(in srgb, var(--app-primary) 9%, transparent), transparent 48%);
   box-shadow: var(--app-shadow);
 }
@@ -215,11 +221,11 @@
 
 .commandTile {
   min-height: 88px;
-  border-radius: 24px;
+  border-radius: 26px;
   padding: 13px;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 96%, transparent), color-mix(in srgb, var(--app-surface-2) 58%, transparent));
-  box-shadow: 0 12px 26px rgba(17, 24, 39, 0.08);
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 96%, transparent), color-mix(in srgb, var(--app-glass-control) 58%, transparent));
+  box-shadow: var(--app-shadow-soft);
 }
 
 .commandTile strong,
@@ -237,11 +243,11 @@
 
 .liveRibbon button {
   min-height: 72px;
-  border-radius: 22px;
+  border-radius: 24px;
   padding: 12px;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 96%, transparent), color-mix(in srgb, var(--app-surface-2) 52%, transparent));
-  box-shadow: 0 10px 22px rgba(17, 24, 39, 0.07);
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 96%, transparent), color-mix(in srgb, var(--app-glass-control) 52%, transparent));
+  box-shadow: var(--app-shadow-soft);
 }
 
 .heroMini span,
@@ -273,7 +279,7 @@
 }
 
 .metric {
-  min-height: 112px;
+  min-height: 118px;
   display: grid;
   align-content: space-between;
   cursor: pointer;
@@ -363,11 +369,11 @@
 }
 
 .quick {
-  min-height: 92px;
+  min-height: 98px;
   border: 1px solid color-mix(in srgb, var(--app-border) 90%, transparent);
-  border-radius: 24px;
+  border-radius: 26px;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 96%, transparent), color-mix(in srgb, var(--app-surface-2) 58%, transparent));
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 96%, transparent), color-mix(in srgb, var(--app-glass-control) 58%, transparent));
   color: var(--app-text);
   padding: 13px;
   display: grid;
@@ -375,7 +381,7 @@
   justify-items: start;
   gap: 8px;
   font-weight: 950;
-  box-shadow: 0 12px 26px rgba(17, 24, 39, 0.07);
+  box-shadow: var(--app-shadow-soft);
 }
 
 .quick ion-icon,
@@ -456,12 +462,12 @@
 }
 
 .miniPanel {
-  min-height: 92px;
-  border-radius: 22px;
+  min-height: 96px;
+  border-radius: 24px;
   border: 1px solid color-mix(in srgb, var(--app-border) 90%, transparent);
   padding: 13px;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 96%, transparent), color-mix(in srgb, var(--app-surface-2) 58%, transparent));
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 96%, transparent), color-mix(in srgb, var(--app-glass-control) 58%, transparent));
 }
 
 .miniPanel span {
@@ -489,10 +495,25 @@
 
 .healthGrid div {
   min-height: 82px;
-  border-radius: 22px;
+  border-radius: 24px;
   border: 1px solid color-mix(in srgb, var(--app-border) 90%, transparent);
   padding: 13px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 96%, transparent), color-mix(in srgb, var(--app-surface-2) 58%, transparent));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 96%, transparent), color-mix(in srgb, var(--app-glass-control) 58%, transparent));
+}
+
+@media (max-width: 380px) {
+  .hero {
+    border-radius: 30px;
+    padding: 20px;
+  }
+
+  .heroGrid,
+  .grid,
+  .commandGrid,
+  .healthGrid,
+  .liveRibbon {
+    grid-template-columns: 1fr;
+  }
 }
 
 .healthGrid span {

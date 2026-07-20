@@ -6,13 +6,14 @@
 .hero {
   position: relative;
   overflow: hidden;
-  border-radius: 32px;
+  border-radius: 34px;
   padding: 20px;
   color: #fff;
   background:
     linear-gradient(120deg, rgba(255, 255, 255, 0.16), transparent 24%, rgba(255, 255, 255, 0.08) 66%, transparent 100%),
     linear-gradient(145deg, #101827, var(--app-primary) 56%, var(--app-primary-2));
   box-shadow: 0 26px 58px rgba(49, 87, 255, 0.28);
+  isolation: isolate;
 }
 
 .hero p,
@@ -37,7 +38,7 @@
 .toolbar {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
 }
 
@@ -48,14 +49,17 @@
 
 .search {
   width: 100%;
-  min-height: 54px;
-  border: 1px solid color-mix(in srgb, var(--app-border) 90%, transparent);
-  border-radius: 20px;
+  min-height: 56px;
+  border: 1px solid color-mix(in srgb, var(--app-border) 86%, transparent);
+  border-radius: 22px;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 96%, transparent), color-mix(in srgb, var(--app-surface-3) 80%, transparent));
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 96%, transparent), color-mix(in srgb, var(--app-glass-control) 78%, transparent));
   color: var(--app-text);
   padding: 0 70px 0 14px;
   outline: 0;
+  box-shadow: inset 0 1px 0 var(--app-glass-line), var(--app-shadow-soft);
+  backdrop-filter: var(--app-blur);
+  -webkit-backdrop-filter: var(--app-blur);
 }
 
 .clearSearch {
@@ -165,10 +169,10 @@
   z-index: 1;
   width: min(100%, 640px);
   border: 1px solid color-mix(in srgb, var(--app-border) 88%, transparent);
-  border-radius: 32px 32px 26px 26px;
+  border-radius: 34px 34px 28px 28px;
   padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 84%, transparent), var(--app-bg) 22%),
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 90%, transparent), var(--app-bg) 24%),
     var(--app-bg);
   color: var(--app-text);
   max-height: min(86dvh, 760px);
@@ -178,6 +182,8 @@
   scroll-padding-bottom: 190px;
   -webkit-overflow-scrolling: touch;
   box-shadow: 0 -30px 76px rgba(15, 23, 42, 0.28);
+  backdrop-filter: var(--app-blur);
+  -webkit-backdrop-filter: var(--app-blur);
   animation: sheetIn 160ms ease-out;
 }
 
@@ -267,6 +273,20 @@
 
 @media (max-width: 390px) {
   .toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .rowTop {
+    grid-template-columns: 1fr;
+  }
+
+  .amount {
+    max-width: 100%;
+    text-align: left;
+  }
+
+  .actions,
+  .siteActions {
     grid-template-columns: 1fr;
   }
 }
