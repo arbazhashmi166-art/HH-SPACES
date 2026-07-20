@@ -72,6 +72,7 @@ test("power screens stay usable on iPhone width", async ({ page }) => {
     await expect(page.getByText(route.text).first()).toBeVisible();
     await expect(page.getByTestId("quick-add-button")).toHaveCount(0);
     if (route.path === "/rate-analyzer/") {
+      await expect(page.getByTestId("ask-ai-button")).toHaveCount(0);
       await expect(page.getByRole("button", { name: "Add To BOQ" })).toBeVisible();
       await expect(page.getByRole("button", { name: "Analyze Text" })).toBeVisible();
       await expect(page.getByLabel("Search rates")).toBeVisible();
@@ -84,7 +85,7 @@ test("power screens stay usable on iPhone width", async ({ page }) => {
       await expect(page.getByRole("button", { name: "Local Scan" })).toBeVisible();
       await expect(page.getByRole("button", { name: "Add Row" })).toBeVisible();
       await expect(page.getByRole("button", { name: "Save Selected Items" })).toBeVisible();
-    } else {
+    } else if (route.path !== "/rate-analyzer/") {
       await expect(page.getByTestId("ask-ai-button")).toBeVisible();
     }
     const hasNoHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 2);

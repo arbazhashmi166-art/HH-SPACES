@@ -73,7 +73,7 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
     !pathname.startsWith("/approval-center") &&
     !pathname.startsWith("/rate-analyzer") &&
     !pathname.startsWith("/bill-scanner");
-  const showAiButton = !pathname.startsWith("/bill-scanner");
+  const showAiButton = !pathname.startsWith("/bill-scanner") && !pathname.startsWith("/rate-analyzer");
 
   useEffect(() => {
     setMounted(true);
