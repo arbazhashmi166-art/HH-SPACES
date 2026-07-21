@@ -1,6 +1,7 @@
 .stack {
   display: grid;
   gap: 15px;
+  padding-bottom: calc(140px + env(safe-area-inset-bottom));
 }
 
 .hero {

@@ -1,7 +1,6 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { IonIcon } from "@ionic/react";
 import { archiveOutline, copyOutline, createOutline, trashOutline } from "ionicons/icons";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
@@ -12,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FieldShell, SelectInput, TextArea, TextInput } from "@/components/ui/form-controls";
+import { AppIcon } from "@/components/ui/app-icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToastMessage } from "@/components/ui/toast-message";
 import { buildLookupFields, resources, type FieldConfig, type LookupContext, type ResourceConfig } from "@/config/resources";
@@ -405,18 +405,18 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
                 </div>
                 <div className={`${styles.actions} ${table === "sites" ? styles.siteActions : ""}`}>
                   {table === "sites" ? (
-                    <Button variant="success" className={styles.copyAction} onClick={() => copySummary(row)} icon={<IonIcon icon={copyOutline} />}>
+                    <Button variant="success" className={styles.copyAction} onClick={() => copySummary(row)} icon={<AppIcon icon={copyOutline} />}>
                       Copy Summary
                     </Button>
                   ) : null}
-                  <Button variant="secondary" onClick={() => startEdit(row)} disabled={!mayUpdate} icon={<IonIcon icon={createOutline} />}>
+                  <Button variant="secondary" onClick={() => startEdit(row)} disabled={!mayUpdate} icon={<AppIcon icon={createOutline} />}>
                     Edit
                   </Button>
                   <Button
                     variant={table === "sites" ? "danger" : "ghost"}
                     onClick={() => archive(row)}
                     disabled={!mayArchive}
-                    icon={<IonIcon icon={table === "sites" ? trashOutline : mayArchive ? archiveOutline : trashOutline} />}
+                    icon={<AppIcon icon={table === "sites" ? trashOutline : mayArchive ? archiveOutline : trashOutline} />}
                   >
                     {table === "sites" ? "Delete Site" : "Archive"}
                   </Button>

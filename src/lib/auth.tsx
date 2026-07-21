@@ -48,9 +48,9 @@ const localCompanySettingsKey = "sitetracker.offlineCompanySettings";
 const cloudCompanyId = "hh-spaces-company";
 const cloudCompanyName = "H&H Spaces";
 
-const allowedLocalUsers: Record<string, { password: string; fullName: string; role: Role; cloudEmail: string }> = {
-  SAHIL123: { password: "DAVID9529", fullName: "Sahil", role: "admin", cloudEmail: "hhspaces.sahil123@gmail.com" },
-  ARBAZ123: { password: "Bucky1081", fullName: "Arbaz", role: "admin", cloudEmail: "arbazhashmi166@gmail.com" }
+const allowedLocalUsers: Record<string, { fullName: string; role: Role; cloudEmail: string }> = {
+  SAHIL123: { fullName: "Sahil", role: "admin", cloudEmail: "hhspaces.sahil123@gmail.com" },
+  ARBAZ123: { fullName: "Arbaz", role: "admin", cloudEmail: "arbazhashmi166@gmail.com" }
 };
 
 function approvedUserForEmail(email?: string | null) {
@@ -337,7 +337,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const username = email.trim().toUpperCase();
         const localUser = allowedLocalUsers[username];
         if (localUser) {
-          const passwordMatchesAppLogin = password === localUser.password;
           const startApprovedOffline = (issue: string) => {
             rememberOfflineMode(true);
             rememberLocalUser(username);
@@ -351,9 +350,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           };
 
           if (!supabase) {
-            if (!passwordMatchesAppLogin) throw new Error("Incorrect username or password.");
-            startApprovedOffline("Supabase is not configured in this build. Data is saved on this device only.");
-            return;
+            throw new Error("Cloud login is not configured in this build. Use Continue Offline to save data on this device only.");
           }
 
           const cloudEmail = localUser.cloudEmail;
@@ -372,73 +369,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               const issue = supabaseSetupIssue(error);
               if (!issue) throw error;
               await requireSupabase().auth.signOut();
-              if (!passwordMatchesAppLogin) throw new Error(issue, { cause: error });
               startApprovedOffline(issue);
             }
             return;
           }
 
-          if (!passwordMatchesAppLogin) {
-            throw new Error("Incorrect username or password.");
-          }
-
-          if (login.error) {
-            const loginMessage = login.error.message.toLowerCase();
-            if (loginMessage.includes("email not confirmed") || loginMessage.includes("confirm")) {
-              startApprovedOffline(
-                `Supabase cloud login is blocked because ${cloudEmail} is not confirmed in Supabase Auth. Data is saved on this device until that user is confirmed.`
-              );
-              return;
-            }
-            const signup = await requireSupabase().auth.signUp({
-              email: cloudEmail,
-              password,
-              options: { data: { full_name: localUser.fullName } }
-            });
-            if (signup.error) {
-              const message = signup.error.message.toLowerCase();
-              if (message.includes("rate limit")) {
-                startApprovedOffline(
-                  "Supabase is rate-limiting cloud user creation. You can work on this device now; confirm/create the approved Supabase users to enable cloud sync."
-                );
-                return;
-              }
-              if (message.includes("email not confirmed") || message.includes("confirm")) {
-                startApprovedOffline(
-                  "Supabase cloud login is blocked because the approved user email is not confirmed. Data is saved on this device until that Supabase user is confirmed."
-                );
-                return;
-              }
-              if (message.includes("already") || message.includes("registered")) {
-                startApprovedOffline(
-                  `Supabase already has ${cloudEmail}, but it is not accepting this app password. Reset that Supabase Auth user's password to this app password, or login with the email and its real Supabase password.`
-                );
-                return;
-              }
-              throw signup.error;
-            }
-            if (!signup.data.session) {
-              startApprovedOffline(
-                "Supabase email confirmation is ON. Data is saved on this device until email confirmation is disabled or the approved user is confirmed."
-              );
-              return;
-            }
-            rememberOfflineMode(false);
-            rememberLocalUser(null);
-            rememberCloudLoginIssue(null);
-            setCloudLoginIssue(null);
-            setOfflineMode(false);
-            setSession(signup.data.session);
-            try {
-              await loadCompany(signup.data.session);
-            } catch (error) {
-              const issue = supabaseSetupIssue(error);
-              if (!issue) throw error;
-              await requireSupabase().auth.signOut();
-              startApprovedOffline(issue);
-            }
-            return;
-          }
+          throw new Error("Incorrect username or password.");
         }
 
         if (!email.includes("@")) {

@@ -1,6 +1,5 @@
 "use client";
 
-import { IonIcon } from "@ionic/react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
@@ -21,10 +20,12 @@ import { useSyncStatus } from "@/features/sync/useSyncStatus";
 import { useAuth } from "@/lib/auth";
 import { useRecords } from "@/lib/repository";
 import { selectedSiteStorageKey, useUiStore } from "@/lib/ui-store";
+import { adaptiveDashboardEngine } from "@/utils/adaptive-engine";
 import { automationEngine } from "@/utils/automation-engine";
 import { businessIntelligence } from "@/utils/business-logic";
 import { dashboardMetrics, sumBy } from "@/utils/calc";
 import { formatMoney } from "@/utils/format";
+import { AppIcon } from "@/components/ui/app-icon";
 import {
   attendanceBreakdown,
   getDashboardDateRange,
@@ -198,6 +199,19 @@ export function DashboardScreen() {
   const viewingLabel = selectedSite ? `Viewing site: ${selectedSite.name}` : "Viewing all active sites";
   const attendanceScopePhrase = selectedSite ? `for ${selectedSite.name}` : "across all active sites";
   const progressScopePhrase = selectedSite ? `in ${selectedSite.name}` : "across all active sites";
+  const adaptiveCommand = useMemo(
+    () =>
+      adaptiveDashboardEngine({
+        activeSiteCount: metrics.activeSites,
+        selectedSiteName: selectedSite?.name || null,
+        metrics,
+        periodAttendanceCount: periodAttendance.length,
+        periodProgressCount: periodProgress.length,
+        sync: syncStatus,
+        automationActions: automation.actions
+      }),
+    [automation.actions, metrics, periodAttendance.length, periodProgress.length, selectedSite?.name, syncStatus]
+  );
 
   const attentionItems = [
     periodAttendance.length === 0
@@ -334,6 +348,23 @@ export function DashboardScreen() {
         </select>
       </div>
 
+      <Card className={`${styles.adaptiveCommand} ${adaptiveCommand.severity === "critical" ? styles.adaptiveCritical : adaptiveCommand.severity === "warning" ? styles.adaptiveWarning : ""}`}>
+        <CardHeader title="Adaptive Command" subtitle="AI logic picked this from sync, site, money, attendance, progress and automation signals." />
+        <div className={styles.adaptiveCommandBody}>
+          <div>
+            <span>{adaptiveCommand.severity === "critical" ? "Needs action" : adaptiveCommand.severity === "warning" ? "Recommended" : "Smart next step"}</span>
+            <strong>{adaptiveCommand.title}</strong>
+            <p>{adaptiveCommand.detail}</p>
+          </div>
+          <div className={styles.adaptiveActions}>
+            <Button onClick={() => go(adaptiveCommand.route)}>{adaptiveCommand.actionLabel}</Button>
+            <Button variant="secondary" onClick={() => router.push(`/ai?prompt=${encodeURIComponent(adaptiveCommand.aiPrompt)}`)}>
+              Ask AI
+            </Button>
+          </div>
+        </div>
+      </Card>
+
       {dashboardError ? (
         <Card>
           <CardHeader
@@ -377,7 +408,7 @@ export function DashboardScreen() {
       </div>
 
       <Card>
-        <CardHeader title="Requires Attention" subtitle="Highest-priority actions for the selected site and date." action={<IonIcon icon={alertCircleOutline} />} />
+        <CardHeader title="Requires Attention" subtitle="Highest-priority actions for the selected site and date." action={<AppIcon icon={alertCircleOutline} />} />
         {attentionItems.length ? (
           <div className={styles.alertList}>
             {attentionItems.map((item) => (
@@ -403,7 +434,7 @@ export function DashboardScreen() {
         <div className={styles.quickGrid}>
           {quickEntries.map((action) => (
             <button key={action.path} className={styles.quick} type="button" onClick={() => go(action.path)}>
-              <IonIcon icon={action.icon} />
+              <AppIcon icon={action.icon} />
               <span>{action.label}</span>
             </button>
           ))}

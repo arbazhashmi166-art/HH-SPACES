@@ -582,7 +582,12 @@ export function BillScannerScreen() {
       <Card>
         <CardHeader title="Editable Draft" subtitle="OCR can make mistakes. Check every amount before saving." />
         <div className={styles.fieldGrid}>
-          <select className={styles.select} value={draft.site_id} onChange={(event) => updateDraft("site_id", event.target.value)}>
+          <select
+            aria-label="Bill site"
+            className={styles.select}
+            value={draft.site_id}
+            onChange={(event) => updateDraft("site_id", event.target.value)}
+          >
             <option value="">Select site</option>
             {(sites.data || []).map((site) => (
               <option value={site.id} key={site.id}>{site.name}</option>

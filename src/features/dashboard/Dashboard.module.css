@@ -159,6 +159,60 @@
   gap: 10px;
 }
 
+.adaptiveCommand {
+  border-color: color-mix(in srgb, var(--app-primary) 20%, var(--app-border));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 98%, transparent), color-mix(in srgb, var(--app-glass) 84%, transparent)),
+    linear-gradient(135deg, color-mix(in srgb, var(--app-primary) 9%, transparent), transparent 54%);
+}
+
+.adaptiveWarning {
+  border-color: color-mix(in srgb, var(--app-warning) 36%, var(--app-border));
+}
+
+.adaptiveCritical {
+  border-color: color-mix(in srgb, var(--app-danger) 34%, var(--app-border));
+}
+
+.adaptiveCommandBody {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: end;
+}
+
+.adaptiveCommandBody span {
+  display: block;
+  color: var(--app-muted);
+  font-size: 11px;
+  font-weight: 950;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.adaptiveCommandBody strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--app-text);
+  font-size: 20px;
+  line-height: 1.12;
+  font-weight: 950;
+}
+
+.adaptiveCommandBody p {
+  margin: 7px 0 0;
+  color: var(--app-muted);
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 780;
+}
+
+.adaptiveActions {
+  min-width: 146px;
+  display: grid;
+  gap: 8px;
+}
+
 .commandLead,
 .commandTile,
 .liveRibbon button {
@@ -384,8 +438,8 @@
   box-shadow: var(--app-shadow-soft);
 }
 
-.quick ion-icon,
-.commandTile ion-icon {
+.quick :global(.appIcon),
+.commandTile :global(.appIcon) {
   width: 24px;
   height: 24px;
 }
@@ -505,6 +559,14 @@
   .hero {
     border-radius: 30px;
     padding: 20px;
+  }
+
+  .adaptiveCommandBody {
+    grid-template-columns: 1fr;
+  }
+
+  .adaptiveActions {
+    min-width: 0;
   }
 
   .heroGrid,

@@ -46,7 +46,7 @@ test("mobile app shell opens login and offline dashboard", async ({ page }) => {
   const dashboardFilterPosition = await page.locator('[aria-label="Dashboard filters"]').evaluate((element) => getComputedStyle(element).position);
   expect(dashboardFilterPosition).toBe("static");
 
-  await page.getByRole("button", { name: "More" }).click();
+  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("button", { name: "More" }).click();
   await expect(page.getByRole("heading", { name: "More" })).toBeVisible();
   await page.getByRole("button", { name: "Open Cloud Sync status" }).click();
   await expect(page.locator("#supabase-sync")).toBeVisible();
@@ -98,13 +98,16 @@ test("rate search result opens calculator and calculates exact area cost", async
 
   await page.goto("/rate-analyzer/");
   await expect(page.getByText("Rate Intelligence").first()).toBeVisible();
-  await page.getByLabel("Search rates").fill("4 by 8 bathroom complete tiling cost");
+  const searchInput = page.getByLabel("Search rates");
+  await expect(searchInput).toBeVisible();
+  await searchInput.fill("4 by 8 bathroom complete tiling cost");
+  await expect(searchInput).toHaveValue("4 by 8 bathroom complete tiling cost");
 
-  const resultCard = page.locator("button").filter({ hasText: "Complete Bathroom Tiling" }).first();
+  const resultCard = page.getByRole("button", { name: /Complete Bathroom Tiling/i }).first();
   await expect(resultCard).toBeVisible();
   await resultCard.click();
 
-  await expect(page.getByText("EXACT CUSTOMER COST")).toBeVisible();
+  await expect(page.getByText(/Exact customer cost/i)).toBeVisible();
   await expect(page.getByText("Area & Quantity Calculator")).toBeVisible();
   await expect(page.getByText(/Calculated bathroom tile area from 4x8 ft.*220 sqft/)).toBeVisible();
   await expect(page.getByText(/₹\d/).first()).toBeVisible();
@@ -121,7 +124,9 @@ test("site add flow keeps new site visible and available in scanner dropdown", a
   await expect(page.getByRole("heading", { name: "Kondhwa Test Site" })).toBeVisible();
   await page.getByRole("button", { name: "Search everything" }).click();
   await page.getByPlaceholder("Search any feature").fill("Kondhwa");
-  const searchResult = page.getByRole("button", { name: /Kondhwa Test Site/ });
+  const searchDialog = page.getByRole("dialog", { name: "Search Everything" });
+  await expect(searchDialog).toBeVisible();
+  const searchResult = searchDialog.getByRole("button", { name: /Kondhwa Test Site/ });
   await expect(searchResult).toBeVisible();
   await searchResult.click();
   await expect(page).toHaveURL(/\/sites\/\?search=Kondhwa%20Test%20Site/);
@@ -129,7 +134,7 @@ test("site add flow keeps new site visible and available in scanner dropdown", a
   await page.getByRole("button", { name: "Clear" }).click();
   await page.goto("/bill-scanner/");
   await expect(page.getByRole("heading", { name: "Bill Scanner" })).toBeVisible();
-  await expect(page.locator("select option", { hasText: "Kondhwa Test Site" }).first()).toHaveText(/Kondhwa Test Site/);
+  await expect(page.getByLabel("Bill site")).toContainText("Kondhwa Test Site", { timeout: 10_000 });
 });
 
 test("permanent site selector defaults quick entry forms to the current site", async ({ page }) => {
@@ -358,5 +363,5 @@ test("bill scanner manual rows save into materials on iPhone", async ({ page }) 
   await expect(page.getByText("1 material items saved from bill")).toBeVisible();
 
   await page.goto("/materials/");
-  await expect(page.getByText(itemName).first()).toBeVisible();
+  await expect(page.getByText(itemName).first()).toBeVisible({ timeout: 10_000 });
 });

@@ -26,12 +26,7 @@
   --text-strong: var(--app-text);
   --text-muted: var(--app-muted);
   --line: var(--app-border);
-  --ion-font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", "Segoe UI", system-ui, sans-serif;
-  --ion-background-color: var(--app-bg);
-  --ion-text-color: var(--app-text);
-  --ion-color-primary: var(--app-primary);
-  --ion-safe-area-top: env(safe-area-inset-top);
-  --ion-safe-area-bottom: env(safe-area-inset-bottom);
+  --app-font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", "Segoe UI", system-ui, sans-serif;
 }
 
 :root[data-theme="dark"] {
@@ -50,12 +45,20 @@
   --app-shadow: 0 22px 56px rgba(0, 0, 0, 0.36);
   --app-shadow-strong: 0 32px 80px rgba(0, 0, 0, 0.5);
   --app-shadow-soft: 0 10px 28px rgba(0, 0, 0, 0.28);
-  --ion-background-color: var(--app-bg);
-  --ion-text-color: var(--app-text);
 }
 
 * {
   box-sizing: border-box;
+}
+
+.appIcon {
+  width: 1.35em;
+  height: 1.35em;
+  display: inline-block;
+  flex: 0 0 auto;
+  background: currentColor;
+  -webkit-mask: var(--app-icon-url) center / contain no-repeat;
+  mask: var(--app-icon-url) center / contain no-repeat;
 }
 
 html,
@@ -71,7 +74,7 @@ body {
 }
 
 body {
-  font-family: var(--ion-font-family);
+  font-family: var(--app-font-family);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   background:
@@ -113,72 +116,6 @@ textarea:focus-visible {
 a {
   color: inherit;
   text-decoration: none;
-}
-
-ion-content::part(background) {
-  background:
-    linear-gradient(145deg, color-mix(in srgb, var(--app-primary) 12%, transparent), transparent 36%),
-    linear-gradient(225deg, color-mix(in srgb, var(--app-accent) 10%, transparent), transparent 42%),
-    linear-gradient(180deg, color-mix(in srgb, var(--app-bg), #fff 15%), var(--app-bg) 42%),
-    var(--app-bg);
-}
-
-ion-toolbar {
-  --background: var(--app-glass-strong);
-  --border-color: var(--app-border);
-  backdrop-filter: var(--app-blur);
-}
-
-:root[data-theme="dark"] ion-toolbar {
-  --background: rgba(9, 11, 18, 0.78);
-}
-
-ion-tab-bar {
-  --background: rgba(255, 255, 255, 0.88);
-  --border: 1px solid var(--app-border);
-  min-height: calc(82px + env(safe-area-inset-bottom));
-  padding-bottom: env(safe-area-inset-bottom);
-  box-shadow: 0 -12px 30px rgba(17, 24, 39, 0.08);
-}
-
-:root[data-theme="dark"] ion-tab-bar {
-  --background: rgba(17, 24, 39, 0.9);
-}
-
-ion-tab-button {
-  --color: var(--app-muted);
-  --color-selected: var(--app-primary);
-  min-width: 62px;
-  min-height: 68px;
-  padding-top: 8px;
-  padding-bottom: 7px;
-  font-size: 13px;
-  font-weight: 800;
-}
-
-ion-tab-button ion-icon {
-  width: 26px;
-  height: 26px;
-  margin-bottom: 4px;
-}
-
-ion-tab-button.tab-selected ion-icon {
-  transform: translateY(-1px) scale(1.06);
-}
-
-ion-modal.mobile-sheet {
-  --height: auto;
-  --border-radius: 28px 28px 0 0;
-  align-items: flex-end;
-}
-
-ion-modal.mobile-sheet::part(content) {
-  max-height: min(86vh, 760px);
-  overflow: hidden;
-}
-
-ion-fab-button {
-  --box-shadow: 0 18px 34px rgba(59, 91, 255, 0.36);
 }
 
 .sr-only {

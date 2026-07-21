@@ -1,7 +1,7 @@
 .stack {
   display: grid;
   gap: 18px;
-  padding-bottom: calc(120px + env(safe-area-inset-bottom));
+  padding-bottom: calc(190px + env(safe-area-inset-bottom));
 }
 
 .hero {
@@ -231,6 +231,108 @@
   line-height: 1.45;
 }
 
+.rateDashboardGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.rateDashboardCard,
+.quickCommandCard {
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 94%, transparent), color-mix(in srgb, var(--app-glass) 78%, transparent));
+  box-shadow: var(--app-shadow-soft);
+}
+
+.rateDashboardCard {
+  display: grid;
+  gap: 7px;
+  min-height: 108px;
+  border-radius: 22px;
+  padding: 14px;
+}
+
+:global(:root[data-theme="dark"]) .rateDashboardCard,
+:global(:root[data-theme="dark"]) .quickCommandCard {
+  background: rgba(15, 23, 42, 0.78);
+}
+
+.rateDashboardCard span {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 950;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.rateDashboardCard strong {
+  color: var(--text-strong);
+  font-size: 1.22rem;
+  line-height: 1.05;
+}
+
+.rateDashboardCard p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  font-weight: 760;
+}
+
+.rateDashboardCard[data-tone="success"] {
+  border-color: color-mix(in srgb, var(--app-success) 28%, var(--line));
+}
+
+.rateDashboardCard[data-tone="warning"] {
+  border-color: color-mix(in srgb, var(--app-warning) 34%, var(--line));
+}
+
+.rateDashboardCard[data-tone="danger"] {
+  border-color: color-mix(in srgb, var(--app-danger) 34%, var(--line));
+}
+
+.quickActionGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.quickActionGrid button {
+  display: grid;
+  gap: 6px;
+  min-height: 70px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 12px;
+  color: var(--text-strong);
+  background: color-mix(in srgb, var(--app-glass-control) 82%, transparent);
+  font: inherit;
+  text-align: left;
+}
+
+:global(:root[data-theme="dark"]) .quickActionGrid button {
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.quickActionGrid button:focus-visible {
+  outline: 3px solid rgba(80, 101, 255, 0.28);
+  outline-offset: 2px;
+}
+
+.quickActionGrid strong {
+  font-size: 0.88rem;
+  font-weight: 950;
+  line-height: 1.2;
+}
+
+.quickActionGrid span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 780;
+  line-height: 1.25;
+}
+
 .categoryRail {
   display: flex;
   gap: 10px;
@@ -369,7 +471,12 @@
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  align-items: center;
+  align-items: stretch;
+}
+
+.actionRow > * {
+  flex: 1 1 180px;
+  min-height: 48px;
 }
 
 .scopeList span,
@@ -505,6 +612,107 @@
   line-height: 1.4;
 }
 
+.decisionCard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 126px;
+  gap: 12px;
+  border: 1px solid color-mix(in srgb, var(--app-success) 26%, var(--line));
+  border-radius: 26px;
+  padding: 16px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--app-success) 10%, transparent), transparent 46%),
+    color-mix(in srgb, var(--app-glass-control) 82%, transparent);
+}
+
+.decisionCard[data-risk="medium"] {
+  border-color: color-mix(in srgb, var(--app-warning) 36%, var(--line));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--app-warning) 12%, transparent), transparent 46%),
+    color-mix(in srgb, var(--app-glass-control) 82%, transparent);
+}
+
+.decisionCard[data-risk="high"] {
+  border-color: color-mix(in srgb, var(--app-danger) 36%, var(--line));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--app-danger) 12%, transparent), transparent 46%),
+    color-mix(in srgb, var(--app-glass-control) 82%, transparent);
+}
+
+:global(:root[data-theme="dark"]) .decisionCard {
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.decisionCard span,
+.conditionPanel span,
+.protectionHeader span,
+.customerBrief span {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 950;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.decisionCard strong,
+.protectionHeader strong,
+.customerBrief strong {
+  display: block;
+  margin-top: 5px;
+  color: var(--text-strong);
+  font-size: 1.08rem;
+  line-height: 1.25;
+}
+
+.decisionCard > div:first-child strong {
+  font-size: clamp(1.8rem, 8vw, 2.6rem);
+  line-height: 0.96;
+}
+
+.decisionCard p,
+.protectionHeader p,
+.customerBrief p {
+  margin: 7px 0 0;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.decisionScore {
+  display: grid;
+  align-content: center;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.66);
+}
+
+:global(:root[data-theme="dark"]) .decisionScore {
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.decisionMetrics {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.decisionMetrics span {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.66);
+  color: var(--text-strong);
+  font-size: 0.78rem;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+:global(:root[data-theme="dark"]) .decisionMetrics span {
+  background: rgba(15, 23, 42, 0.72);
+}
+
 .dimensionPanel {
   display: grid;
   gap: 14px;
@@ -512,6 +720,114 @@
   border-radius: 26px;
   padding: 16px;
   background: linear-gradient(135deg, rgba(36, 84, 255, 0.08), rgba(127, 73, 255, 0.08));
+}
+
+.conditionPanel,
+.profitProtectionPanel,
+.customerBrief {
+  display: grid;
+  gap: 14px;
+  border: 1px solid rgba(80, 101, 255, 0.14);
+  border-radius: 26px;
+  padding: 16px;
+  background: color-mix(in srgb, var(--app-glass-control) 72%, transparent);
+}
+
+:global(:root[data-theme="dark"]) .conditionPanel,
+:global(:root[data-theme="dark"]) .profitProtectionPanel,
+:global(:root[data-theme="dark"]) .customerBrief {
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.customerBrief {
+  scroll-margin-top: 170px;
+}
+
+.customerBriefHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.customerBriefHeader > div:first-child {
+  min-width: 0;
+}
+
+.languageSwitch {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  min-width: min(100%, 210px);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+:global(:root[data-theme="dark"]) .languageSwitch {
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.languageSwitch button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0 12px;
+  color: var(--text-muted);
+  background: transparent;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 950;
+}
+
+.languageSwitch button[aria-pressed="true"] {
+  color: #fff;
+  background: linear-gradient(135deg, #2454ff, #7f49ff);
+  box-shadow: 0 12px 26px rgba(36, 84, 255, 0.22);
+}
+
+.conditionGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.conditionGrid button {
+  display: grid;
+  gap: 6px;
+  min-height: 58px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 10px;
+  color: var(--text-strong);
+  background: rgba(255, 255, 255, 0.72);
+  font: inherit;
+  text-align: left;
+}
+
+:global(:root[data-theme="dark"]) .conditionGrid button {
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.conditionGrid button[aria-pressed="true"] {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, #2454ff, #7f49ff);
+  box-shadow: 0 14px 30px rgba(79, 70, 229, 0.18);
+}
+
+.conditionGrid button strong {
+  font-size: 0.82rem;
+  line-height: 1.2;
+}
+
+.conditionGrid button span {
+  color: inherit;
+  opacity: 0.76;
+  font-size: 0.78rem;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .dimensionHeader {
@@ -659,6 +975,34 @@
   background: rgba(15, 23, 42, 0.72);
 }
 
+.protectionHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.warningGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.warningGrid p {
+  margin: 0;
+  border-radius: 16px;
+  padding: 11px 12px;
+  color: #8a4b00;
+  background: rgba(245, 158, 11, 0.14);
+  font-weight: 820;
+  line-height: 1.42;
+}
+
+:global(:root[data-theme="dark"]) .warningGrid p {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.12);
+}
+
 .calculatorGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -783,6 +1127,16 @@
   background: rgba(80, 101, 255, 0.1);
   font-weight: 850;
   line-height: 1.55;
+}
+
+.voiceStatus {
+  margin: 0;
+  border-radius: 18px;
+  padding: 12px 14px;
+  color: var(--text-muted);
+  background: rgba(80, 101, 255, 0.08);
+  font-weight: 820;
+  line-height: 1.45;
 }
 
 .aiPanel {
@@ -992,7 +1346,7 @@
 }
 
 .aiScopeGrid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .aiScopeGrid > div,
@@ -1225,7 +1579,10 @@
   .grid2,
   .rateList,
   .calculatorGrid,
-  .smartPromptGrid {
+  .smartPromptGrid,
+  .rateDashboardGrid,
+  .quickActionGrid,
+  .conditionGrid {
     grid-template-columns: 1fr;
   }
 
@@ -1238,6 +1595,8 @@
   .detailGrid,
   .itemizedLines,
   .formulaButtons,
+  .decisionMetrics,
+  .warningGrid,
   .aiStatGrid,
   .aiStrategyGrid,
   .aiPlanGrid,
@@ -1263,9 +1622,29 @@
 
   .itemizedHeader,
   .dimensionHeader,
-  .exactCostBanner {
+  .exactCostBanner,
+  .protectionHeader {
     flex-direction: column;
   }
+
+  .rateDashboardGrid,
+  .quickActionGrid,
+  .conditionGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .decisionCard {
+    grid-template-columns: 1fr;
+  }
+
+  .customerBriefHeader {
+    flex-direction: column;
+  }
+
+  .languageSwitch {
+    width: 100%;
+  }
+
 }
 
 @media (max-width: 380px) {
@@ -1275,6 +1654,8 @@
   .detailGrid,
   .itemizedLines,
   .formulaButtons,
+  .decisionMetrics,
+  .warningGrid,
   .aiStatGrid,
   .aiStrategyGrid,
   .aiPlanGrid,
@@ -1283,6 +1664,12 @@
   .aiScopeGrid,
   .aiLogicChecks,
   .aiMarketGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .rateDashboardGrid,
+  .quickActionGrid,
+  .conditionGrid {
     grid-template-columns: 1fr;
   }
 }

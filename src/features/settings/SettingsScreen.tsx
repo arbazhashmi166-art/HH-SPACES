@@ -1,11 +1,11 @@
 "use client";
 
-import { IonIcon } from "@ionic/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { FieldShell, TextArea, TextInput } from "@/components/ui/form-controls";
+import { AppIcon } from "@/components/ui/app-icon";
 import { ToastMessage } from "@/components/ui/toast-message";
 import { appRoutes } from "@/config/routes";
 import { SyncStatusCard } from "@/features/sync/SyncStatusCard";
@@ -249,7 +249,7 @@ export function SettingsScreen() {
             .filter((route, index, list) => list.findIndex((item) => item.path === route.path) === index)
             .map((route) => (
               <button key={route.path} className={styles.module} type="button" onClick={() => openRoute(route.path)}>
-                <IonIcon icon={route.icon} />
+                <AppIcon icon={route.icon} />
                 <span>
                   <strong>{route.label}</strong>
                   <p>{route.description}</p>

@@ -53,8 +53,8 @@ describe("schemas", () => {
   });
 
   it("accepts approved username login as well as email login", () => {
-    expect(loginSchema.safeParse({ email: "ARBAZ123", password: "Bucky1081" }).success).toBe(true);
-    expect(loginSchema.safeParse({ email: "sahil123", password: "DAVID9529" }).success).toBe(true);
+    expect(loginSchema.safeParse({ email: "ARBAZ123", password: "secure-pass-123" }).success).toBe(true);
+    expect(loginSchema.safeParse({ email: "sahil123", password: "secure-pass-456" }).success).toBe(true);
   });
 
   it("keeps every resource form config compatible with its schema", () => {

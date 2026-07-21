@@ -15,6 +15,7 @@ import { OnlineSync } from "./OnlineSync";
 
 export function Providers({ children }: { children: ReactNode }) {
   const mode = useUiStore((state) => state.mode);
+  const adaptiveMode = useUiStore((state) => state.adaptiveMode);
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -30,9 +31,9 @@ export function Providers({ children }: { children: ReactNode }) {
   useEffect(() => {
     const root = document.documentElement;
     root.dataset.theme = mode;
-    root.classList.toggle("ion-palette-dark", mode === "dark");
+    root.dataset.adaptive = adaptiveMode ? "on" : "off";
     root.style.colorScheme = mode;
-  }, [mode]);
+  }, [adaptiveMode, mode]);
 
   return (
     <QueryClientProvider client={queryClient}>

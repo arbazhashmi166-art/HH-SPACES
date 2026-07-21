@@ -12,6 +12,7 @@ import {
   toBoqRow
 } from "@/features/rates/rate-calculator";
 import { analysisToWhatsAppMessage, analyzeRatePrompt } from "@/features/rates/rate-ai-engine";
+import { analyzeProfitProtection, buildCustomerRateBrief, buildRateAnalyzerSummary } from "@/features/rates/rate-intelligence-engine";
 import { cityRateProfiles } from "@/features/rates/rate-catalog";
 import { constructionRateStats, expandedRateCatalog, searchRateDatabase } from "@/features/rates/expanded-rate-database";
 
@@ -249,5 +250,60 @@ describe("rate intelligence calculations", () => {
     expect(analysis.missingFields).toContain("Waterproofing location");
     expect(analysis.pricingStrategy?.riskLevel).toBe("high");
     expect(analysis.confidence).toBeLessThan(0.7);
+  });
+
+  test("builds a rate analyzer dashboard summary from saved rates and BOQ rows", () => {
+    const rows = [toBoqRow({ description: "Bathroom waterproofing", unit: "sqft", quantity: 120, rate: 155, gstPercent: 18 })];
+    const summary = buildRateAnalyzerSummary({
+      catalog: expandedRateCatalog,
+      customRateCount: 2,
+      boqRows: rows,
+      cityName: "Pune",
+      lastBackupIso: "2026-07-21T10:00:00+05:30"
+    });
+
+    expect(summary.cards.find((card) => card.label === "Total saved rates")?.value).toBe(String(expandedRateCatalog.length));
+    expect(summary.cards.find((card) => card.label === "Quotations from analyzer")?.detail).toContain("saved BOQ value");
+    expect(summary.topCategories.length).toBeGreaterThan(0);
+    expect(summary.averageContractorMarginPercent).toBeGreaterThan(0);
+  });
+
+  test("protects profit with site-condition multipliers and customer-safe floor", () => {
+    const item = searchRateDatabase("4 by 8 bathroom complete tiling cost", 1)[0]!;
+    const estimate = calculateDetailedWorkEstimate({
+      item,
+      context: { city: pune, contractType: "Residential", areaPremiumPercent: 0 },
+      quantity: 220,
+      mode: "labourMaterial",
+      includeHeightCharge: false,
+      includeDifficultAccess: false,
+      includeSmallQuantitySurcharge: false,
+      gstPercent: 18
+    });
+    const protection = analyzeProfitProtection({
+      item,
+      estimate,
+      quantity: 220,
+      quoteMode: "labourMaterial",
+      context: { city: pune, contractType: "Residential", areaPremiumPercent: 0 },
+      gstPercent: 18,
+      selectedConditionKeys: ["liftUnavailable", "renovation"]
+    });
+    const brief = buildCustomerRateBrief({
+      item,
+      estimate,
+      protection,
+      quantity: 220,
+      quoteMode: "labourMaterial"
+    });
+
+    expect(protection.recommendedTotal).toBeGreaterThanOrEqual(protection.safeFloor);
+    expect(protection.conditionImpactTotal).toBeGreaterThan(0);
+    expect(protection.comparisonPlans.map((plan) => plan.label)).toEqual(["Economy", "Standard", "Premium"]);
+    expect(protection.transparencyLines.some((line) => line.includes("Direct cost"))).toBeTruthy();
+    expect(brief.oneLineAnswer).toContain("customer");
+    expect(brief.hinglishOneLineAnswer).toContain("customer amount");
+    expect(brief.hinglishTalkingPoints.some((line) => line.includes("neeche mat jana"))).toBeTruthy();
+    expect(brief.customerExclusions.length).toBeGreaterThan(0);
   });
 });

@@ -1,24 +1,19 @@
 "use client";
 
-import {
-  IonApp,
-  IonContent,
-  IonIcon,
-  IonPage,
-} from "@ionic/react";
 import { addOutline, moonOutline, searchOutline, sparklesOutline, sunnyOutline } from "ionicons/icons";
-import { motion } from "framer-motion";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { appName } from "@/lib/env";
 import { useAuth } from "@/lib/auth";
 import { useRecords } from "@/lib/repository";
-import { selectedSiteStorageKey, useUiStore } from "@/lib/ui-store";
+import { adaptiveModeStorageKey, selectedSiteStorageKey, useUiStore } from "@/lib/ui-store";
 import { appRoutes, mainTabs, quickActionGroups } from "@/config/routes";
 import { SyncStatusCard } from "@/features/sync/SyncStatusCard";
 import { useSyncStatus } from "@/features/sync/useSyncStatus";
+import { AppIcon } from "@/components/ui/app-icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatMoney } from "@/utils/format";
+import { adaptiveShellEngine } from "@/utils/adaptive-engine";
 import styles from "./AppShell.module.css";
 
 type SearchResult = {
@@ -36,15 +31,18 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
   const router = useRouter();
   const pathname = usePathname();
   const { company, loading, offlineMode, session } = useAuth();
-  const [mounted, setMounted] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const [offlineReady, setOfflineReady] = useState(false);
   const mode = useUiStore((state) => state.mode);
   const toggleMode = useUiStore((state) => state.toggleMode);
+  const adaptiveMode = useUiStore((state) => state.adaptiveMode);
+  const setAdaptiveMode = useUiStore((state) => state.setAdaptiveMode);
   const selectedSiteId = useUiStore((state) => state.selectedSiteId);
   const setSelectedSiteId = useUiStore((state) => state.setSelectedSiteId);
   const [quickOpen, setQuickOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [viewportWidth, setViewportWidth] = useState(393);
   const sites = useRecords("sites", company?.id);
   const syncStatus = useSyncStatus({
     companyId: company?.id,
@@ -73,21 +71,47 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
     !pathname.startsWith("/approval-center") &&
     !pathname.startsWith("/rate-analyzer") &&
     !pathname.startsWith("/bill-scanner");
-  const showAiButton = !pathname.startsWith("/bill-scanner") && !pathname.startsWith("/rate-analyzer");
+  useEffect(() => {
+    const updateViewport = () => setViewportWidth(window.innerWidth || 393);
+    updateViewport();
+    window.addEventListener("resize", updateViewport);
+    window.addEventListener("orientationchange", updateViewport);
+    return () => {
+      window.removeEventListener("resize", updateViewport);
+      window.removeEventListener("orientationchange", updateViewport);
+    };
+  }, []);
 
   useEffect(() => {
-    setMounted(true);
+    setHydrated(true);
     setOfflineReady(window.localStorage.getItem("sitetracker.offlineMode") === "1");
     const savedSiteId = window.localStorage.getItem(selectedSiteStorageKey) || "";
     if (savedSiteId) setSelectedSiteId(savedSiteId);
-  }, [setSelectedSiteId]);
+    const savedAdaptiveMode = window.localStorage.getItem(adaptiveModeStorageKey);
+    if (savedAdaptiveMode) setAdaptiveMode(savedAdaptiveMode !== "0");
+  }, [setAdaptiveMode, setSelectedSiteId]);
 
   useEffect(() => {
+    if (!hydrated) return;
     if (!loading && !company && !offlineReady) router.replace("/login");
-  }, [company, loading, offlineReady, router]);
+  }, [company, hydrated, loading, offlineReady, router]);
 
   const activeSites = useMemo(() => (sites.data || []).filter((site) => site.status !== "completed"), [sites.data]);
   const selectedSite = useMemo(() => (sites.data || []).find((site) => site.id === selectedSiteId) || null, [selectedSiteId, sites.data]);
+  const adaptiveState = useMemo(
+    () =>
+      adaptiveShellEngine({
+        enabled: adaptiveMode,
+        pathname,
+        viewportWidth,
+        activeSiteCount: activeSites.length,
+        selectedSiteName: selectedSite?.name || null,
+        sync: syncStatus
+      }),
+    [activeSites.length, adaptiveMode, pathname, selectedSite?.name, syncStatus, viewportWidth]
+  );
+  const showAiButton = !adaptiveState.shouldHideFloatingAi;
+  const aiRoute = `/ai?prompt=${encodeURIComponent(adaptiveState.command.aiPrompt)}`;
 
   useEffect(() => {
     if (!selectedSiteId || sites.isLoading) return;
@@ -352,10 +376,8 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
     setQuickOpen(false);
     setSearchOpen(false);
     setQuery("");
-    window.setTimeout(() => {
-      router.push(nextPath, { scroll: false });
-      scrollToHash(nextPath);
-    }, 0);
+    router.push(nextPath, { scroll: false });
+    scrollToHash(nextPath);
   };
 
   useEffect(() => {
@@ -363,19 +385,8 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
     setSearchOpen(false);
   }, [pathname]);
 
-  if (!mounted) {
-    return (
-      <main className={styles.shellLoading} aria-label="Loading H&H SPACES">
-        <Skeleton style={{ height: 110 }} />
-        <Skeleton style={{ height: 184 }} />
-        <Skeleton style={{ height: 124 }} />
-      </main>
-    );
-  }
-
   return (
-    <IonApp>
-      <IonPage>
+    <div className={styles.shellRoot} data-adaptive-density={hydrated ? adaptiveState.density : undefined} data-route-mode={hydrated ? adaptiveState.routeMode : undefined}>
         <header className={styles.appHeader}>
           <div className={styles.topBar}>
             <div className={styles.brandCluster}>
@@ -397,10 +408,10 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
                     setSearchOpen(true);
                   }}
                 >
-                <IonIcon icon={searchOutline} />
+                <AppIcon icon={searchOutline} />
               </button>
               <button className={styles.iconButton} type="button" aria-label="Toggle theme" onClick={toggleMode}>
-                <IonIcon icon={mode === "dark" ? sunnyOutline : moonOutline} />
+                <AppIcon icon={mode === "dark" ? sunnyOutline : moonOutline} />
               </button>
             </div>
           </div>
@@ -412,12 +423,12 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
               <span>Add Entry</span>
             </button>
             <button type="button" onClick={() => go("/settings#supabase-sync")}>
-              <span>{syncStatus.label}</span>
+              <span suppressHydrationWarning>{hydrated ? syncStatus.label : "Sync Status"}</span>
             </button>
           </div>
         </header>
 
-        <IonContent className={styles.page}>
+        <div className={styles.page}>
           <main className={styles.content}>
             {subtitle ? <p className={styles.sheetSub}>{subtitle}</p> : null}
             <div className={styles.siteDock} aria-label="Current site selector">
@@ -434,16 +445,29 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
                 ))}
               </select>
             </div>
-            {offlineMode && !pathname.startsWith("/settings") ? <SyncStatusCard compact /> : null}
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }}>
-              {children}
-            </motion.div>
+            {hydrated && adaptiveMode ? (
+              <button
+                className={`${styles.adaptiveStrip} ${
+                  adaptiveState.command.severity === "critical" ? styles.adaptiveCritical : adaptiveState.command.severity === "warning" ? styles.adaptiveWarning : ""
+                }`}
+                type="button"
+                data-testid="adaptive-strip"
+                onClick={() => go(adaptiveState.command.route)}
+              >
+                <span>Adaptive Mode</span>
+                <strong>{adaptiveState.command.title}</strong>
+                <small>{adaptiveState.command.detail}</small>
+                <em>{adaptiveState.command.actionLabel}</em>
+              </button>
+            ) : null}
+            {hydrated && offlineMode && !pathname.startsWith("/settings") ? <SyncStatusCard compact /> : null}
+            <div>{children}</div>
           </main>
-        </IonContent>
+        </div>
 
         {showAiButton ? (
-          <button className={styles.aiButton} type="button" data-testid="ask-ai-button" onClick={() => router.push("/ai")}>
-            <IonIcon icon={sparklesOutline} />
+          <button className={styles.aiButton} type="button" data-testid="ask-ai-button" onClick={() => router.push(aiRoute)}>
+            <AppIcon icon={sparklesOutline} />
             <span>Ask AI</span>
           </button>
         ) : null}
@@ -458,7 +482,7 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
               type="button"
               onClick={() => go(route.path)}
             >
-              <IonIcon icon={route.icon} />
+              <AppIcon icon={route.icon} />
               <span className={styles.navIconLabel}>{route.label}</span>
             </button>
           ))}
@@ -466,7 +490,7 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
 
         {showQuickAdd ? (
           <button className={styles.addButton} type="button" data-testid="quick-add-button" aria-label="Open quick add" onClick={() => setQuickOpen(true)}>
-            <IonIcon icon={addOutline} />
+            <AppIcon icon={addOutline} />
             <span>Add</span>
           </button>
         ) : null}
@@ -484,7 +508,7 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
                 <div className={styles.quickGrid}>
                   {group.actions.map((action) => (
                     <button key={action.path} className={styles.quickCard} type="button" onClick={() => go(action.path)}>
-                      <IonIcon icon={action.icon} />
+                      <AppIcon icon={action.icon} />
                       <span>
                         <strong>{action.label}</strong>
                         <small>{action.helper}</small>
@@ -528,7 +552,7 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
               {searchLoading ? <Skeleton style={{ height: 72 }} /> : null}
               {searchResults.map((route) => (
                 <button key={route.id} className={styles.searchItem} type="button" onClick={() => go(route.path)}>
-                  <IonIcon icon={route.icon} />
+                  <AppIcon icon={route.icon} />
                   <span>
                     <strong>{route.label}</strong>
                     <small>{route.type}</small>
@@ -549,7 +573,6 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
           </div>
           </div>
         ) : null}
-      </IonPage>
-    </IonApp>
+    </div>
   );
 }

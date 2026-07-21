@@ -1,12 +1,12 @@
 "use client";
 
-import { IonIcon } from "@ionic/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { AppIcon } from "@/components/ui/app-icon";
 import { quickActionGroups } from "@/config/routes";
 import { useAuth } from "@/lib/auth";
 import { useRecords } from "@/lib/repository";
@@ -195,7 +195,7 @@ export function QuickEntryScreen() {
           <div className={styles.quickGrid}>
             {group.actions.map((action) => (
               <button className={styles.quickCard} type="button" key={action.path} onClick={() => go(action.path)}>
-                <IonIcon icon={action.icon} />
+                <AppIcon icon={action.icon} />
                 <span>
                   <strong>{action.label}</strong>
                   <small>{action.helper}</small>

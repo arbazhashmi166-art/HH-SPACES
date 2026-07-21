@@ -1,9 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import "@ionic/react/css/core.css";
-import "@ionic/react/css/normalize.css";
-import "@ionic/react/css/structure.css";
-import "@ionic/react/css/typography.css";
-import "@ionic/react/css/display.css";
 import "@/styles/globals.css";
 import { Providers } from "@/components/Providers";
 import { appName, basePath } from "@/lib/env";
@@ -29,8 +24,8 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body>
+    <html lang="en" suppressHydrationWarning>
+      <body suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>
     </html>

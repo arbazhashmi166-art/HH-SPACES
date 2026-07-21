@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FieldShell, TextInput } from "@/components/ui/form-controls";
 import { useAuth } from "@/lib/auth";
-import { appName } from "@/lib/env";
+import { appName, basePath } from "@/lib/env";
 import { loginSchema, signUpSchema } from "@/lib/schemas";
 import styles from "./Login.module.css";
 
@@ -171,6 +171,11 @@ export default function LoginPage() {
       return;
     }
     router.replace("/dashboard");
+    window.setTimeout(() => {
+      if (window.location.pathname.endsWith("/login") || window.location.pathname.endsWith("/login/")) {
+        window.location.assign(`${basePath}/dashboard/`);
+      }
+    }, 250);
   };
 
   return (
@@ -213,8 +218,8 @@ export default function LoginPage() {
               <Button type="button" full disabled>
                 Loading...
               </Button>
-              <Button type="button" full variant="secondary" onClick={() => setOfflineWarningOpen(true)}>
-                Continue Offline
+              <Button type="button" full variant="secondary" disabled>
+                Offline Opens After Loading
               </Button>
             </div>
           ) : mode === "login" ? (

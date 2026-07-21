@@ -39,11 +39,19 @@ import {
 } from "./rate-catalog";
 import { constructionRateStats, expandedRateCatalog, searchRateDatabase } from "./expanded-rate-database";
 import { analysisToWhatsAppMessage, analyzeRatePrompt, type RateAiAnalysis } from "./rate-ai-engine";
+import {
+  analyzeProfitProtection,
+  buildCustomerRateBrief,
+  buildRateAnalyzerSummary,
+  siteConditionMultipliers,
+  type SiteConditionKey
+} from "./rate-intelligence-engine";
 import styles from "./RateIntelligenceScreen.module.css";
 
 const customRateStorageKey = "hhspaces.customRates.v1";
 const boqStorageKey = "hhspaces.rateBoq.v1";
 const assistantHistoryStorageKey = "hhspaces.rateAssistantHistory.v1";
+const rateBackupStorageKey = "hhspaces.rateAnalyzer.lastBackup.v1";
 
 type BathroomFormState = Omit<BathroomTileInput, "selectedRate" | "labourOnlyRate" | "materialOnlyRate" | "marginPercent" | "gstPercent">;
 
@@ -55,6 +63,30 @@ type RateAiEdgeResponse = {
   };
   source?: string;
   error?: string;
+};
+
+type SpeechRecognitionResultLike = {
+  0?: { transcript?: string };
+  isFinal?: boolean;
+};
+
+type SpeechRecognitionEventLike = {
+  results: ArrayLike<SpeechRecognitionResultLike>;
+};
+
+type SpeechRecognitionLike = {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+};
+
+type SpeechRecognitionWindow = Window & {
+  SpeechRecognition?: new () => SpeechRecognitionLike;
+  webkitSpeechRecognition?: new () => SpeechRecognitionLike;
 };
 
 const rateLevels: { key: RateLevel; label: string }[] = [
@@ -264,13 +296,18 @@ function NumberField({
   return (
     <label className={styles.field}>
       <span>{label}</span>
-      <input min={min} step={step} type="number" value={Number.isFinite(value) ? value : 0} onChange={(event) => onChange(numberValue(event.target.value))} />
+      <input inputMode="decimal" min={min} step={step} type="number" value={Number.isFinite(value) ? value : 0} onChange={(event) => onChange(numberValue(event.target.value))} />
     </label>
   );
 }
 
 export function RateIntelligenceScreen() {
   const quotePanelRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const boqPanelRef = useRef<HTMLDivElement | null>(null);
+  const adminPanelRef = useRef<HTMLDivElement | null>(null);
+  const importBoxRef = useRef<HTMLTextAreaElement | null>(null);
+  const [clientReady, setClientReady] = useState(false);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<RateCategory>("Tiling");
   const [city, setCity] = useState<CityRateProfile>(cityRateProfiles[0] ?? { state: "Maharashtra", city: "Pune", multiplier: 1, note: "Base profile" });
@@ -291,6 +328,10 @@ export function RateIntelligenceScreen() {
   const [assistantAnalysis, setAssistantAnalysis] = useState<RateAiAnalysis | null>(null);
   const [assistantRow, setAssistantRow] = useState<BoqRow | null>(null);
   const [assistantHistory, setAssistantHistory] = useState<string[]>([]);
+  const [lastBackupIso, setLastBackupIso] = useState<string | null>(null);
+  const [voiceStatus, setVoiceStatus] = useState("");
+  const [selectedConditionKeys, setSelectedConditionKeys] = useState<SiteConditionKey[]>(["renovation"]);
+  const [customerLanguage, setCustomerLanguage] = useState<"hinglish" | "english">("hinglish");
   const [cloudAiBusy, setCloudAiBusy] = useState(false);
   const [cloudAiInsight, setCloudAiInsight] = useState("");
   const [cloudAiIssue, setCloudAiIssue] = useState("");
@@ -303,6 +344,10 @@ export function RateIntelligenceScreen() {
     count: 1,
     wastagePercent: 10
   });
+
+  useEffect(() => {
+    setClientReady(true);
+  }, []);
   const [quantityNote, setQuantityNote] = useState("Search a work with size, then tap it. Example: 4x8 bathroom tiling cost.");
   const [customDraft, setCustomDraft] = useState({
     category: "Tiling" as RateCategory,
@@ -364,6 +409,7 @@ export function RateIntelligenceScreen() {
     setCustomRates(loadArrayJson<unknown>(customRateStorageKey).filter(isStoredRateItem));
     setBoqRows(loadArrayJson<unknown>(boqStorageKey).filter(isStoredBoqRow));
     setAssistantHistory(loadArrayJson<string>(assistantHistoryStorageKey).filter((item): item is string => typeof item === "string"));
+    setLastBackupIso(loadJson<string | null>(rateBackupStorageKey, null));
   }, []);
 
   useEffect(() => {
@@ -447,6 +493,45 @@ export function RateIntelligenceScreen() {
   const totals = boqTotals(boqRows);
   const exactCost = detailedEstimate?.sellingPrice ?? quote.sellingPrice;
   const exactUnitCost = detailedEstimate?.perUnitSelling ?? quote.perUnitSelling;
+  const rateDashboardSummary = useMemo(
+    () =>
+      buildRateAnalyzerSummary({
+        catalog,
+        customRateCount: customRates.length,
+        boqRows,
+        cityName: city.city,
+        lastBackupIso
+      }),
+    [boqRows, catalog, city.city, customRates.length, lastBackupIso]
+  );
+  const profitProtection = useMemo(
+    () =>
+      selectedItem && detailedEstimate
+        ? analyzeProfitProtection({
+            item: selectedItem,
+            estimate: detailedEstimate,
+            quantity,
+            quoteMode,
+            context,
+            gstPercent,
+            selectedConditionKeys
+          })
+        : null,
+    [context, detailedEstimate, gstPercent, quantity, quoteMode, selectedConditionKeys, selectedItem]
+  );
+  const customerBrief = useMemo(
+    () =>
+      selectedItem && detailedEstimate && profitProtection
+        ? buildCustomerRateBrief({
+            item: selectedItem,
+            estimate: detailedEstimate,
+            protection: profitProtection,
+            quantity,
+            quoteMode
+          })
+        : null,
+    [detailedEstimate, profitProtection, quantity, quoteMode, selectedItem]
+  );
 
   function updateMeasurementDraft(key: keyof typeof measurementDraft, value: number) {
     setMeasurementDraft((current) => ({ ...current, [key]: value }));
@@ -456,6 +541,43 @@ export function RateIntelligenceScreen() {
     window.setTimeout(() => {
       quotePanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 80);
+  }
+
+  function scrollToElement(element: HTMLElement | null) {
+    window.setTimeout(() => element?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+  }
+
+  function markBackupSaved() {
+    const next = new Date().toISOString();
+    setLastBackupIso(next);
+    saveJson(rateBackupStorageKey, next);
+  }
+
+  function toggleCondition(key: SiteConditionKey) {
+    setSelectedConditionKeys((current) => (current.includes(key) ? current.filter((item) => item !== key) : [...current, key]));
+  }
+
+  function startNewAnalysis() {
+    setQuery("");
+    setShowRateBrowser(true);
+    if (selectedItem) setQuantity(defaultQuantityForRateItem(selectedItem));
+    setQuantityNote("Search a work with size, then tap it. Example: 4x8 bathroom tiling cost.");
+    window.setTimeout(() => searchInputRef.current?.focus(), 80);
+  }
+
+  function duplicatePreviousEstimate() {
+    const previous = boqRows[0];
+    if (!previous) {
+      addSelectedToBoq();
+      return;
+    }
+    setBoqRows((current) => [{ ...previous, id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, description: `${previous.description} - copy` }, ...current]);
+    setNotice("Previous estimate duplicated");
+  }
+
+  function jumpToImportRates() {
+    scrollToElement(adminPanelRef.current);
+    window.setTimeout(() => importBoxRef.current?.focus(), 250);
   }
 
   function selectRateItem(item: RateItem) {
@@ -568,6 +690,8 @@ export function RateIntelligenceScreen() {
       return;
     }
     downloadFile(`hh-spaces-boq-${fileTimestamp()}.csv`, rowsToCsv(boqRows));
+    markBackupSaved();
+    setNotice("BOQ CSV generated");
   }
 
   async function exportBoqPdf() {
@@ -589,6 +713,7 @@ export function RateIntelligenceScreen() {
       foot: [["", "", "", "", "", totals.amount, totals.gst ? "GST" : "", totals.total]]
     });
     doc.save(`hh-spaces-boq-${fileTimestamp()}.pdf`);
+    markBackupSaved();
     setNotice("BOQ PDF generated");
   }
 
@@ -613,6 +738,7 @@ export function RateIntelligenceScreen() {
         </body>
       </html>`;
     downloadFile(`hh-spaces-boq-${fileTimestamp()}.xls`, html, "application/vnd.ms-excel;charset=utf-8");
+    markBackupSaved();
     setNotice("BOQ Excel file generated");
   }
 
@@ -640,6 +766,8 @@ export function RateIntelligenceScreen() {
       )
       .join("\n");
     downloadFile(`hh-spaces-rate-database-${fileTimestamp()}.csv`, header + body);
+    markBackupSaved();
+    setNotice("Rate database exported");
   }
 
   function importRates() {
@@ -858,12 +986,60 @@ export function RateIntelligenceScreen() {
     }
   }
 
+  function startVoiceInput() {
+    if (typeof window === "undefined") return;
+    const speechWindow = window as SpeechRecognitionWindow;
+    const SpeechRecognition = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setVoiceStatus("Voice input is not supported in this browser. Type the estimate instead.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-IN";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onresult = (event) => {
+      const transcript = Array.from({ length: event.results.length }, (_, index) => event.results[index]?.[0]?.transcript || "")
+        .join(" ")
+        .trim();
+      if (transcript) {
+        setAssistantText(transcript);
+        setVoiceStatus(`Heard: ${transcript}`);
+        setNotice("Voice captured. Review it, then tap Analyze Text.");
+      }
+    };
+    recognition.onerror = () => {
+      setVoiceStatus("Voice capture failed. Check microphone permission or type instead.");
+    };
+    recognition.onend = () => {
+      setVoiceStatus((current) => current || "Voice capture finished.");
+    };
+    setVoiceStatus("Listening...");
+    recognition.start();
+  }
+
+  const customerExplanation = customerBrief
+    ? {
+        title: customerLanguage === "hinglish" ? customerBrief.hinglishTitle : customerBrief.title,
+        oneLineAnswer: customerLanguage === "hinglish" ? customerBrief.hinglishOneLineAnswer : customerBrief.oneLineAnswer,
+        scope: customerLanguage === "hinglish" ? customerBrief.hinglishScope : customerBrief.customerScope,
+        exclusions: customerLanguage === "hinglish" ? customerBrief.hinglishExclusions : customerBrief.customerExclusions,
+        talkingPoints: customerLanguage === "hinglish" ? customerBrief.hinglishTalkingPoints : customerBrief.talkingPoints
+      }
+    : null;
+
   const customerMessage = [
     "H&H SPACES Quotation Estimate",
     selectedItem ? `Work: ${selectedItem.work}` : "",
     `Qty: ${quantity} ${selectedItem?.unit || "unit"}`,
     `Rate: ${formatMoney(exactUnitCost)} / ${selectedItem?.unit || "unit"}`,
-    `Estimated total: ${formatMoney(exactCost)}`,
+    `Estimated total: ${formatMoney(profitProtection?.recommendedTotal ?? exactCost)}`,
+    profitProtection ? `Safe negotiation floor: ${formatMoney(profitProtection.safeFloor)}` : "",
+    customerExplanation ? `Customer explanation: ${customerExplanation.oneLineAnswer}` : "",
+    customerExplanation ? `Scope: ${customerExplanation.scope.slice(0, 3).join(", ")}` : "",
+    customerExplanation ? `Not included: ${customerExplanation.exclusions.slice(0, 2).join(", ")}` : "",
+    profitProtection?.warnings.length ? `Check before final: ${profitProtection.warnings.slice(0, 2).join(" ")}` : "",
     "Final amount can change after site measurement, design, material brand and surface condition."
   ]
     .filter(Boolean)
@@ -884,6 +1060,68 @@ export function RateIntelligenceScreen() {
           <span>rate items</span>
         </div>
       </div>
+
+      <div className={styles.rateDashboardGrid} aria-label="Rate analyzer dashboard">
+        {rateDashboardSummary.cards.map((card) => (
+          <div className={styles.rateDashboardCard} data-tone={card.tone} key={card.label}>
+            <span>{card.label}</span>
+            <strong>{card.value}</strong>
+            <p>{card.detail}</p>
+          </div>
+        ))}
+      </div>
+
+      <Card className={styles.quickCommandCard}>
+        <CardHeader title="Fast Contractor Actions" subtitle="Everything here performs a real action: calculate, create BOQ, copy quotation, import rates, or open saved estimates." />
+        <div className={styles.quickActionGrid}>
+          <button type="button" onClick={startNewAnalysis}>
+            <strong>New Rate Analysis</strong>
+            <span>Search any work</span>
+          </button>
+          <button type="button" onClick={scrollToQuotePanel}>
+            <strong>Quick Calculator</strong>
+            <span>Open exact cost</span>
+          </button>
+          <button type="button" onClick={addSelectedToBoq}>
+            <strong>Create BOQ</strong>
+            <span>Add selected item</span>
+          </button>
+          <button type="button" onClick={() => void copyText(customerMessage, "Client quotation copied")}>
+            <strong>Create Quotation</strong>
+            <span>Copy customer text</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setShowRateBrowser(true);
+              setNotice("Rate comparison opened");
+            }}
+          >
+            <strong>Compare Rates</strong>
+            <span>Economy to premium</span>
+          </button>
+          <button type="button" onClick={() => scrollToElement(adminPanelRef.current)}>
+            <strong>Add Market Rate</strong>
+            <span>Save custom rate</span>
+          </button>
+          <button type="button" onClick={jumpToImportRates}>
+            <strong>Import Rate Sheet</strong>
+            <span>Paste CSV rows</span>
+          </button>
+          <button type="button" onClick={jumpToImportRates}>
+            <strong>Update Material Prices</strong>
+            <span>Bulk update CSV</span>
+          </button>
+          <button type="button" onClick={() => scrollToElement(boqPanelRef.current)}>
+            <strong>Open Saved Estimates</strong>
+            <span>{boqRows.length} BOQ rows</span>
+          </button>
+          <button type="button" onClick={duplicatePreviousEstimate}>
+            <strong>Duplicate Previous</strong>
+            <span>Reuse last estimate</span>
+          </button>
+        </div>
+      </Card>
 
       <details className={styles.advancedCard}>
         <summary>
@@ -922,7 +1160,14 @@ export function RateIntelligenceScreen() {
 
       <SectionTitle title="Instant Search" subtitle="Find any work: POP, 2x4 tile, waterproofing, electrician point, carpenter, plaster." />
       <div className={styles.searchBar}>
-        <input aria-label="Search rates" placeholder="Search any work rate" value={query} onChange={(event) => setQuery(event.target.value)} />
+        <input
+          ref={searchInputRef}
+          aria-label="Search rates"
+          placeholder="Search any work rate"
+          value={query}
+          disabled={!clientReady}
+          onChange={(event) => setQuery(event.target.value)}
+        />
         <select aria-label="Sort rate level" value={rateLevel} onChange={(event) => setRateLevel(event.target.value as RateLevel)}>
           {rateLevels.map((level) => (
             <option key={level.key} value={level.key}>
@@ -1051,13 +1296,33 @@ export function RateIntelligenceScreen() {
         <div className={styles.exactCostBanner}>
           <div>
             <span>Exact customer cost</span>
-            <strong>{formatMoney(exactCost)}</strong>
+            <strong>{formatMoney(profitProtection?.recommendedTotal ?? exactCost)}</strong>
             <p>
               {selectedItem?.work || "Selected work"}  -  {quantity} {selectedItem?.unit || "unit"} x {formatMoney(exactUnitCost)} / {selectedItem?.unit || "unit"}
             </p>
           </div>
           <Badge tone="success">{quoteMode === "labourOnly" ? "Labour only" : quoteMode === "materialOnly" ? "Material only" : "Labour + Material"}</Badge>
         </div>
+        {profitProtection && customerExplanation ? (
+          <div className={styles.decisionCard} data-risk={profitProtection.riskLevel}>
+            <div>
+              <span>Rate Brain Decision</span>
+              <strong>{formatMoney(profitProtection.recommendedTotal)}</strong>
+              <p>{customerExplanation.oneLineAnswer}</p>
+            </div>
+            <div className={styles.decisionScore}>
+              <span>Protection</span>
+              <strong>{profitProtection.healthScore}/100</strong>
+              <p>{profitProtection.riskLevel} risk</p>
+            </div>
+            <div className={styles.decisionMetrics}>
+              <span>Safe floor {formatMoney(profitProtection.safeFloor)}</span>
+              <span>Profit {formatMoney(profitProtection.grossProfit)} ({profitProtection.marginPercent}%)</span>
+              <span>Premium {formatMoney(profitProtection.premiumTotal)}</span>
+              <span>Condition impact {formatMoney(profitProtection.conditionImpactTotal)}</span>
+            </div>
+          </div>
+        ) : null}
         <div className={styles.grid3}>
           <NumberField label={`Quantity (${selectedItem?.unit || "unit"})`} value={quantity} onChange={setQuantity} />
           <label className={styles.field}>
@@ -1071,6 +1336,28 @@ export function RateIntelligenceScreen() {
           <NumberField label="Profit %" value={marginPercent} onChange={setMarginPercent} />
           <NumberField label="Overhead %" value={overheadPercent} onChange={setOverheadPercent} />
           <NumberField label="GST %" value={gstPercent} onChange={setGstPercent} />
+        </div>
+        <div className={styles.conditionPanel}>
+          <div className={styles.dimensionHeader}>
+            <div>
+              <strong>Site Condition Multipliers</strong>
+              <span>Select real site difficulties. The engine protects labour, transport, risk and profit.</span>
+            </div>
+            <Badge tone={selectedConditionKeys.length ? "warning" : "info"}>{selectedConditionKeys.length} active</Badge>
+          </div>
+          <div className={styles.conditionGrid}>
+            {siteConditionMultipliers.map((condition) => (
+              <button
+                aria-pressed={selectedConditionKeys.includes(condition.key)}
+                key={condition.key}
+                type="button"
+                onClick={() => toggleCondition(condition.key)}
+              >
+                <strong>{condition.label}</strong>
+                <span>+{condition.percent}%</span>
+              </button>
+            ))}
+          </div>
         </div>
         <div className={styles.dimensionPanel}>
           <div className={styles.dimensionHeader}>
@@ -1123,9 +1410,109 @@ export function RateIntelligenceScreen() {
           </div>
           <div>
             <span>Customer Quote</span>
-            <strong>{formatMoney(exactCost)}</strong>
+            <strong>{formatMoney(profitProtection?.recommendedTotal ?? exactCost)}</strong>
           </div>
         </div>
+        {profitProtection ? (
+          <div className={styles.profitProtectionPanel}>
+            <div className={styles.protectionHeader}>
+              <div>
+                <span>Profit Protection</span>
+                <strong>{profitProtection.warnings.length ? "Check before final quote" : "Safe to discuss with customer"}</strong>
+                <p>
+                  Minimum profit rule: {profitProtection.minimumProfitPercent}% for {selectedItem?.category || "this work"}.
+                </p>
+              </div>
+              <Badge tone={profitProtection.riskLevel === "high" ? "danger" : profitProtection.riskLevel === "medium" ? "warning" : "success"}>
+                {profitProtection.riskLevel} risk
+              </Badge>
+            </div>
+            <div className={styles.warningGrid}>
+              {(profitProtection.warnings.length ? profitProtection.warnings : ["No major profit warning. Still confirm measurement, material brand and site condition."]).map((warning) => (
+                <p key={warning}>{warning}</p>
+              ))}
+            </div>
+            <div className={styles.aiPlanGrid}>
+              {profitProtection.comparisonPlans.map((plan) => (
+                <div key={plan.label}>
+                  <span>{plan.label}</span>
+                  <strong>{formatMoney(plan.total)}</strong>
+                  <p>
+                    {formatMoney(plan.rate)} / {selectedItem?.unit} - {plan.riskLevel} risk - {plan.finish}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <div className={styles.aiExplainGrid}>
+              <div>
+                <h3>Smart Suggestions</h3>
+                {profitProtection.suggestions.slice(0, 6).map((suggestion) => (
+                  <p key={suggestion}>{suggestion}</p>
+                ))}
+              </div>
+              <div>
+                <h3>How Calculated</h3>
+                {profitProtection.transparencyLines.map((line) => (
+                  <p key={line}>{line}</p>
+                ))}
+              </div>
+            </div>
+            <div className={styles.aiReasonBox}>
+              <h3>Negotiation Mode</h3>
+              {profitProtection.negotiationMoves.map((move) => (
+                <p key={move}>{move}</p>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {customerExplanation ? (
+          <div className={styles.customerBrief}>
+            <div>
+              <div className={styles.customerBriefHeader}>
+                <div>
+                  <span>Customer Explanation</span>
+                  <strong>{customerExplanation.title}</strong>
+                </div>
+                <div className={styles.languageSwitch} aria-label="Customer explanation language">
+                  <button aria-pressed={customerLanguage === "hinglish"} type="button" onClick={() => setCustomerLanguage("hinglish")}>
+                    Hinglish
+                  </button>
+                  <button aria-pressed={customerLanguage === "english"} type="button" onClick={() => setCustomerLanguage("english")}>
+                    English
+                  </button>
+                </div>
+              </div>
+              <p>{customerExplanation.oneLineAnswer}</p>
+            </div>
+            <div className={styles.aiScopeGrid}>
+              <div>
+                <h3>{customerLanguage === "hinglish" ? "Customer Ko Bolna" : "Show Customer"}</h3>
+                {customerExplanation.scope.slice(0, 5).map((line) => (
+                  <p key={line}>{line}</p>
+                ))}
+              </div>
+              <div>
+                <h3>{customerLanguage === "hinglish" ? "Simple Script" : "Talking Points"}</h3>
+                {customerExplanation.talkingPoints.slice(0, 4).map((line) => (
+                  <p key={line}>{line}</p>
+                ))}
+              </div>
+              <div>
+                <h3>Hide Internals</h3>
+                <p>Labour wages</p>
+                <p>Purchase rates</p>
+                <p>Profit margin</p>
+                <p>Supplier notes</p>
+              </div>
+              <div>
+                <h3>{customerLanguage === "hinglish" ? "Extra Lagega Agar" : "Not Included"}</h3>
+                {customerExplanation.exclusions.slice(0, 5).map((line) => (
+                  <p key={line}>{line}</p>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : null}
         {detailedEstimate ? (
           <div className={styles.itemizedPanel}>
             <div className={styles.itemizedHeader}>
@@ -1314,7 +1701,7 @@ export function RateIntelligenceScreen() {
         </Card>
       </div>
 
-      <Card className={styles.aiQuickCard}>
+      <Card className={styles.aiQuickCard} id="smart-rate-ai">
         <CardHeader title="Smart Rate AI" subtitle="Type natural language. It finds the work item, calculates quantity, builds exact cost and creates an editable BOQ draft." />
         <div className={styles.smartPromptGrid} aria-label="Quick estimate prompts">
           {smartPromptPresets.map((prompt) => (
@@ -1332,6 +1719,9 @@ export function RateIntelligenceScreen() {
         />
         <div className={styles.actionRow}>
           <Button onClick={runAssistant}>Analyze Text</Button>
+          <Button variant="secondary" onClick={startVoiceInput}>
+            Voice Input
+          </Button>
           <Button variant="secondary" onClick={analyzeCurrentCalculator}>
             Analyze Current Calculator
           </Button>
@@ -1356,6 +1746,7 @@ export function RateIntelligenceScreen() {
             </Button>
           ) : null}
         </div>
+        {voiceStatus ? <p className={styles.voiceStatus}>{voiceStatus}</p> : null}
         {assistantHistory.length ? (
           <div className={styles.recentPromptBox}>
             <span>Recent smart estimates</span>
@@ -1589,9 +1980,10 @@ export function RateIntelligenceScreen() {
         {assistantResult && !assistantAnalysis ? <p className={styles.assistantResult}>{assistantResult}</p> : null}
       </Card>
 
-      <Card>
-        <CardHeader title="Professional BOQ" subtitle="Rows are saved on this phone and can be exported for Excel, print, or WhatsApp." />
-        <div className={styles.boqSummary}>
+      <div ref={boqPanelRef}>
+        <Card>
+          <CardHeader title="Professional BOQ" subtitle="Rows are saved on this phone and can be exported for Excel, print, or WhatsApp." />
+          <div className={styles.boqSummary}>
           <div>
             <span>Subtotal</span>
             <strong>{formatMoney(totals.amount)}</strong>
@@ -1604,8 +1996,8 @@ export function RateIntelligenceScreen() {
             <span>Total</span>
             <strong>{formatMoney(totals.total)}</strong>
           </div>
-        </div>
-        <div className={styles.boqList}>
+          </div>
+          <div className={styles.boqList}>
           {boqRows.length ? (
             boqRows.map((row, index) => (
               <div className={styles.boqRow} key={row.id}>
@@ -1627,8 +2019,8 @@ export function RateIntelligenceScreen() {
           ) : (
             <p className={styles.emptyState}>No BOQ rows yet. Add a rate, bathroom estimate, or assistant draft.</p>
           )}
-        </div>
-        <div className={styles.actionRow}>
+          </div>
+          <div className={styles.actionRow}>
           <Button onClick={exportBoqPdf}>Export PDF</Button>
           <Button variant="secondary" onClick={exportBoqExcel}>
             Export Excel
@@ -1653,11 +2045,13 @@ export function RateIntelligenceScreen() {
           <Button variant="ghost" onClick={() => setBoqRows([])}>
             Clear BOQ
           </Button>
-        </div>
-      </Card>
+          </div>
+        </Card>
+      </div>
 
-      <Card>
-        <CardHeader title="Admin Rate Panel" subtitle="Add your own rates, import simple CSV, export the rate database, and keep your local market list ready." />
+      <div ref={adminPanelRef}>
+        <Card>
+          <CardHeader title="Admin Rate Panel" subtitle="Add your own rates, import simple CSV, export the rate database, and keep your local market list ready." />
         <div className={styles.grid3}>
           <label className={styles.field}>
             <span>Category</span>
@@ -1694,7 +2088,7 @@ export function RateIntelligenceScreen() {
             Export Rate Database
           </Button>
         </div>
-        <textarea className={styles.assistantInput} placeholder="Import CSV rows: Category,Work,Unit,Standard,Labour,Material" value={importText} onChange={(event) => setImportText(event.target.value)} />
+        <textarea ref={importBoxRef} className={styles.assistantInput} placeholder="Import CSV rows: Category,Work,Unit,Standard,Labour,Material" value={importText} onChange={(event) => setImportText(event.target.value)} />
         <div className={styles.actionRow}>
           <Button variant="secondary" onClick={importRates}>
             Import CSV Rows
@@ -1705,7 +2099,8 @@ export function RateIntelligenceScreen() {
             </Button>
           ) : null}
         </div>
-      </Card>
+        </Card>
+      </div>
 
       <Card>
         <CardHeader title="Market Notes" subtitle="Use these as planning ranges, then confirm before final quotation." />

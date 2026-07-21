@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -43,6 +43,7 @@ export function AiAssistant() {
   const [draft, setDraft] = useState<AiDraft | null>(null);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [loadedPrompt, setLoadedPrompt] = useState("");
   const sites = useRecords("sites", company?.id);
   const clientPayments = useRecords("client_payments", company?.id);
   const supplierPayments = useRecords("supplier_payments", company?.id);
@@ -56,6 +57,21 @@ export function AiAssistant() {
 
   const saveTable = useMemo(() => (draft ? saveTableForIntent(draft.intent) : null), [draft]);
   const canSave = useMemo(() => Boolean(draft && saveTable && draft.missing_fields.length === 0), [draft, saveTable]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const prompt = new URLSearchParams(window.location.search).get("prompt")?.trim() || "";
+    if (!prompt || prompt === loadedPrompt) return;
+    setLoadedPrompt(prompt);
+    setText(prompt);
+    setMessages((items) => [
+      ...items,
+      {
+        role: "assistant",
+        content: "I loaded the current screen context. Review it, then tap Ask AI when you want me to analyze it."
+      }
+    ]);
+  }, [loadedPrompt]);
 
   function answerBusinessQuestion(input: string) {
     const lower = input.toLowerCase();
