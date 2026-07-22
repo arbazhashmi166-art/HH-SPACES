@@ -3,14 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
-  alertCircleOutline,
-  calendarOutline,
-  cameraOutline,
-  constructOutline,
-  cubeOutline,
-  receiptOutline,
-  walletOutline
-} from "ionicons/icons";
+  CalendarCheck,
+  Camera,
+  Hammer,
+  Package,
+  ReceiptText,
+  TriangleAlert,
+  WalletCards
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -299,12 +299,12 @@ export function DashboardScreen() {
     .slice(0, 5);
 
   const quickEntries = [
-    { label: "Attendance", path: "/attendance?add=1", icon: calendarOutline },
-    { label: "Expense", path: "/expenses?add=1", icon: receiptOutline },
-    { label: "Material", path: "/materials?add=1", icon: cubeOutline },
-    { label: "Progress", path: "/progress?add=1", icon: cameraOutline },
-    { label: "Payment", path: "/payments?add=1", icon: walletOutline },
-    { label: "All Actions", path: "/quick-entry", icon: constructOutline }
+    { label: "Attendance", path: "/attendance?add=1", icon: CalendarCheck },
+    { label: "Expense", path: "/expenses?add=1", icon: ReceiptText },
+    { label: "Material", path: "/materials?add=1", icon: Package },
+    { label: "Progress", path: "/progress?add=1", icon: Camera },
+    { label: "Payment", path: "/payments?add=1", icon: WalletCards },
+    { label: "All Actions", path: "/quick-entry", icon: Hammer }
   ];
 
   const go = (path: string) => router.push(withSite(path, selectedSiteId));
@@ -408,7 +408,7 @@ export function DashboardScreen() {
       </div>
 
       <Card>
-        <CardHeader title="Requires Attention" subtitle="Highest-priority actions for the selected site and date." action={<AppIcon icon={alertCircleOutline} />} />
+        <CardHeader title="Requires Attention" subtitle="Highest-priority actions for the selected site and date." action={<AppIcon icon={TriangleAlert} />} />
         {attentionItems.length ? (
           <div className={styles.alertList}>
             {attentionItems.map((item) => (

@@ -56,9 +56,9 @@
   height: 1.35em;
   display: inline-block;
   flex: 0 0 auto;
-  background: currentColor;
-  -webkit-mask: var(--app-icon-url) center / contain no-repeat;
-  mask: var(--app-icon-url) center / contain no-repeat;
+  color: currentColor;
+  fill: none;
+  vertical-align: middle;
 }
 
 html,

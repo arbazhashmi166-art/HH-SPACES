@@ -1,6 +1,6 @@
 "use client";
 
-import { addOutline, moonOutline, searchOutline, sparklesOutline, sunnyOutline } from "ionicons/icons";
+import { CirclePlus, Moon, Search, Sparkles, Sun, type LucideIcon } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { appName } from "@/lib/env";
@@ -21,7 +21,7 @@ type SearchResult = {
   label: string;
   description: string;
   path: string;
-  icon: string;
+  icon: LucideIcon;
   keywords: string;
   rank: number;
   type: "Action" | "Page" | "Record";
@@ -131,7 +131,7 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
       type: "Page" as const
     }));
     const cleanPath = (path: string) => path.split("?")[0]?.split("#")[0] || path;
-    const iconFor = (path: string) => appRoutes.find((route) => cleanPath(route.path) === cleanPath(path))?.icon || searchOutline;
+    const iconFor = (path: string) => appRoutes.find((route) => cleanPath(route.path) === cleanPath(path))?.icon || Search;
     const recordPath = (path: string, search: string) => `${path}?search=${encodeURIComponent(search)}`;
     const commands = [
       {
@@ -408,10 +408,10 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
                     setSearchOpen(true);
                   }}
                 >
-                <AppIcon icon={searchOutline} />
+                <AppIcon icon={Search} />
               </button>
               <button className={styles.iconButton} type="button" aria-label="Toggle theme" onClick={toggleMode}>
-                <AppIcon icon={mode === "dark" ? sunnyOutline : moonOutline} />
+                <AppIcon icon={mode === "dark" ? Sun : Moon} />
               </button>
             </div>
           </div>
@@ -467,7 +467,7 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
 
         {showAiButton ? (
           <button className={styles.aiButton} type="button" data-testid="ask-ai-button" onClick={() => router.push(aiRoute)}>
-            <AppIcon icon={sparklesOutline} />
+            <AppIcon icon={Sparkles} />
             <span>Ask AI</span>
           </button>
         ) : null}
@@ -490,7 +490,7 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
 
         {showQuickAdd ? (
           <button className={styles.addButton} type="button" data-testid="quick-add-button" aria-label="Open quick add" onClick={() => setQuickOpen(true)}>
-            <AppIcon icon={addOutline} />
+            <AppIcon icon={CirclePlus} />
             <span>Add</span>
           </button>
         ) : null}

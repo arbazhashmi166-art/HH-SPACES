@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { archiveOutline, copyOutline, createOutline, trashOutline } from "ionicons/icons";
+import { Archive, Copy, Pencil, Trash2 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useForm, type FieldValues, type UseFormRegister } from "react-hook-form";
@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FieldShell, SelectInput, TextArea, TextInput } from "@/components/ui/form-controls";
-import { AppIcon } from "@/components/ui/app-icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToastMessage } from "@/components/ui/toast-message";
 import { buildLookupFields, resources, type FieldConfig, type LookupContext, type ResourceConfig } from "@/config/resources";
@@ -405,18 +404,18 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
                 </div>
                 <div className={`${styles.actions} ${table === "sites" ? styles.siteActions : ""}`}>
                   {table === "sites" ? (
-                    <Button variant="success" className={styles.copyAction} onClick={() => copySummary(row)} icon={<AppIcon icon={copyOutline} />}>
+                    <Button variant="success" className={styles.copyAction} onClick={() => copySummary(row)} icon={<Copy aria-hidden="true" strokeWidth={2.4} />}>
                       Copy Summary
                     </Button>
                   ) : null}
-                  <Button variant="secondary" onClick={() => startEdit(row)} disabled={!mayUpdate} icon={<AppIcon icon={createOutline} />}>
+                  <Button variant="secondary" onClick={() => startEdit(row)} disabled={!mayUpdate} icon={<Pencil aria-hidden="true" strokeWidth={2.4} />}>
                     Edit
                   </Button>
                   <Button
                     variant={table === "sites" ? "danger" : "ghost"}
                     onClick={() => archive(row)}
                     disabled={!mayArchive}
-                    icon={<AppIcon icon={table === "sites" ? trashOutline : mayArchive ? archiveOutline : trashOutline} />}
+                    icon={table === "sites" ? <Trash2 aria-hidden="true" strokeWidth={2.4} /> : mayArchive ? <Archive aria-hidden="true" strokeWidth={2.4} /> : <Trash2 aria-hidden="true" strokeWidth={2.4} />}
                   >
                     {table === "sites" ? "Delete Site" : "Archive"}
                   </Button>

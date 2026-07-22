@@ -1,16 +1,10 @@
-import type { CSSProperties } from "react";
+import type { LucideIcon } from "lucide-react";
 
 type AppIconProps = {
-  icon: string;
+  icon: LucideIcon;
   className?: string;
 };
 
-export function AppIcon({ icon, className }: AppIconProps) {
-  return (
-    <span
-      aria-hidden="true"
-      className={["appIcon", className].filter(Boolean).join(" ")}
-      style={{ "--app-icon-url": `url("${icon}")` } as CSSProperties}
-    />
-  );
+export function AppIcon({ icon: Icon, className }: AppIconProps) {
+  return <Icon aria-hidden="true" className={["appIcon", className].filter(Boolean).join(" ")} strokeWidth={2.35} />;
 }
