@@ -83,6 +83,29 @@ export type CustomerRateBrief = {
   hinglishTalkingPoints: string[];
 };
 
+export type RateDecisionEngineStatus = "quote_ready" | "confirm_first" | "high_risk";
+
+export type RateDecisionEngine = {
+  status: RateDecisionEngineStatus;
+  confidenceScore: number;
+  headline: string;
+  decision: string;
+  customerTotal: number;
+  customerRatePerUnit: number;
+  negotiationFloor: number;
+  premiumTotal: number;
+  marginPercent: number;
+  customerScript: string;
+  hinglishScript: string;
+  whatsAppSummary: string;
+  lineItems: Array<{ label: string; amount: number; note: string }>;
+  rateBands: Array<{ label: string; total: number; rate: number; useCase: string }>;
+  missingCharges: string[];
+  guardrails: string[];
+  nextActions: string[];
+  auditTrail: string[];
+};
+
 export const siteConditionMultipliers: SiteConditionMultiplier[] = [
   { key: "liftUnavailable", label: "Lift unavailable", percent: 8, reason: "Material lifting and worker fatigue increase cost." },
   { key: "aboveThirdFloor", label: "Above 3rd floor", percent: 5, reason: "Higher movement time and supervision cost." },
@@ -134,6 +157,16 @@ function minimumProfitForCategory(category: RateCategory) {
   return 15;
 }
 
+function uniqueStrings(items: string[]) {
+  return Array.from(new Set(items.map((item) => item.trim()).filter(Boolean)));
+}
+
+function quoteModeName(mode: QuoteMode) {
+  if (mode === "labourOnly") return "labour-only";
+  if (mode === "materialOnly") return "material-only";
+  return "labour + material";
+}
+
 function categorySuggestions(item: RateItem) {
   const suggestions = new Set<string>();
   if (item.category === "Tiling") {
@@ -155,6 +188,54 @@ function categorySuggestions(item: RateItem) {
     suggestions.add("Check wall dampness, cracks, surface preparation, height and curing/protection requirement.");
   }
   return [...suggestions];
+}
+
+function categoryMissingCharges(item: RateItem, quoteMode: QuoteMode) {
+  const missing = [
+    "Final measurement and deductions",
+    "GST, transport and loading/unloading",
+    "Site access, floor level, lift and working-hour restriction",
+    "Material brand, finish grade and warranty scope"
+  ];
+
+  if (quoteMode === "labourOnly") {
+    missing.push("Material purchase, wastage, breakage, storage and supplier delivery are excluded");
+  }
+  if (quoteMode === "materialOnly") {
+    missing.push("Labour, supervision, cleaning, correction and finishing risk are excluded");
+  }
+  if (item.category === "Tiling") {
+    missing.push("Tile adhesive/cement, grout, spacer, profile, niche, slope and machine cutting");
+    missing.push("Extra wastage for diagonal, book-match, highlighter or large-format tile");
+  }
+  if (item.category === "Waterproofing" || item.category === "Waterproof Coating") {
+    missing.push("Crack filling, pipe-junction treatment, corner fillet, flood test and protection screed");
+    missing.push("Leakage source inspection and warranty terms");
+  }
+  if (item.category === "POP" || item.category === "False Ceiling") {
+    missing.push("Light cutouts, profile-light grooves, curtain pockets, trapdoors and design levels");
+  }
+  if (item.category === "Electrical") {
+    missing.push("Wire brand/size, switch brand, DB/main line, chasing, conduit and POP repair");
+  }
+  if (item.category === "Plumbing") {
+    missing.push("Pipe brand, concealed/open line, pressure test, tile breaking and sanitary fitting scope");
+  }
+  if (item.category === "Carpentry" || item.category === "Furniture" || item.category === "Modular Kitchen") {
+    missing.push("Board type, laminate/acrylic/veneer brand, hardware brand, edge banding, countertop and installation");
+  }
+  if (item.category === "Demolition") {
+    missing.push("Debris bagging, lowering, transport, municipal dumping charge and salvage value");
+  }
+  if (item.category === "Painting") {
+    missing.push("Putty coats, primer, sanding, dampness repair, colour change and scaffolding");
+  }
+
+  return uniqueStrings(missing);
+}
+
+function rateBandTotal(item: RateItem, level: "lowest" | "standard" | "premium" | "luxury" | "labourOnly" | "materialOnly" | "labourMaterial", context: RateContext, quantity: number, gstPercent: number) {
+  return money(rateForItem(item, level, context) * Math.max(0, quantity) * (1 + Math.max(0, gstPercent) / 100));
 }
 
 export function buildRateAnalyzerSummary(input: {
@@ -377,4 +458,166 @@ export function buildCustomerRateBrief(input: {
         : "Measurement, brand aur site condition pehle confirm karo, phir final commitment do."
     ]
   } satisfies CustomerRateBrief;
+}
+
+export function buildRateDecisionEngine(input: {
+  item: RateItem;
+  estimate: DetailedEstimateResult;
+  protection: ProfitProtectionResult;
+  quantity: number;
+  quoteMode: QuoteMode;
+  context: RateContext;
+  gstPercent: number;
+  missingFields?: string[];
+  warnings?: string[];
+}) {
+  const brief = buildCustomerRateBrief({
+    item: input.item,
+    estimate: input.estimate,
+    protection: input.protection,
+    quantity: input.quantity,
+    quoteMode: input.quoteMode
+  });
+  const allWarnings = uniqueStrings([...(input.protection.warnings || []), ...(input.warnings || [])]);
+  const missingFields = uniqueStrings(input.missingFields || []);
+  const missingCharges = uniqueStrings([...missingFields, ...categoryMissingCharges(input.item, input.quoteMode)]).slice(0, 10);
+  const customerRatePerUnit = input.quantity > 0 ? money(input.protection.recommendedTotal / input.quantity) : input.estimate.perUnitSelling;
+  const status: RateDecisionEngineStatus =
+    input.protection.riskLevel === "high" || allWarnings.length > 2 ? "high_risk" : missingFields.length || input.protection.riskLevel === "medium" ? "confirm_first" : "quote_ready";
+  const confidenceScore = Math.max(
+    35,
+    Math.min(100, input.protection.healthScore - missingFields.length * 7 - allWarnings.length * 4 + (input.quantity > 0 ? 4 : -12))
+  );
+  const mode = quoteModeName(input.quoteMode);
+  const headline =
+    status === "quote_ready"
+      ? "Ready to quote"
+      : status === "confirm_first"
+        ? "Confirm details first"
+        : "High risk quote";
+  const decision =
+    status === "quote_ready"
+      ? `Use ${formatMoney(input.protection.recommendedTotal)} as the customer quote for ${input.item.work}.`
+      : status === "confirm_first"
+        ? `Use ${formatMoney(input.protection.recommendedTotal)} only as an estimate until missing scope is confirmed.`
+        : `Do not lock this quote before checking risk items. Keep floor at ${formatMoney(input.protection.safeFloor)}.`;
+
+  const baseLineItems = input.estimate.itemizedLines
+    .filter((line) => Math.abs(line.amount) > 0)
+    .map((line) => ({
+      label: line.label,
+      amount: money(line.amount),
+      note: line.label === "Profit" ? "Internal margin, hide from customer" : line.label === "GST" ? `Tax at ${input.gstPercent}%` : "Included in contractor calculation"
+    }));
+  const lineItems = baseLineItems.length
+    ? baseLineItems
+    : [
+        { label: "Labour", amount: input.estimate.labourCost, note: "Worker execution cost" },
+        { label: "Material", amount: input.estimate.materialCost, note: "Material purchase estimate" },
+        { label: "Profit", amount: input.protection.grossProfit, note: "Internal margin, hide from customer" },
+        { label: "GST", amount: input.estimate.gstCost, note: `Tax at ${input.gstPercent}%` }
+      ];
+
+  const rateBands = [
+    {
+      label: "Labour only",
+      total: rateBandTotal(input.item, "labourOnly", input.context, input.quantity, input.gstPercent),
+      rate: rateForItem(input.item, "labourOnly", input.context),
+      useCase: "Use when client buys all material"
+    },
+    {
+      label: "Material only",
+      total: rateBandTotal(input.item, "materialOnly", input.context, input.quantity, input.gstPercent),
+      rate: rateForItem(input.item, "materialOnly", input.context),
+      useCase: "Use for purchase planning"
+    },
+    {
+      label: "Economy",
+      total: rateBandTotal(input.item, "lowest", input.context, input.quantity, input.gstPercent),
+      rate: rateForItem(input.item, "lowest", input.context),
+      useCase: "Lowest practical rate, higher risk"
+    },
+    {
+      label: "Standard",
+      total: input.protection.recommendedTotal,
+      rate: customerRatePerUnit,
+      useCase: "Recommended customer rate"
+    },
+    {
+      label: "Premium",
+      total: input.protection.premiumTotal,
+      rate: input.quantity > 0 ? money(input.protection.premiumTotal / input.quantity) : rateForItem(input.item, "premium", input.context),
+      useCase: "Better finish, better buffer"
+    },
+    {
+      label: "Luxury",
+      total: rateBandTotal(input.item, "luxury", input.context, input.quantity, input.gstPercent),
+      rate: rateForItem(input.item, "luxury", input.context),
+      useCase: "High finish and warranty scope"
+    }
+  ];
+
+  const guardrails = uniqueStrings([
+    `Do not go below ${formatMoney(input.protection.safeFloor)} unless scope or quality is reduced.`,
+    `Keep minimum ${input.protection.minimumProfitPercent}% profit for ${input.item.category}.`,
+    `Quote is based on ${input.quantity} ${input.item.unit}; final measurement can change total.`,
+    `This is ${mode}; exclusions must be written clearly.`,
+    ...allWarnings
+  ]).slice(0, 8);
+
+  const nextActions = uniqueStrings([
+    status === "high_risk" ? "Inspect site condition before sending final quotation" : "Copy customer explanation and confirm measurement",
+    "Add this item to BOQ after scope is confirmed",
+    "Send customer-facing total only; hide labour wage, purchase rate and profit",
+    "Use premium option if client wants faster finish, better brand or warranty",
+    ...input.protection.suggestions.slice(0, 3)
+  ]).slice(0, 8);
+
+  const customerScript = brief.oneLineAnswer;
+  const hinglishScript = brief.hinglishOneLineAnswer;
+  const whatsAppSummary = [
+    "H&H SPACES - Quick Estimate",
+    `Work: ${input.item.work}`,
+    `Type: ${mode}`,
+    `Qty: ${input.quantity} ${input.item.unit}`,
+    `Rate: ${formatMoney(customerRatePerUnit)} / ${input.item.unit}`,
+    `Approx Total: ${formatMoney(input.protection.recommendedTotal)}`,
+    `Included: ${brief.customerScope.slice(0, 3).join(", ")}`,
+    `Not included: ${brief.customerExclusions.slice(0, 2).join(", ")}`,
+    "Final amount is subject to site measurement, material brand and written scope."
+  ].join("\n");
+
+  const auditTrail = uniqueStrings([
+    `Rate source: ${input.context.city.city} ${input.context.contractType} market profile`,
+    `Quantity: ${input.quantity} ${input.item.unit}`,
+    `Mode: ${mode}`,
+    `Base labour: ${formatMoney(input.estimate.labourCost)}`,
+    `Base material: ${formatMoney(input.estimate.materialCost)}`,
+    `Contractor direct cost: ${formatMoney(input.protection.directCost)}`,
+    `Condition impact: ${formatMoney(input.protection.conditionImpactTotal)}`,
+    `Profit: ${formatMoney(input.protection.grossProfit)} (${input.protection.marginPercent}%)`,
+    `GST: ${formatMoney(input.estimate.gstCost)} at ${input.gstPercent}%`,
+    `Recommended total: ${formatMoney(input.protection.recommendedTotal)}`
+  ]);
+
+  return {
+    status,
+    confidenceScore,
+    headline,
+    decision,
+    customerTotal: input.protection.recommendedTotal,
+    customerRatePerUnit,
+    negotiationFloor: input.protection.safeFloor,
+    premiumTotal: input.protection.premiumTotal,
+    marginPercent: input.protection.marginPercent,
+    customerScript,
+    hinglishScript,
+    whatsAppSummary,
+    lineItems,
+    rateBands,
+    missingCharges,
+    guardrails,
+    nextActions,
+    auditTrail
+  } satisfies RateDecisionEngine;
 }

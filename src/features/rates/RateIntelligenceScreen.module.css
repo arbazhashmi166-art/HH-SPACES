@@ -612,6 +612,170 @@
   line-height: 1.4;
 }
 
+.engineCard {
+  display: grid;
+  gap: 14px;
+  border: 1px solid color-mix(in srgb, var(--app-success) 26%, var(--line));
+  border-radius: 28px;
+  padding: 16px;
+  background:
+    radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--app-success) 14%, transparent), transparent 34%),
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 94%, transparent), color-mix(in srgb, var(--app-glass-control) 76%, transparent));
+  box-shadow: var(--app-shadow-soft);
+}
+
+.engineCard[data-status="confirm_first"] {
+  border-color: color-mix(in srgb, var(--app-warning) 36%, var(--line));
+  background:
+    radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--app-warning) 14%, transparent), transparent 34%),
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 94%, transparent), color-mix(in srgb, var(--app-glass-control) 76%, transparent));
+}
+
+.engineCard[data-status="high_risk"] {
+  border-color: color-mix(in srgb, var(--app-danger) 36%, var(--line));
+  background:
+    radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--app-danger) 13%, transparent), transparent 34%),
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 94%, transparent), color-mix(in srgb, var(--app-glass-control) 76%, transparent));
+}
+
+:global(:root[data-theme="dark"]) .engineCard,
+:global(:root[data-theme="dark"]) .engineCard[data-status="confirm_first"],
+:global(:root[data-theme="dark"]) .engineCard[data-status="high_risk"] {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(80, 101, 255, 0.2), transparent 34%),
+    rgba(15, 23, 42, 0.78);
+}
+
+.engineTop,
+.engineScript .customerBriefHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.engineTop > div,
+.engineScript .customerBriefHeader > div:first-child {
+  min-width: 0;
+}
+
+.engineTop span,
+.engineScript span,
+.engineQuoteStrip span,
+.engineDetails summary span,
+.engineBandGrid span {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 950;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.engineTop strong {
+  display: block;
+  margin-top: 5px;
+  color: var(--text-strong);
+  font-size: clamp(1.3rem, 5vw, 1.8rem);
+  line-height: 1.08;
+}
+
+.engineTop p,
+.engineScript p,
+.engineDetails p,
+.engineBandGrid p {
+  margin: 7px 0 0;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.engineQuoteStrip,
+.engineBandGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.engineQuoteStrip div,
+.engineBandGrid div,
+.engineColumns > div {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--app-glass-control) 78%, transparent);
+}
+
+:global(:root[data-theme="dark"]) .engineQuoteStrip div,
+:global(:root[data-theme="dark"]) .engineBandGrid div,
+:global(:root[data-theme="dark"]) .engineColumns > div {
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.engineQuoteStrip strong,
+.engineBandGrid strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-strong);
+  font-size: 1.05rem;
+  line-height: 1.15;
+}
+
+.engineScript {
+  display: grid;
+  gap: 10px;
+  border-radius: 22px;
+  padding: 14px;
+  background: linear-gradient(135deg, rgba(36, 84, 255, 0.1), rgba(16, 185, 129, 0.1));
+}
+
+.engineScript strong {
+  display: block;
+  margin-top: 5px;
+  color: var(--text-strong);
+  font-size: 1rem;
+}
+
+.engineDetails {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.engineDetails summary {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.engineDetails summary::-webkit-details-marker {
+  display: none;
+}
+
+.engineDetails summary strong {
+  color: var(--text-strong);
+  font-size: 0.95rem;
+}
+
+.engineDetails[open] {
+  display: grid;
+  gap: 12px;
+}
+
+.engineColumns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.engineColumns h3 {
+  margin: 0 0 8px;
+  color: var(--text-strong);
+  font-size: 0.92rem;
+}
+
 .decisionCard {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 126px;
@@ -1593,7 +1757,6 @@
   .resultGrid,
   .boqSummary,
   .detailGrid,
-  .itemizedLines,
   .formulaButtons,
   .decisionMetrics,
   .warningGrid,
@@ -1605,6 +1768,16 @@
   .aiScopeGrid,
   .aiLogicChecks,
   .aiMarketGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .itemizedLines,
+  .engineColumns {
+    grid-template-columns: 1fr;
+  }
+
+  .engineQuoteStrip,
+  .engineBandGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1623,6 +1796,8 @@
   .itemizedHeader,
   .dimensionHeader,
   .exactCostBanner,
+  .engineTop,
+  .engineScript .customerBriefHeader,
   .protectionHeader {
     flex-direction: column;
   }
@@ -1645,6 +1820,11 @@
     width: 100%;
   }
 
+  .engineDetails summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
 }
 
 @media (max-width: 380px) {
@@ -1663,7 +1843,9 @@
   .aiExplainGrid,
   .aiScopeGrid,
   .aiLogicChecks,
-  .aiMarketGrid {
+  .aiMarketGrid,
+  .engineQuoteStrip,
+  .engineBandGrid {
     grid-template-columns: 1fr;
   }
 

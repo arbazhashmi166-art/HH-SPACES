@@ -42,6 +42,7 @@ import { analysisToWhatsAppMessage, analyzeRatePrompt, type RateAiAnalysis } fro
 import {
   analyzeProfitProtection,
   buildCustomerRateBrief,
+  buildRateDecisionEngine,
   buildRateAnalyzerSummary,
   siteConditionMultipliers,
   type SiteConditionKey
@@ -531,6 +532,24 @@ export function RateIntelligenceScreen() {
           })
         : null,
     [detailedEstimate, profitProtection, quantity, quoteMode, selectedItem]
+  );
+  const matchingAssistantAnalysis = assistantAnalysis?.item?.id === selectedItem?.id ? assistantAnalysis : null;
+  const rateDecisionEngine = useMemo(
+    () =>
+      selectedItem && detailedEstimate && profitProtection
+        ? buildRateDecisionEngine({
+            item: selectedItem,
+            estimate: detailedEstimate,
+            protection: profitProtection,
+            quantity,
+            quoteMode,
+            context,
+            gstPercent,
+            missingFields: matchingAssistantAnalysis?.missingFields,
+            warnings: matchingAssistantAnalysis?.warnings
+          })
+        : null,
+    [context, detailedEstimate, gstPercent, matchingAssistantAnalysis?.missingFields, matchingAssistantAnalysis?.warnings, profitProtection, quantity, quoteMode, selectedItem]
   );
 
   function updateMeasurementDraft(key: keyof typeof measurementDraft, value: number) {
@@ -1029,21 +1048,23 @@ export function RateIntelligenceScreen() {
       }
     : null;
 
-  const customerMessage = [
-    "H&H SPACES Quotation Estimate",
-    selectedItem ? `Work: ${selectedItem.work}` : "",
-    `Qty: ${quantity} ${selectedItem?.unit || "unit"}`,
-    `Rate: ${formatMoney(exactUnitCost)} / ${selectedItem?.unit || "unit"}`,
-    `Estimated total: ${formatMoney(profitProtection?.recommendedTotal ?? exactCost)}`,
-    profitProtection ? `Safe negotiation floor: ${formatMoney(profitProtection.safeFloor)}` : "",
-    customerExplanation ? `Customer explanation: ${customerExplanation.oneLineAnswer}` : "",
-    customerExplanation ? `Scope: ${customerExplanation.scope.slice(0, 3).join(", ")}` : "",
-    customerExplanation ? `Not included: ${customerExplanation.exclusions.slice(0, 2).join(", ")}` : "",
-    profitProtection?.warnings.length ? `Check before final: ${profitProtection.warnings.slice(0, 2).join(" ")}` : "",
-    "Final amount can change after site measurement, design, material brand and surface condition."
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const customerMessage =
+    rateDecisionEngine?.whatsAppSummary ||
+    [
+      "H&H SPACES Quotation Estimate",
+      selectedItem ? `Work: ${selectedItem.work}` : "",
+      `Qty: ${quantity} ${selectedItem?.unit || "unit"}`,
+      `Rate: ${formatMoney(exactUnitCost)} / ${selectedItem?.unit || "unit"}`,
+      `Estimated total: ${formatMoney(profitProtection?.recommendedTotal ?? exactCost)}`,
+      profitProtection ? `Safe negotiation floor: ${formatMoney(profitProtection.safeFloor)}` : "",
+      customerExplanation ? `Customer explanation: ${customerExplanation.oneLineAnswer}` : "",
+      customerExplanation ? `Scope: ${customerExplanation.scope.slice(0, 3).join(", ")}` : "",
+      customerExplanation ? `Not included: ${customerExplanation.exclusions.slice(0, 2).join(", ")}` : "",
+      profitProtection?.warnings.length ? `Check before final: ${profitProtection.warnings.slice(0, 2).join(" ")}` : "",
+      "Final amount can change after site measurement, design, material brand and surface condition."
+    ]
+      .filter(Boolean)
+      .join("\n");
 
   return (
     <section className={styles.stack}>
@@ -1303,24 +1324,86 @@ export function RateIntelligenceScreen() {
           </div>
           <Badge tone="success">{quoteMode === "labourOnly" ? "Labour only" : quoteMode === "materialOnly" ? "Material only" : "Labour + Material"}</Badge>
         </div>
-        {profitProtection && customerExplanation ? (
-          <div className={styles.decisionCard} data-risk={profitProtection.riskLevel}>
-            <div>
-              <span>Rate Brain Decision</span>
-              <strong>{formatMoney(profitProtection.recommendedTotal)}</strong>
-              <p>{customerExplanation.oneLineAnswer}</p>
+        {rateDecisionEngine ? (
+          <div className={styles.engineCard} data-status={rateDecisionEngine.status}>
+            <div className={styles.engineTop}>
+              <div>
+                <span>Rate Engine Decision</span>
+                <strong>{rateDecisionEngine.headline}</strong>
+                <p>{rateDecisionEngine.decision}</p>
+              </div>
+              <Badge tone={rateDecisionEngine.status === "high_risk" ? "danger" : rateDecisionEngine.status === "confirm_first" ? "warning" : "success"}>
+                {rateDecisionEngine.confidenceScore}% confidence
+              </Badge>
             </div>
-            <div className={styles.decisionScore}>
-              <span>Protection</span>
-              <strong>{profitProtection.healthScore}/100</strong>
-              <p>{profitProtection.riskLevel} risk</p>
+            <div className={styles.engineQuoteStrip}>
+              <div>
+                <span>Customer Total</span>
+                <strong>{formatMoney(rateDecisionEngine.customerTotal)}</strong>
+              </div>
+              <div>
+                <span>Rate</span>
+                <strong>
+                  {formatMoney(rateDecisionEngine.customerRatePerUnit)} / {selectedItem?.unit}
+                </strong>
+              </div>
+              <div>
+                <span>Do Not Go Below</span>
+                <strong>{formatMoney(rateDecisionEngine.negotiationFloor)}</strong>
+              </div>
+              <div>
+                <span>Premium Option</span>
+                <strong>{formatMoney(rateDecisionEngine.premiumTotal)}</strong>
+              </div>
             </div>
-            <div className={styles.decisionMetrics}>
-              <span>Safe floor {formatMoney(profitProtection.safeFloor)}</span>
-              <span>Profit {formatMoney(profitProtection.grossProfit)} ({profitProtection.marginPercent}%)</span>
-              <span>Premium {formatMoney(profitProtection.premiumTotal)}</span>
-              <span>Condition impact {formatMoney(profitProtection.conditionImpactTotal)}</span>
+            <div className={styles.engineScript}>
+              <div className={styles.customerBriefHeader}>
+                <div>
+                  <span>Explain To Customer</span>
+                  <strong>{customerLanguage === "hinglish" ? "Hinglish script" : "English script"}</strong>
+                </div>
+                <div className={styles.languageSwitch} aria-label="Rate engine explanation language">
+                  <button aria-pressed={customerLanguage === "hinglish"} type="button" onClick={() => setCustomerLanguage("hinglish")}>
+                    Hinglish
+                  </button>
+                  <button aria-pressed={customerLanguage === "english"} type="button" onClick={() => setCustomerLanguage("english")}>
+                    English
+                  </button>
+                </div>
+              </div>
+              <p>{customerLanguage === "hinglish" ? rateDecisionEngine.hinglishScript : rateDecisionEngine.customerScript}</p>
             </div>
+            <details className={styles.engineDetails}>
+              <summary>
+                <span>Why this quote is safe</span>
+                <strong>Open calculation logic</strong>
+              </summary>
+              <div className={styles.engineColumns}>
+                <div>
+                  <h3>Missing Charges To Confirm</h3>
+                  {rateDecisionEngine.missingCharges.slice(0, 6).map((item) => (
+                    <p key={item}>{item}</p>
+                  ))}
+                </div>
+                <div>
+                  <h3>Guardrails</h3>
+                  {rateDecisionEngine.guardrails.slice(0, 6).map((item) => (
+                    <p key={item}>{item}</p>
+                  ))}
+                </div>
+              </div>
+              <div className={styles.engineBandGrid}>
+                {rateDecisionEngine.rateBands.slice(0, 6).map((band) => (
+                  <div key={band.label}>
+                    <span>{band.label}</span>
+                    <strong>{formatMoney(band.total)}</strong>
+                    <p>
+                      {formatMoney(band.rate)} / {selectedItem?.unit} - {band.useCase}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </details>
           </div>
         ) : null}
         <div className={styles.grid3}>

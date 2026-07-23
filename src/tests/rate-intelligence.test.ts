@@ -12,7 +12,7 @@ import {
   toBoqRow
 } from "@/features/rates/rate-calculator";
 import { analysisToWhatsAppMessage, analyzeRatePrompt } from "@/features/rates/rate-ai-engine";
-import { analyzeProfitProtection, buildCustomerRateBrief, buildRateAnalyzerSummary } from "@/features/rates/rate-intelligence-engine";
+import { analyzeProfitProtection, buildCustomerRateBrief, buildRateAnalyzerSummary, buildRateDecisionEngine } from "@/features/rates/rate-intelligence-engine";
 import { cityRateProfiles } from "@/features/rates/rate-catalog";
 import { constructionRateStats, expandedRateCatalog, searchRateDatabase } from "@/features/rates/expanded-rate-database";
 
@@ -305,5 +305,50 @@ describe("rate intelligence calculations", () => {
     expect(brief.hinglishOneLineAnswer).toContain("customer amount");
     expect(brief.hinglishTalkingPoints.some((line) => line.includes("neeche mat jana"))).toBeTruthy();
     expect(brief.customerExclusions.length).toBeGreaterThan(0);
+  });
+
+  test("builds a customer-safe rate decision engine with Hinglish explanation and guardrails", () => {
+    const item = searchRateDatabase("2x4 bathroom wall tile labour and material", 1)[0]!;
+    const estimate = calculateDetailedWorkEstimate({
+      item,
+      context: { city: pune, contractType: "Residential", areaPremiumPercent: 0 },
+      quantity: 100,
+      mode: "labourMaterial",
+      includeHeightCharge: false,
+      includeDifficultAccess: false,
+      includeSmallQuantitySurcharge: true,
+      gstPercent: 18
+    });
+    const protection = analyzeProfitProtection({
+      item,
+      estimate,
+      quantity: 100,
+      quoteMode: "labourMaterial",
+      context: { city: pune, contractType: "Residential", areaPremiumPercent: 0 },
+      gstPercent: 18,
+      selectedConditionKeys: ["renovation"]
+    });
+    const engine = buildRateDecisionEngine({
+      item,
+      estimate,
+      protection,
+      quantity: 100,
+      quoteMode: "labourMaterial",
+      context: { city: pune, contractType: "Residential", areaPremiumPercent: 0 },
+      gstPercent: 18,
+      missingFields: ["Tile brand or quality grade"]
+    });
+
+    expect(engine.customerTotal).toBe(protection.recommendedTotal);
+    expect(engine.customerRatePerUnit).toBeGreaterThan(0);
+    expect(engine.negotiationFloor).toBe(protection.safeFloor);
+    expect(engine.status).toBe("confirm_first");
+    expect(engine.hinglishScript).toContain("Final measurement");
+    expect(engine.whatsAppSummary).toContain("H&H SPACES");
+    expect(engine.missingCharges.some((item) => item.includes("Tile brand"))).toBeTruthy();
+    expect(engine.missingCharges.some((item) => item.includes("adhesive"))).toBeTruthy();
+    expect(engine.guardrails.some((item) => item.includes("Do not go below"))).toBeTruthy();
+    expect(engine.rateBands.map((band) => band.label)).toEqual(["Labour only", "Material only", "Economy", "Standard", "Premium", "Luxury"]);
+    expect(engine.auditTrail.some((item) => item.includes("Recommended total"))).toBeTruthy();
   });
 });
