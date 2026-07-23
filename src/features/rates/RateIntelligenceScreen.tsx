@@ -585,12 +585,19 @@ export function RateIntelligenceScreen() {
     saveJson(rateBackupStorageKey, next);
   }
 
+  function setRateSearchText(value: string) {
+    setQuery(value);
+    if (searchInputRef.current && searchInputRef.current.value !== value) {
+      searchInputRef.current.value = value;
+    }
+  }
+
   function toggleCondition(key: SiteConditionKey) {
     setSelectedConditionKeys((current) => (current.includes(key) ? current.filter((item) => item !== key) : [...current, key]));
   }
 
   function startNewAnalysis() {
-    setQuery("");
+    setRateSearchText("");
     setShowRateBrowser(true);
     if (selectedItem) setQuantity(defaultQuantityForRateItem(selectedItem));
     setQuantityNote("Search a work with size, then tap it. Example: 4x8 bathroom tiling cost.");
@@ -1087,7 +1094,7 @@ export function RateIntelligenceScreen() {
         <div>
           <span>Construction Pricing Engine</span>
           <h1>Rate Intelligence</h1>
-          <p>Search rates, compare labour/material prices, calculate BOQ, and quote customers instantly.</p>
+          <p>Search one work item, enter quantity, see customer price, then copy or add it to BOQ.</p>
         </div>
         <div className={styles.heroMetric}>
           <strong>{constructionRateStats.itemCount + customRates.length}</strong>
@@ -1095,102 +1102,23 @@ export function RateIntelligenceScreen() {
         </div>
       </div>
 
-      <div className={styles.rateDashboardGrid} aria-label="Rate analyzer dashboard">
-        {rateDashboardSummary.cards.map((card) => (
-          <div className={styles.rateDashboardCard} data-tone={card.tone} key={card.label}>
-            <span>{card.label}</span>
-            <strong>{card.value}</strong>
-            <p>{card.detail}</p>
-          </div>
-        ))}
+      <div className={styles.stepGuide} aria-label="Simple rate workflow">
+        <div>
+          <span>1</span>
+          <strong>Search work</strong>
+          <p>Example: 2x4 wall tile, POP ceiling, waterproofing.</p>
+        </div>
+        <div>
+          <span>2</span>
+          <strong>Enter quantity</strong>
+          <p>Use sqft, rft, point, nos, bag or the area calculator.</p>
+        </div>
+        <div>
+          <span>3</span>
+          <strong>Quote clearly</strong>
+          <p>Copy customer text or add the item to BOQ.</p>
+        </div>
       </div>
-
-      <Card className={styles.quickCommandCard}>
-        <CardHeader title="Fast Contractor Actions" subtitle="Everything here performs a real action: calculate, create BOQ, copy quotation, import rates, or open saved estimates." />
-        <div className={styles.quickActionGrid}>
-          <button type="button" onClick={startNewAnalysis}>
-            <strong>New Rate Analysis</strong>
-            <span>Search any work</span>
-          </button>
-          <button type="button" onClick={scrollToQuotePanel}>
-            <strong>Quick Calculator</strong>
-            <span>Open exact cost</span>
-          </button>
-          <button type="button" onClick={addSelectedToBoq}>
-            <strong>Create BOQ</strong>
-            <span>Add selected item</span>
-          </button>
-          <button type="button" onClick={() => void copyText(customerMessage, "Client quotation copied")}>
-            <strong>Create Quotation</strong>
-            <span>Copy customer text</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setShowRateBrowser(true);
-              setNotice("Rate comparison opened");
-            }}
-          >
-            <strong>Compare Rates</strong>
-            <span>Economy to premium</span>
-          </button>
-          <button type="button" onClick={() => scrollToElement(adminPanelRef.current)}>
-            <strong>Add Market Rate</strong>
-            <span>Save custom rate</span>
-          </button>
-          <button type="button" onClick={jumpToImportRates}>
-            <strong>Import Rate Sheet</strong>
-            <span>Paste CSV rows</span>
-          </button>
-          <button type="button" onClick={jumpToImportRates}>
-            <strong>Update Material Prices</strong>
-            <span>Bulk update CSV</span>
-          </button>
-          <button type="button" onClick={() => scrollToElement(boqPanelRef.current)}>
-            <strong>Open Saved Estimates</strong>
-            <span>{boqRows.length} BOQ rows</span>
-          </button>
-          <button type="button" onClick={duplicatePreviousEstimate}>
-            <strong>Duplicate Previous</strong>
-            <span>Reuse last estimate</span>
-          </button>
-        </div>
-      </Card>
-
-      <details className={styles.advancedCard}>
-        <summary>
-          <span>
-            <strong>Advanced price settings</strong>
-            <small>
-              {city.city} - {contractType} - {rateLevels.find((level) => level.key === rateLevel)?.label || "Standard"} rate
-            </small>
-          </span>
-          <Badge tone="info">Optional</Badge>
-        </summary>
-        <div className={styles.grid3}>
-          <label className={styles.field}>
-            <span>City</span>
-            <select value={city.city} onChange={(event) => setCity(cityRateProfiles.find((entry) => entry.city === event.target.value) ?? cityRateProfiles[0]!)}>
-              {cityRateProfiles.map((entry) => (
-                <option key={entry.city} value={entry.city}>
-                  {entry.city}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className={styles.field}>
-            <span>Contract Type</span>
-            <select value={contractType} onChange={(event) => setContractType(event.target.value as ContractType)}>
-              <option value="Residential">Residential</option>
-              <option value="Commercial">Commercial</option>
-              <option value="Industrial">Industrial</option>
-              <option value="Luxury">Luxury</option>
-            </select>
-          </label>
-          <NumberField label="Area Premium %" value={areaPremiumPercent} min="-30" onChange={setAreaPremiumPercent} />
-        </div>
-        <p className={styles.helperText}>{city.note}</p>
-      </details>
 
       <SectionTitle title="Instant Search" subtitle="Find any work: POP, 2x4 tile, waterproofing, electrician point, carpenter, plaster." />
       <div className={styles.searchBar}>
@@ -1198,8 +1126,8 @@ export function RateIntelligenceScreen() {
           ref={searchInputRef}
           aria-label="Search rates"
           placeholder="Search any work rate"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          defaultValue={query}
+          onInput={(event) => setQuery(event.currentTarget.value)}
         />
         <select aria-label="Sort rate level" value={rateLevel} onChange={(event) => setRateLevel(event.target.value as RateLevel)}>
           {rateLevels.map((level) => (
@@ -1215,7 +1143,7 @@ export function RateIntelligenceScreen() {
           onClick={() => {
             if (showRateDatabase) {
               setShowRateBrowser(false);
-              setQuery("");
+              setRateSearchText("");
               return;
             }
             setShowRateBrowser(true);
@@ -1224,7 +1152,7 @@ export function RateIntelligenceScreen() {
           {showRateDatabase ? "Hide Rate List" : "Browse Rate List"}
         </Button>
         {hasRateSearch ? (
-          <Button variant="ghost" onClick={() => setQuery("")}>
+          <Button variant="ghost" onClick={() => setRateSearchText("")}>
             Clear Search
           </Button>
         ) : null}
@@ -1324,17 +1252,24 @@ export function RateIntelligenceScreen() {
       ) : null}
 
       <div ref={quotePanelRef}>
-        <Card>
-        <CardHeader title="Quick Customer Quote" subtitle="Tap any search result to open this calculator with inferred area and exact cost." />
+        <Card className={styles.quoteCard}>
+        <CardHeader title="Quote Calculator" subtitle="Check the customer amount first. Detailed cost breakup is below." />
         <div className={styles.exactCostBanner}>
           <div>
-            <span>Exact customer cost</span>
+            <span>Customer quote</span>
             <strong>{formatMoney(profitProtection?.recommendedTotal ?? exactCost)}</strong>
-            <p>
-              {selectedItem?.work || "Selected work"}  -  {quantity} {selectedItem?.unit || "unit"} x {formatMoney(exactUnitCost)} / {selectedItem?.unit || "unit"}
-            </p>
+            <p>{selectedItem?.work || "Selected work"}</p>
+            <small>
+              {quantity} {selectedItem?.unit || "unit"} at {formatMoney(exactUnitCost)} / {selectedItem?.unit || "unit"}
+            </small>
           </div>
           <Badge tone="success">{quoteMode === "labourOnly" ? "Labour only" : quoteMode === "materialOnly" ? "Material only" : "Labour + Material"}</Badge>
+        </div>
+        <div className={styles.primaryQuoteActions}>
+          <Button onClick={addSelectedToBoq}>Add To BOQ</Button>
+          <Button variant="secondary" onClick={() => void copyText(customerMessage, "Quote copied for WhatsApp")}>
+            Copy Quote
+          </Button>
         </div>
         {rateDecisionEngine ? (
           <div className={styles.engineCard} data-status={rateDecisionEngine.status}>
@@ -1522,7 +1457,7 @@ export function RateIntelligenceScreen() {
             </details>
           </div>
         ) : null}
-        <div className={styles.grid3}>
+        <div className={`${styles.grid3} ${styles.quoteControls}`}>
           <NumberField label={`Quantity (${selectedItem?.unit || "unit"})`} value={quantity} onChange={setQuantity} />
           <label className={styles.field}>
             <span>Quote Mode</span>
@@ -1594,7 +1529,7 @@ export function RateIntelligenceScreen() {
             </button>
           </div>
         </div>
-        <div className={styles.resultGrid}>
+        <div className={`${styles.resultGrid} ${styles.quoteResultGrid}`}>
           <div>
             <span>Labour</span>
             <strong>{formatMoney(detailedEstimate?.labourCost ?? quote.labourCost)}</strong>
@@ -1738,14 +1673,124 @@ export function RateIntelligenceScreen() {
             </div>
           </div>
         ) : null}
-        <div className={styles.actionRow}>
-          <Button onClick={addSelectedToBoq}>Add To BOQ</Button>
-          <Button variant="secondary" onClick={() => void copyText(customerMessage, "Quote copied for WhatsApp")}>
-            Copy Quote
-          </Button>
-        </div>
         </Card>
       </div>
+
+      <details className={styles.advancedCard}>
+        <summary>
+          <span>
+            <strong>Advanced price settings</strong>
+            <small>
+              {city.city} - {contractType} - {rateLevels.find((level) => level.key === rateLevel)?.label || "Standard"} rate
+            </small>
+          </span>
+          <Badge tone="info">Optional</Badge>
+        </summary>
+        <div className={styles.grid3}>
+          <label className={styles.field}>
+            <span>City</span>
+            <select value={city.city} onChange={(event) => setCity(cityRateProfiles.find((entry) => entry.city === event.target.value) ?? cityRateProfiles[0]!)}>
+              {cityRateProfiles.map((entry) => (
+                <option key={entry.city} value={entry.city}>
+                  {entry.city}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={styles.field}>
+            <span>Contract Type</span>
+            <select value={contractType} onChange={(event) => setContractType(event.target.value as ContractType)}>
+              <option value="Residential">Residential</option>
+              <option value="Commercial">Commercial</option>
+              <option value="Industrial">Industrial</option>
+              <option value="Luxury">Luxury</option>
+            </select>
+          </label>
+          <NumberField label="Area Premium %" value={areaPremiumPercent} min="-30" onChange={setAreaPremiumPercent} />
+        </div>
+        <p className={styles.helperText}>{city.note}</p>
+      </details>
+
+      <Card className={styles.quickCommandCard}>
+        <CardHeader title="Quick Actions" subtitle="Daily estimate actions only. Advanced tools are inside More rate tools." />
+        <div className={styles.quickActionGrid}>
+          <button type="button" onClick={startNewAnalysis}>
+            <strong>Search Work</strong>
+            <span>Start fresh</span>
+          </button>
+          <button type="button" onClick={scrollToQuotePanel}>
+            <strong>Calculator</strong>
+            <span>Go to price</span>
+          </button>
+          <button type="button" onClick={addSelectedToBoq}>
+            <strong>Add BOQ</strong>
+            <span>Add selected item</span>
+          </button>
+          <button type="button" onClick={() => void copyText(customerMessage, "Client quotation copied")}>
+            <strong>Copy Quote</strong>
+            <span>WhatsApp text</span>
+          </button>
+        </div>
+        <details className={styles.moreActions}>
+          <summary>
+            <span>More rate tools</span>
+            <strong>Compare, import, update, duplicate</strong>
+          </summary>
+          <div className={styles.quickActionGrid}>
+            <button
+              type="button"
+              onClick={() => {
+                setShowRateBrowser(true);
+                setNotice("Rate comparison opened");
+              }}
+            >
+              <strong>Compare Rates</strong>
+              <span>Economy to premium</span>
+            </button>
+            <button type="button" onClick={() => scrollToElement(adminPanelRef.current)}>
+              <strong>Add Market Rate</strong>
+              <span>Save custom rate</span>
+            </button>
+            <button type="button" onClick={jumpToImportRates}>
+              <strong>Import Sheet</strong>
+              <span>Paste CSV rows</span>
+            </button>
+            <button type="button" onClick={jumpToImportRates}>
+              <strong>Update Prices</strong>
+              <span>Bulk update CSV</span>
+            </button>
+            <button type="button" onClick={() => scrollToElement(boqPanelRef.current)}>
+              <strong>Saved Estimates</strong>
+              <span>{boqRows.length} BOQ rows</span>
+            </button>
+            <button type="button" onClick={duplicatePreviousEstimate}>
+              <strong>Duplicate</strong>
+              <span>Reuse last estimate</span>
+            </button>
+          </div>
+        </details>
+      </Card>
+
+      <details className={styles.rateStatusPanel}>
+        <summary>
+          <span>
+            <strong>Rate library status</strong>
+            <small>
+              {constructionRateStats.itemCount + customRates.length} saved rates - {city.city} market
+            </small>
+          </span>
+          <Badge tone="info">Open stats</Badge>
+        </summary>
+        <div className={styles.rateDashboardGrid} aria-label="Rate analyzer dashboard">
+          {rateDashboardSummary.cards.map((card) => (
+            <div className={styles.rateDashboardCard} data-tone={card.tone} key={card.label}>
+              <span>{card.label}</span>
+              <strong>{card.value}</strong>
+              <p>{card.detail}</p>
+            </div>
+          ))}
+        </div>
+      </details>
 
       <Card>
         <CardHeader title="Bathroom Tile Calculator" subtitle="Use for 2x4 bathroom tiling, wall/floor area, tile boxes, adhesive, grout and total quote." />

@@ -25,6 +25,7 @@ import { automationEngine } from "@/utils/automation-engine";
 import { businessIntelligence } from "@/utils/business-logic";
 import { dashboardMetrics, sumBy } from "@/utils/calc";
 import { formatMoney } from "@/utils/format";
+import { businessPatternLearning } from "@/utils/pattern-learning-engine";
 import { AppIcon } from "@/components/ui/app-icon";
 import {
   attendanceBreakdown,
@@ -182,6 +183,20 @@ export function DashboardScreen() {
         reminders: scopedReminders
       }),
     [scopedAttendance, scopedExpenses, scopedExtraWorks, scopedLabour, scopedMaterials, scopedPayments, scopedProgress, scopedReminders, scopedSites, scopedSupplierPayments]
+  );
+  const learnedPatterns = useMemo(
+    () =>
+      businessPatternLearning({
+        sites: scopedSites,
+        labour: scopedLabour,
+        attendance: scopedAttendance,
+        materials: scopedMaterials,
+        expenses: scopedExpenses,
+        payments: scopedPayments,
+        supplierPayments: scopedSupplierPayments,
+        progress: scopedProgress
+      }),
+    [scopedAttendance, scopedExpenses, scopedLabour, scopedMaterials, scopedPayments, scopedProgress, scopedSites, scopedSupplierPayments]
   );
 
   const progressAverage = useMemo(
@@ -443,6 +458,24 @@ export function DashboardScreen() {
             <button key={action.path} className={styles.quick} type="button" onClick={() => go(action.path)}>
               <AppIcon icon={action.icon} />
               <span>{action.label}</span>
+            </button>
+          ))}
+        </div>
+      </Card>
+
+      <Card>
+        <CardHeader
+          title="Smart Learning"
+          subtitle="Learns from saved entries only. No guessing, no automatic changes."
+          action={<Badge tone={learnedPatterns.confidence >= 70 ? "success" : "info"}>{learnedPatterns.confidence}% learned</Badge>}
+        />
+        <div className={styles.learningGrid}>
+          {learnedPatterns.patterns.map((pattern) => (
+            <button className={styles.learningCard} key={pattern.id} type="button" onClick={() => go(pattern.route)}>
+              <span>{pattern.confidence}% confidence</span>
+              <strong>{pattern.title}</strong>
+              <p>{pattern.message}</p>
+              <small>{pattern.action}</small>
             </button>
           ))}
         </div>

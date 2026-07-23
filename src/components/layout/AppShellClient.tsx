@@ -128,6 +128,7 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
   ].some((route) => pathname.startsWith(route));
   const showAiButton = !adaptiveState.shouldHideFloatingAi && !crowdedEntryRoute;
   const aiRoute = `/ai?prompt=${encodeURIComponent(adaptiveState.command.aiPrompt)}`;
+  const focusedToolRoute = pathname.startsWith("/rate-analyzer") || pathname.startsWith("/bill-scanner");
 
   useEffect(() => {
     if (!selectedSiteId || sites.isLoading) return;
@@ -435,37 +436,41 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
               </button>
             </div>
           </div>
-          <div className={styles.statusDock} aria-label="Business command shortcuts">
-            <button type="button" onClick={() => go("/daily-closing")}>
-              <span>Today</span>
-            </button>
-            <button type="button" onClick={() => go("/quick-entry")}>
-              <span>Add Entry</span>
-            </button>
-            <button type="button" onClick={() => go("/settings#supabase-sync")}>
-              <span suppressHydrationWarning>{hydrated ? syncStatus.label : "Sync Status"}</span>
-            </button>
-          </div>
+          {!focusedToolRoute ? (
+            <div className={styles.statusDock} aria-label="Business command shortcuts">
+              <button type="button" onClick={() => go("/daily-closing")}>
+                <span>Today</span>
+              </button>
+              <button type="button" onClick={() => go("/quick-entry")}>
+                <span>Add Entry</span>
+              </button>
+              <button type="button" onClick={() => go("/settings#supabase-sync")}>
+                <span suppressHydrationWarning>{hydrated ? syncStatus.label : "Sync Status"}</span>
+              </button>
+            </div>
+          ) : null}
         </header>
 
         <div className={styles.page}>
           <main className={styles.content}>
             {subtitle ? <p className={styles.sheetSub}>{subtitle}</p> : null}
-            <div className={styles.siteDock} aria-label="Current site selector">
-              <div className={styles.siteDockText}>
-                <span>Site</span>
-                <strong>{selectedSite ? selectedSite.name : "All Sites"}</strong>
+            {!focusedToolRoute ? (
+              <div className={styles.siteDock} aria-label="Current site selector">
+                <div className={styles.siteDockText}>
+                  <span>Site</span>
+                  <strong>{selectedSite ? selectedSite.name : "All Sites"}</strong>
+                </div>
+                <select aria-label="Select current site" value={selectedSiteId} onChange={(event) => setSelectedSiteId(event.target.value)}>
+                  <option value="">All Active Sites</option>
+                  {activeSites.map((site) => (
+                    <option key={site.id} value={site.id}>
+                      {site.name} - {site.client_name || "Client"}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <select aria-label="Select current site" value={selectedSiteId} onChange={(event) => setSelectedSiteId(event.target.value)}>
-                <option value="">All Active Sites</option>
-                {activeSites.map((site) => (
-                  <option key={site.id} value={site.id}>
-                    {site.name} - {site.client_name || "Client"}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {hydrated && adaptiveMode ? (
+            ) : null}
+            {hydrated && adaptiveMode && !focusedToolRoute ? (
               <button
                 className={`${styles.adaptiveStrip} ${
                   adaptiveState.command.severity === "critical" ? styles.adaptiveCritical : adaptiveState.command.severity === "warning" ? styles.adaptiveWarning : ""

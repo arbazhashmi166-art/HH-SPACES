@@ -63,6 +63,55 @@
   text-align: center;
 }
 
+.stepGuide {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.stepGuide div {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 10px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  padding: 14px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 94%, transparent), color-mix(in srgb, var(--app-glass) 78%, transparent));
+  box-shadow: var(--app-shadow-soft);
+}
+
+.stepGuide span {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  grid-row: span 2;
+  place-items: center;
+  border-radius: 999px;
+  color: #fff;
+  background: linear-gradient(135deg, #2454ff, #7f49ff);
+  font-weight: 950;
+}
+
+.stepGuide strong {
+  color: var(--text-strong);
+  font-size: 0.96rem;
+  line-height: 1.2;
+}
+
+.stepGuide p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 780;
+  line-height: 1.35;
+}
+
+:global(:root[data-theme="dark"]) .stepGuide div {
+  background: rgba(15, 23, 42, 0.78);
+}
+
 .sectionTitle {
   display: grid;
   gap: 4px;
@@ -153,7 +202,8 @@
 }
 
 .advancedCard,
-.simpleStart {
+.simpleStart,
+.rateStatusPanel {
   border: 1px solid var(--line);
   border-radius: 26px;
   background:
@@ -164,16 +214,20 @@
 }
 
 :global(:root[data-theme="dark"]) .advancedCard,
-:global(:root[data-theme="dark"]) .simpleStart {
+:global(:root[data-theme="dark"]) .simpleStart,
+:global(:root[data-theme="dark"]) .rateStatusPanel {
   background: rgba(15, 23, 42, 0.8);
 }
 
-.advancedCard {
+.advancedCard,
+.rateStatusPanel {
   order: 0;
   padding: 14px;
 }
 
-.advancedCard summary {
+.advancedCard summary,
+.rateStatusPanel summary,
+.moreActions summary {
   display: flex;
   min-height: 52px;
   align-items: center;
@@ -183,29 +237,51 @@
   list-style: none;
 }
 
-.advancedCard summary::-webkit-details-marker {
+.advancedCard summary::-webkit-details-marker,
+.rateStatusPanel summary::-webkit-details-marker,
+.moreActions summary::-webkit-details-marker {
   display: none;
 }
 
-.advancedCard summary span {
+.advancedCard summary span,
+.rateStatusPanel summary span,
+.moreActions summary span {
   display: grid;
   gap: 4px;
 }
 
-.advancedCard summary strong {
+.advancedCard summary strong,
+.rateStatusPanel summary strong,
+.moreActions summary strong {
   color: var(--text-strong);
   font-size: 1rem;
 }
 
-.advancedCard summary small {
+.advancedCard summary small,
+.rateStatusPanel summary small,
+.moreActions summary small {
   color: var(--text-muted);
   font-weight: 850;
   line-height: 1.35;
 }
 
-.advancedCard[open] {
+.advancedCard[open],
+.rateStatusPanel[open],
+.moreActions[open] {
   display: grid;
   gap: 14px;
+}
+
+.moreActions {
+  margin-top: 12px;
+  border: 1px dashed color-mix(in srgb, var(--app-primary) 28%, var(--line));
+  border-radius: 20px;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--app-glass-control) 66%, transparent);
+}
+
+.moreActions .quickActionGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .simpleActions {
@@ -294,13 +370,14 @@
 
 .quickActionGrid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
 .quickActionGrid button {
   display: grid;
   gap: 6px;
+  min-width: 0;
   min-height: 70px;
   border: 1px solid var(--line);
   border-radius: 20px;
@@ -324,6 +401,7 @@
   font-size: 0.88rem;
   font-weight: 950;
   line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
 .quickActionGrid span {
@@ -423,7 +501,7 @@
 }
 
 .aiQuickCard {
-  order: -1;
+  order: 6;
 }
 
 .subcategory {
@@ -571,11 +649,22 @@
   font-size: 1.15rem;
 }
 
+.quoteCard {
+  display: grid;
+  gap: 14px;
+}
+
+.quoteCard > :first-child {
+  order: 0;
+}
+
 .exactCostBanner {
+  order: 1;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
+  min-width: 0;
   border: 1px solid rgba(80, 101, 255, 0.2);
   border-radius: 26px;
   padding: 18px;
@@ -584,6 +673,7 @@
     radial-gradient(circle at top right, rgba(255, 255, 255, 0.32), transparent 34%),
     linear-gradient(135deg, #182b68, #334dff 52%, #7f49ff);
   box-shadow: 0 20px 44px rgba(54, 72, 206, 0.22);
+  overflow: hidden;
 }
 
 .exactCostBanner div {
@@ -603,13 +693,67 @@
   color: #fff;
   font-size: clamp(1.85rem, 9vw, 3rem);
   line-height: 0.95;
+  overflow-wrap: anywhere;
 }
 
-.exactCostBanner p {
+.exactCostBanner p,
+.exactCostBanner small {
   margin: 0;
   color: rgba(255, 255, 255, 0.82);
   font-weight: 800;
   line-height: 1.4;
+}
+
+.exactCostBanner small {
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 0.92rem;
+}
+
+.primaryQuoteActions {
+  order: 2;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.primaryQuoteActions > * {
+  min-height: 54px;
+}
+
+.quoteControls {
+  order: 3;
+}
+
+.dimensionPanel {
+  order: 4;
+}
+
+.quoteResultGrid {
+  order: 5;
+}
+
+.customerBrief {
+  order: 6;
+}
+
+.engineCard {
+  order: 7;
+}
+
+.costBrainPanel {
+  order: 8;
+}
+
+.conditionPanel {
+  order: 9;
+}
+
+.profitProtectionPanel {
+  order: 10;
+}
+
+.itemizedPanel {
+  order: 11;
 }
 
 .engineCard {
@@ -1067,7 +1211,7 @@
 }
 
 .languageSwitch button {
-  min-height: 42px;
+  min-height: 48px;
   border: 0;
   border-radius: 999px;
   padding: 0 12px;
@@ -1882,6 +2026,7 @@
   .rateList,
   .calculatorGrid,
   .smartPromptGrid,
+  .stepGuide,
   .rateDashboardGrid,
   .quickActionGrid,
   .conditionGrid {
@@ -1945,8 +2090,14 @@
 
   .rateDashboardGrid,
   .quickActionGrid,
+  .moreActions .quickActionGrid,
+  .primaryQuoteActions,
   .conditionGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stepGuide {
+    grid-template-columns: 1fr;
   }
 
   .decisionCard {
@@ -2003,6 +2154,8 @@
 
   .rateDashboardGrid,
   .quickActionGrid,
+  .moreActions .quickActionGrid,
+  .primaryQuoteActions,
   .conditionGrid {
     grid-template-columns: 1fr;
   }

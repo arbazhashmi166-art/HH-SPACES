@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { db, lastSyncMetaKey, type PendingMutation } from "@/lib/db";
-import { AUTO_SYNC_EVENT, isSchemaSetupError, syncPendingMutations } from "@/lib/repository";
+import { AUTO_SYNC_EVENT, SYNC_STATUS_EVENT, isSchemaSetupError, syncPendingMutations } from "@/lib/repository";
 import { supabase } from "@/lib/supabase";
 
 export type SyncTone = "success" | "warning" | "neutral";
@@ -44,12 +44,14 @@ export function useSyncStatus({ companyId, offlineMode, hasSession, cloudLoginIs
     const onSyncSignal = () => refresh().catch(() => undefined);
     const timer = window.setInterval(onSyncSignal, 4000);
     window.addEventListener(AUTO_SYNC_EVENT, onSyncSignal);
+    window.addEventListener(SYNC_STATUS_EVENT, onSyncSignal);
     window.addEventListener("online", onSyncSignal);
     window.addEventListener("offline", onSyncSignal);
     window.addEventListener("focus", onSyncSignal);
     return () => {
       window.clearInterval(timer);
       window.removeEventListener(AUTO_SYNC_EVENT, onSyncSignal);
+      window.removeEventListener(SYNC_STATUS_EVENT, onSyncSignal);
       window.removeEventListener("online", onSyncSignal);
       window.removeEventListener("offline", onSyncSignal);
       window.removeEventListener("focus", onSyncSignal);

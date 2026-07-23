@@ -422,6 +422,70 @@
   gap: 10px;
 }
 
+.learningGrid {
+  display: grid;
+  gap: 10px;
+}
+
+.learningCard {
+  width: 100%;
+  min-height: 112px;
+  border: 1px solid color-mix(in srgb, var(--app-primary) 16%, var(--app-border));
+  border-radius: 24px;
+  padding: 14px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 96%, transparent), color-mix(in srgb, var(--app-glass-control) 60%, transparent)),
+    linear-gradient(135deg, color-mix(in srgb, var(--app-primary) 7%, transparent), transparent 54%);
+  color: var(--app-text);
+  text-align: left;
+  box-shadow: var(--app-shadow-soft);
+}
+
+.learningCard:active {
+  transform: scale(0.985);
+}
+
+.learningCard span,
+.learningCard small {
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.learningCard span {
+  padding: 0 9px;
+  color: var(--app-primary);
+  background: color-mix(in srgb, var(--app-primary) 10%, transparent);
+}
+
+.learningCard strong {
+  display: block;
+  margin-top: 10px;
+  color: var(--app-text);
+  font-size: 17px;
+  line-height: 1.18;
+  font-weight: 950;
+  overflow-wrap: anywhere;
+}
+
+.learningCard p {
+  margin: 7px 0 0;
+  color: var(--app-muted);
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 780;
+}
+
+.learningCard small {
+  margin-top: 10px;
+  padding: 0 10px;
+  color: var(--app-text);
+  background: color-mix(in srgb, var(--app-surface-2) 88%, transparent);
+}
+
 .quick {
   min-height: 98px;
   border: 1px solid color-mix(in srgb, var(--app-border) 90%, transparent);

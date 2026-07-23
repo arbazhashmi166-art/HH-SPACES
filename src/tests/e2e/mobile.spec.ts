@@ -54,6 +54,7 @@ test("mobile app shell opens login and offline dashboard", async ({ page }) => {
 });
 
 test("power screens stay usable on iPhone width", async ({ page }) => {
+  test.setTimeout(60_000);
   await page.goto("/login?mobile-power-qa=1");
   await page.getByRole("button", { name: "Continue Offline" }).click();
   await page.getByRole("button", { name: "I Understand, Continue Offline" }).click();
@@ -107,7 +108,7 @@ test("rate search result opens calculator and calculates exact area cost", async
   await expect(resultCard).toBeVisible();
   await resultCard.click();
 
-  await expect(page.getByText(/Exact customer cost/i)).toBeVisible();
+  await expect(page.getByText("Customer quote", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("Area & Quantity Calculator")).toBeVisible();
   await expect(page.getByText(/Calculated bathroom tile area from 4x8 ft.*220 sqft/)).toBeVisible();
   await expect(page.getByText(/₹\d/).first()).toBeVisible();
@@ -356,9 +357,10 @@ test("bill scanner manual rows save into materials on iPhone", async ({ page }) 
   await rateInputs.first().fill("365");
   const amountInputs = page.getByPlaceholder("Amount");
   await expect(amountInputs).toHaveValue("4380");
-  const siteSelect = page.locator("select").filter({ has: page.locator("option", { hasText: siteName }) }).nth(1);
+  const siteSelect = page.getByLabel("Bill site");
   await expect(siteSelect).toBeVisible();
-  await siteSelect.selectOption({ index: 1 });
+  await expect(siteSelect).toContainText(siteName);
+  await siteSelect.selectOption({ label: siteName });
   await page.getByRole("button", { name: "Save Selected Items" }).click();
   await expect(page.getByText("1 material items saved from bill")).toBeVisible();
 

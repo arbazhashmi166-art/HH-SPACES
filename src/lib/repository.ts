@@ -36,6 +36,7 @@ export const syncableTables: TableName[] = [
 ];
 
 export const AUTO_SYNC_EVENT = "hh-spaces:auto-sync-request";
+export const SYNC_STATUS_EVENT = "hh-spaces:sync-status-change";
 
 type SyncPendingOptions = {
   retrySetupBlocked?: boolean;
@@ -63,6 +64,11 @@ function canUseCloud() {
 function requestAutoSync(companyId: string) {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent(AUTO_SYNC_EVENT, { detail: { companyId } }));
+}
+
+function notifySyncStatus(companyId: string) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(SYNC_STATUS_EVENT, { detail: { companyId } }));
 }
 
 function nowIso() {
@@ -205,6 +211,7 @@ export async function fetchRecords<T extends TableName>(table: T, companyId: str
 
 export async function queueMutation(mutation: PendingMutation) {
   await db.pendingMutations.put(mutation);
+  notifySyncStatus(mutation.companyId);
   requestAutoSync(mutation.companyId);
 }
 
@@ -389,12 +396,16 @@ export async function deleteRecord<T extends TableName>(table: T, companyId: str
 }
 
 export async function syncPendingMutations(companyId: string, options: SyncPendingOptions = {}) {
-  if (!canUseCloud()) return { synced: 0 };
+  if (!canUseCloud()) {
+    notifySyncStatus(companyId);
+    return { synced: 0 };
+  }
   const pending = await db.pendingMutations.where({ companyId }).sortBy("createdAt");
   let synced = 0;
 
   if (!pending.length) {
     await db.meta.put({ key: lastSyncMetaKey(companyId), value: nowIso() });
+    notifySyncStatus(companyId);
     return { synced };
   }
 
@@ -419,6 +430,7 @@ export async function syncPendingMutations(companyId: string, options: SyncPendi
         lastError,
         updatedAt: nowIso()
       });
+      notifySyncStatus(companyId);
       if (isSchemaSetupError(lastError)) continue;
       break;
     }
@@ -434,12 +446,14 @@ export async function syncPendingMutations(companyId: string, options: SyncPendi
     }
     await db.pendingMutations.delete(item.id);
     synced += 1;
+    notifySyncStatus(companyId);
   }
 
   if (synced > 0) {
     await db.meta.put({ key: lastSyncMetaKey(companyId), value: nowIso() });
   }
 
+  notifySyncStatus(companyId);
   return { synced };
 }
 
