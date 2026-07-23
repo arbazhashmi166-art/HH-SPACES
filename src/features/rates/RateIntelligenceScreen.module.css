@@ -764,6 +764,139 @@
   gap: 12px;
 }
 
+.costBrainPanel {
+  display: grid;
+  gap: 14px;
+  border: 1px solid color-mix(in srgb, #2454ff 26%, var(--line));
+  border-radius: 28px;
+  padding: 16px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(36, 84, 255, 0.13), transparent 36%),
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 95%, transparent), color-mix(in srgb, var(--app-glass-control) 78%, transparent));
+  box-shadow: var(--app-shadow-soft);
+}
+
+:global(:root[data-theme="dark"]) .costBrainPanel {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(36, 84, 255, 0.2), transparent 36%),
+    rgba(15, 23, 42, 0.78);
+}
+
+.costBrainHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.costBrainHeader > div {
+  min-width: 0;
+}
+
+.costBrainHeader span,
+.costBrainGrid span,
+.costBrainDetails summary span {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 950;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.costBrainHeader strong {
+  display: block;
+  margin-top: 5px;
+  color: var(--text-strong);
+  font-size: clamp(1.25rem, 5vw, 1.7rem);
+  line-height: 1.1;
+}
+
+.costBrainHeader p,
+.costBrainGrid p,
+.costBrainDetails p {
+  margin: 7px 0 0;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.costBrainGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.costBrainGrid div {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--app-glass-control) 78%, transparent);
+}
+
+:global(:root[data-theme="dark"]) .costBrainGrid div {
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.costBrainGrid strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-strong);
+  font-size: 1.02rem;
+  line-height: 1.15;
+}
+
+.costWarnings {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.costWarnings p {
+  margin: 0;
+  border: 1px solid rgba(245, 158, 11, 0.24);
+  border-radius: 16px;
+  padding: 11px 12px;
+  color: #8a4b00;
+  background: rgba(245, 158, 11, 0.14);
+  font-weight: 820;
+  line-height: 1.42;
+}
+
+:global(:root[data-theme="dark"]) .costWarnings p {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.costBrainDetails {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.costBrainDetails summary {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.costBrainDetails summary::-webkit-details-marker {
+  display: none;
+}
+
+.costBrainDetails summary strong {
+  color: var(--text-strong);
+  font-size: 0.95rem;
+  text-align: right;
+}
+
+.costBrainDetails[open] {
+  display: grid;
+  gap: 12px;
+}
+
 .engineColumns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1101,13 +1234,14 @@
 }
 
 .itemizedLines div {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
   border-radius: 14px;
   padding: 10px 12px;
   background: rgba(255, 255, 255, 0.72);
+  overflow: hidden;
 }
 
 :global(:root[data-theme="dark"]) .itemizedLines div {
@@ -1115,12 +1249,16 @@
 }
 
 .itemizedLines span {
+  min-width: 0;
   color: var(--text-muted);
   font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .itemizedLines strong {
   color: var(--text-strong);
+  white-space: nowrap;
+  text-align: right;
 }
 
 .quoteLevels {
@@ -1760,6 +1898,8 @@
   .formulaButtons,
   .decisionMetrics,
   .warningGrid,
+  .costBrainGrid,
+  .costWarnings,
   .aiStatGrid,
   .aiStrategyGrid,
   .aiPlanGrid,
@@ -1798,6 +1938,7 @@
   .exactCostBanner,
   .engineTop,
   .engineScript .customerBriefHeader,
+  .costBrainHeader,
   .protectionHeader {
     flex-direction: column;
   }
@@ -1825,6 +1966,15 @@
     flex-direction: column;
   }
 
+  .costBrainDetails summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .costBrainDetails summary strong {
+    text-align: left;
+  }
+
 }
 
 @media (max-width: 380px) {
@@ -1836,6 +1986,8 @@
   .formulaButtons,
   .decisionMetrics,
   .warningGrid,
+  .costBrainGrid,
+  .costWarnings,
   .aiStatGrid,
   .aiStrategyGrid,
   .aiPlanGrid,

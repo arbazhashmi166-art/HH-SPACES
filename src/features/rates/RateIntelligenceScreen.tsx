@@ -47,6 +47,7 @@ import {
   siteConditionMultipliers,
   type SiteConditionKey
 } from "./rate-intelligence-engine";
+import { buildConstructionCostIntelligence } from "./cost-intelligence-engine";
 import styles from "./RateIntelligenceScreen.module.css";
 
 const customRateStorageKey = "hhspaces.customRates.v1";
@@ -308,7 +309,6 @@ export function RateIntelligenceScreen() {
   const boqPanelRef = useRef<HTMLDivElement | null>(null);
   const adminPanelRef = useRef<HTMLDivElement | null>(null);
   const importBoxRef = useRef<HTMLTextAreaElement | null>(null);
-  const [clientReady, setClientReady] = useState(false);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<RateCategory>("Tiling");
   const [city, setCity] = useState<CityRateProfile>(cityRateProfiles[0] ?? { state: "Maharashtra", city: "Pune", multiplier: 1, note: "Base profile" });
@@ -346,9 +346,6 @@ export function RateIntelligenceScreen() {
     wastagePercent: 10
   });
 
-  useEffect(() => {
-    setClientReady(true);
-  }, []);
   const [quantityNote, setQuantityNote] = useState("Search a work with size, then tap it. Example: 4x8 bathroom tiling cost.");
   const [customDraft, setCustomDraft] = useState({
     category: "Tiling" as RateCategory,
@@ -550,6 +547,22 @@ export function RateIntelligenceScreen() {
           })
         : null,
     [context, detailedEstimate, gstPercent, matchingAssistantAnalysis?.missingFields, matchingAssistantAnalysis?.warnings, profitProtection, quantity, quoteMode, selectedItem]
+  );
+  const costIntelligence = useMemo(
+    () =>
+      selectedItem && detailedEstimate
+        ? buildConstructionCostIntelligence({
+            item: selectedItem,
+            estimate: detailedEstimate,
+            context,
+            quantity,
+            quoteMode,
+            gstPercent,
+            profitPercent: marginPercent,
+            overheadPercent
+          })
+        : null,
+    [context, detailedEstimate, gstPercent, marginPercent, overheadPercent, quantity, quoteMode, selectedItem]
   );
 
   function updateMeasurementDraft(key: keyof typeof measurementDraft, value: number) {
@@ -1186,7 +1199,6 @@ export function RateIntelligenceScreen() {
           aria-label="Search rates"
           placeholder="Search any work rate"
           value={query}
-          disabled={!clientReady}
           onChange={(event) => setQuery(event.target.value)}
         />
         <select aria-label="Sort rate level" value={rateLevel} onChange={(event) => setRateLevel(event.target.value as RateLevel)}>
@@ -1402,6 +1414,110 @@ export function RateIntelligenceScreen() {
                     </p>
                   </div>
                 ))}
+              </div>
+            </details>
+          </div>
+        ) : null}
+        {costIntelligence ? (
+          <div className={styles.costBrainPanel}>
+            <div className={styles.costBrainHeader}>
+              <div>
+                <span>Cost Intelligence Engine</span>
+                <strong>{costIntelligence.confidence.label}</strong>
+                <p>
+                  AI interprets only. Deterministic rules calculate and every rupee stays traceable before you quote.
+                </p>
+              </div>
+              <Badge tone={costIntelligence.confidence.score >= 75 ? "success" : costIntelligence.confidence.score >= 55 ? "warning" : "danger"}>
+                {costIntelligence.confidence.score}% confidence
+              </Badge>
+            </div>
+
+            <div className={styles.costBrainGrid}>
+              <div>
+                <span>Recommended Rate</span>
+                <strong>
+                  {formatMoney(costIntelligence.recommendedSellingRate)} / {selectedItem?.unit}
+                </strong>
+                <p>Use after scope is confirmed.</p>
+              </div>
+              <div>
+                <span>Weighted Median</span>
+                <strong>
+                  {formatMoney(costIntelligence.weightedMedianRate)} / {selectedItem?.unit}
+                </strong>
+                <p>From verified/local rate sources.</p>
+              </div>
+              <div>
+                <span>Break-even</span>
+                <strong>
+                  {formatMoney(costIntelligence.breakEvenRate)} / {selectedItem?.unit}
+                </strong>
+                <p>Below this loses money.</p>
+              </div>
+              <div>
+                <span>Margin / Markup</span>
+                <strong>
+                  {costIntelligence.profitMarginPercent}% / {costIntelligence.markupPercent}%
+                </strong>
+                <p>Margin and markup are separate.</p>
+              </div>
+            </div>
+
+            {costIntelligence.warnings.length ? (
+              <div className={styles.costWarnings}>
+                {costIntelligence.warnings.slice(0, 4).map((warning) => (
+                  <p key={warning}>{warning}</p>
+                ))}
+              </div>
+            ) : null}
+
+            <details className={styles.costBrainDetails}>
+              <summary>
+                <span>How was this calculated?</span>
+                <strong>Sources, missing scope and formulas</strong>
+              </summary>
+              <div className={styles.engineColumns}>
+                <div>
+                  <h3>Rate Sources</h3>
+                  {costIntelligence.sourceRates.slice(0, 5).map((source) => (
+                    <p key={source.id}>
+                      {source.sourceName}: {formatMoney(source.unitRate)} / {source.unit} - weight {source.finalWeight}
+                      {source.outlier ? " - outlier flagged" : ""}
+                    </p>
+                  ))}
+                </div>
+                <div>
+                  <h3>Missing Scope To Confirm</h3>
+                  {costIntelligence.missingScope.slice(0, 7).map((item) => (
+                    <p key={item}>{item}</p>
+                  ))}
+                </div>
+              </div>
+              <div className={styles.engineBandGrid}>
+                {costIntelligence.alternativeScenarios.map((scenario) => (
+                  <div key={scenario.label}>
+                    <span>{scenario.label}</span>
+                    <strong>{formatMoney(scenario.finalAmount)}</strong>
+                    <p>
+                      {formatMoney(scenario.unitRate)} / {selectedItem?.unit} - {scenario.note}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <div className={styles.engineColumns}>
+                <div>
+                  <h3>Formula Trace</h3>
+                  {costIntelligence.explanation.slice(0, 7).map((line) => (
+                    <p key={line}>{line}</p>
+                  ))}
+                </div>
+                <div>
+                  <h3>Confidence Reasons</h3>
+                  {costIntelligence.confidence.reasons.map((line) => (
+                    <p key={line}>{line}</p>
+                  ))}
+                </div>
               </div>
             </details>
           </div>

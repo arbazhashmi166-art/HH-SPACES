@@ -12,6 +12,14 @@ import {
   toBoqRow
 } from "@/features/rates/rate-calculator";
 import { analysisToWhatsAppMessage, analyzeRatePrompt } from "@/features/rates/rate-ai-engine";
+import {
+  buildConstructionCostIntelligence,
+  calculateInventoryPosition,
+  detectRateOutliers,
+  weightedMedianRate,
+  weightRateSources,
+  type RateSourceRecord
+} from "@/features/rates/cost-intelligence-engine";
 import { analyzeProfitProtection, buildCustomerRateBrief, buildRateAnalyzerSummary, buildRateDecisionEngine } from "@/features/rates/rate-intelligence-engine";
 import { cityRateProfiles } from "@/features/rates/rate-catalog";
 import { constructionRateStats, expandedRateCatalog, searchRateDatabase } from "@/features/rates/expanded-rate-database";
@@ -350,5 +358,147 @@ describe("rate intelligence calculations", () => {
     expect(engine.guardrails.some((item) => item.includes("Do not go below"))).toBeTruthy();
     expect(engine.rateBands.map((band) => band.label)).toEqual(["Labour only", "Material only", "Economy", "Standard", "Premium", "Luxury"]);
     expect(engine.auditTrail.some((item) => item.includes("Recommended total"))).toBeTruthy();
+  });
+
+  test("weights trusted rate sources and down-ranks outliers", () => {
+    const sources: RateSourceRecord[] = [
+      {
+        id: "project",
+        sourceType: "project_approved",
+        sourceName: "Approved Shivneri rate",
+        unitRate: 185,
+        unit: "sqft",
+        city: "Pune",
+        effectiveDate: "2026-07-10",
+        verified: true,
+        verificationStatus: "approved",
+        observationCount: 3,
+        locationSimilarity: 1,
+        specificationSimilarity: 1,
+        quantitySimilarity: 0.95,
+        supplierReliability: 0.9
+      },
+      {
+        id: "supplier",
+        sourceType: "supplier_quote",
+        sourceName: "Supplier A",
+        unitRate: 178,
+        unit: "sqft",
+        city: "Pune",
+        effectiveDate: "2026-07-12",
+        verified: true,
+        verificationStatus: "verified",
+        observationCount: 2,
+        locationSimilarity: 1,
+        specificationSimilarity: 0.92,
+        quantitySimilarity: 0.9,
+        supplierReliability: 0.82
+      },
+      {
+        id: "bad-entry",
+        sourceType: "supplier_quote",
+        sourceName: "Wrong decimal entry",
+        unitRate: 1800,
+        unit: "sqft",
+        city: "Pune",
+        effectiveDate: "2026-07-12",
+        verified: false,
+        verificationStatus: "manual",
+        observationCount: 1,
+        locationSimilarity: 1,
+        specificationSimilarity: 0.9,
+        quantitySimilarity: 0.9
+      },
+      {
+        id: "market",
+        sourceType: "regional_market",
+        sourceName: "Pune market",
+        unitRate: 190,
+        unit: "sqft",
+        city: "Pune",
+        effectiveDate: "2026-07-01",
+        verified: true,
+        verificationStatus: "verified",
+        observationCount: 4,
+        locationSimilarity: 1,
+        specificationSimilarity: 0.86,
+        quantitySimilarity: 0.8
+      }
+    ];
+
+    const outliers = detectRateOutliers(sources);
+    const weighted = weightRateSources(sources, new Date("2026-07-23T00:00:00+05:30"));
+
+    expect(outliers.get("bad-entry")).toContain("differs");
+    expect(weighted.find((source) => source.id === "bad-entry")?.outlier).toBe(true);
+    expect(weightedMedianRate(weighted)).toBeLessThan(220);
+  });
+
+  test("calculates inventory position with weighted-average valuation and shortage", () => {
+    const position = calculateInventoryPosition({
+      materialName: "Tile adhesive",
+      unit: "bag",
+      requiredQuantity: 18,
+      movements: [
+        { type: "opening", quantity: 5, unitRate: 450 },
+        { type: "purchase", quantity: 10, unitRate: 500 },
+        { type: "issue", quantity: 4 },
+        { type: "reserved", quantity: 2 },
+        { type: "wastage", quantity: 1 }
+      ]
+    });
+
+    expect(position.availableStock).toBe(8);
+    expect(position.shortageQuantity).toBe(10);
+    expect(position.weightedAverageRate).toBe(483);
+    expect(position.purchaseRequirementValue).toBe(4830);
+    expect(position.warnings[0]).toContain("shortage");
+  });
+
+  test("builds deterministic cost intelligence with explainable output and confidence", () => {
+    const item = searchRateDatabase("2x4 bathroom wall tile labour and material", 1)[0]!;
+    const estimate = calculateDetailedWorkEstimate({
+      item,
+      context: { city: pune, contractType: "Residential", areaPremiumPercent: 0 },
+      quantity: 100,
+      mode: "labourMaterial",
+      includeHeightCharge: false,
+      includeDifficultAccess: false,
+      includeSmallQuantitySurcharge: true,
+      gstPercent: 18
+    });
+    const result = buildConstructionCostIntelligence({
+      item,
+      estimate,
+      context: { city: pune, contractType: "Residential", areaPremiumPercent: 0 },
+      quantity: 100,
+      quoteMode: "labourMaterial",
+      gstPercent: 18,
+      profitPercent: 18,
+      overheadPercent: 6,
+      inventoryChecks: [
+        {
+          materialName: "Wall tile",
+          unit: "sqft",
+          requiredQuantity: 110,
+          movements: [
+            { type: "opening", quantity: 30, unitRate: 105 },
+            { type: "purchase", quantity: 50, unitRate: 120 },
+            { type: "issue", quantity: 20 }
+          ]
+        }
+      ],
+      now: new Date("2026-07-23T00:00:00+05:30")
+    });
+
+    expect(result.calculationVersion).toBeTruthy();
+    expect(result.finalAmount).toBeGreaterThan(0);
+    expect(result.recommendedSellingRate).toBeGreaterThanOrEqual(result.minimumSafeRate);
+    expect(result.profitMarginPercent).toBeLessThan(result.markupPercent);
+    expect(result.confidence.score).toBeGreaterThan(50);
+    expect(result.missingScope).toContain("Waterproofing");
+    expect(result.inventory[0]?.shortageQuantity).toBe(50);
+    expect(result.explanation.some((line) => line.includes("Final amount"))).toBeTruthy();
+    expect(result.alternativeScenarios.map((scenario) => scenario.label)).toEqual(["Economy", "Standard", "Premium"]);
   });
 });
