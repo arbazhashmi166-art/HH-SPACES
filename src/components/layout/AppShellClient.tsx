@@ -2,7 +2,7 @@
 
 import { CirclePlus, Moon, Search, Sparkles, Sun, type LucideIcon } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { appName } from "@/lib/env";
 import { useAuth } from "@/lib/auth";
 import { useRecords } from "@/lib/repository";
@@ -43,6 +43,7 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [viewportWidth, setViewportWidth] = useState(393);
+  const lastNavigationRef = useRef({ path: "", at: 0 });
   const sites = useRecords("sites", company?.id);
   const syncStatus = useSyncStatus({
     companyId: company?.id,
@@ -110,11 +111,27 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
       }),
     [activeSites.length, adaptiveMode, pathname, selectedSite?.name, syncStatus, viewportWidth]
   );
-  const showAiButton = !adaptiveState.shouldHideFloatingAi;
+  const crowdedEntryRoute = [
+    "/quick-entry",
+    "/sites",
+    "/labour",
+    "/attendance",
+    "/materials",
+    "/expenses",
+    "/payments",
+    "/supplier-payments",
+    "/progress",
+    "/extra-works",
+    "/partner-draws",
+    "/reminders",
+    "/staff"
+  ].some((route) => pathname.startsWith(route));
+  const showAiButton = !adaptiveState.shouldHideFloatingAi && !crowdedEntryRoute;
   const aiRoute = `/ai?prompt=${encodeURIComponent(adaptiveState.command.aiPrompt)}`;
 
   useEffect(() => {
     if (!selectedSiteId || sites.isLoading) return;
+    if (!(sites.data || []).length) return;
     if ((sites.data || []).some((site) => site.id === selectedSiteId)) return;
     setSelectedSiteId("");
   }, [selectedSiteId, setSelectedSiteId, sites.data, sites.isLoading]);
@@ -373,6 +390,9 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
 
   const go = (path: string) => {
     const nextPath = addSelectedSiteToPath(path);
+    const now = Date.now();
+    if (lastNavigationRef.current.path === nextPath && now - lastNavigationRef.current.at < 350) return;
+    lastNavigationRef.current = { path: nextPath, at: now };
     setQuickOpen(false);
     setSearchOpen(false);
     setQuery("");
@@ -480,6 +500,7 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
                 pathname === route.path || (route.path !== "/dashboard" && pathname.startsWith(route.path)) ? styles.navButtonActive : ""
               }`}
               type="button"
+              onPointerDown={() => go(route.path)}
               onClick={() => go(route.path)}
             >
               <AppIcon icon={route.icon} />

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -16,21 +16,32 @@ import { dashboardMetrics } from "@/utils/calc";
 import { formatMoney, todayIso } from "@/utils/format";
 import styles from "./QuickEntry.module.css";
 
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+
 function statusTone(done: boolean) {
   return done ? "success" : "warning";
 }
 
+function normalizeRoutePath(path: string) {
+  const [pathWithoutHash = "/", hash] = path.split("#");
+  const [route = "/", query] = pathWithoutHash.split("?");
+  const normalizedRoute = route !== "/" && !route.endsWith("/") ? `${route}/` : route;
+  return `${normalizedRoute}${query ? `?${query}` : ""}${hash ? `#${hash}` : ""}`;
+}
+
 function withSite(path: string, siteId: string) {
+  const normalized = normalizeRoutePath(path);
   const currentSiteId = siteId || (typeof window === "undefined" ? "" : window.localStorage.getItem(selectedSiteStorageKey) || "");
-  if (!currentSiteId || !path.includes("add=1") || path.includes("siteId=")) return path;
-  const separator = path.includes("?") ? "&" : "?";
-  return `${path}${separator}siteId=${encodeURIComponent(currentSiteId)}`;
+  if (!currentSiteId || !normalized.includes("add=1") || normalized.includes("siteId=")) return normalized;
+  const separator = normalized.includes("?") ? "&" : "?";
+  return `${normalized}${separator}siteId=${encodeURIComponent(currentSiteId)}`;
 }
 
 export function QuickEntryScreen() {
   const router = useRouter();
   const { company } = useAuth();
   const selectedSiteId = useUiStore((state) => state.selectedSiteId);
+  const lastNavigationRef = useRef({ path: "", at: 0 });
   const today = todayIso();
 
   const sites = useRecords("sites", company?.id);
@@ -47,7 +58,19 @@ export function QuickEntryScreen() {
 
   const selectedSite = useMemo(() => (sites.data || []).find((site) => site.id === selectedSiteId) || null, [selectedSiteId, sites.data]);
   const siteMatch = useCallback((siteId: string | null | undefined) => !selectedSiteId || siteId === selectedSiteId, [selectedSiteId]);
-  const go = (path: string) => router.push(withSite(path, selectedSiteId));
+  const go = (path: string) => {
+    const target = withSite(path, selectedSiteId);
+    const now = Date.now();
+    if (lastNavigationRef.current.path === target && now - lastNavigationRef.current.at < 350) return;
+    lastNavigationRef.current = { path: target, at: now };
+    router.push(target);
+    if (typeof window === "undefined" || !target.includes("add=1")) return;
+    window.setTimeout(() => {
+      if (window.location.pathname.endsWith("/quick-entry") || window.location.pathname.endsWith("/quick-entry/")) {
+        window.location.assign(`${basePath}${target}`);
+      }
+    }, 140);
+  };
 
   const metrics = useMemo(
     () =>
@@ -139,14 +162,14 @@ export function QuickEntryScreen() {
         <h2>{doneCount}/4</h2>
         <p>{selectedSite ? `${selectedSite.name}: ` : ""}Add attendance, expense, material, payment, progress, or extra work in one place.</p>
         <div className={styles.heroActions}>
-          <Button onClick={() => go("/attendance?add=1")}>Start Attendance</Button>
-          <Button variant="secondary" onClick={() => go("/expenses?add=1")}>Add Expense</Button>
+          <Button onPointerDown={() => go("/attendance?add=1")} onClick={() => go("/attendance?add=1")}>Start Attendance</Button>
+          <Button variant="secondary" onPointerDown={() => go("/expenses?add=1")} onClick={() => go("/expenses?add=1")}>Add Expense</Button>
         </div>
       </div>
 
       <div className={styles.statusGrid}>
         {todayStatus.map((item) => (
-          <button className={styles.statusCard} type="button" key={item.label} onClick={() => go(item.path)}>
+          <button className={styles.statusCard} type="button" key={item.label} onPointerDown={() => go(item.path)} onClick={() => go(item.path)}>
             <span>{item.label}</span>
             <strong>{item.done ? "Done" : "Add"}</strong>
             <Badge tone={statusTone(item.done)}>{item.done ? "Saved" : "Open"}</Badge>
@@ -177,7 +200,7 @@ export function QuickEntryScreen() {
         {engine.actions.length ? (
           <div className={styles.suggestionList}>
             {engine.actions.slice(0, 4).map((action) => (
-              <button className={styles.suggestion} type="button" key={action.id} onClick={() => go(action.route)}>
+              <button className={styles.suggestion} type="button" key={action.id} onPointerDown={() => go(action.route)} onClick={() => go(action.route)}>
                 <span>{action.category}</span>
                 <strong>{action.title}</strong>
                 <p>{action.description}</p>
@@ -194,7 +217,7 @@ export function QuickEntryScreen() {
           <CardHeader title={group.title} subtitle="Tap any card to open the correct entry screen." />
           <div className={styles.quickGrid}>
             {group.actions.map((action) => (
-              <button className={styles.quickCard} type="button" key={action.path} onClick={() => go(action.path)}>
+              <button className={styles.quickCard} type="button" key={action.path} onPointerDown={() => go(action.path)} onClick={() => go(action.path)}>
                 <AppIcon icon={action.icon} />
                 <span>
                   <strong>{action.label}</strong>

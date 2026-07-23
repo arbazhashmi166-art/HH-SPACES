@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CalendarCheck,
   Camera,
@@ -64,6 +64,7 @@ export function DashboardScreen() {
   const { company, offlineMode, session, profile, cloudLoginIssue } = useAuth();
   const selectedSiteId = useUiStore((state) => state.selectedSiteId);
   const [datePreset, setDatePreset] = useState<DashboardDatePreset>("today");
+  const [clientReady, setClientReady] = useState(false);
   const dateRange = useMemo(() => getDashboardDateRange(datePreset), [datePreset]);
   const greeting = useMemo(
     () => getDashboardGreeting(profile?.full_name, session?.user?.user_metadata?.full_name),
@@ -88,6 +89,12 @@ export function DashboardScreen() {
     hasSession: Boolean(session),
     cloudLoginIssue
   });
+  const syncLabel = clientReady ? syncStatus.label : "Sync Status";
+  const syncDetail = clientReady ? syncStatus.detail : "Checking saved entries";
+
+  useEffect(() => {
+    setClientReady(true);
+  }, []);
 
   const dashboardQueries = [
     sites,
@@ -325,8 +332,8 @@ export function DashboardScreen() {
         <div className={styles.heroGrid}>
           <button className={styles.heroMini} type="button" onClick={() => go("/settings#supabase-sync")}>
             <span>Sync Status</span>
-            <strong>{syncStatus.label}</strong>
-            <small>{syncStatus.detail}</small>
+            <strong suppressHydrationWarning>{syncLabel}</strong>
+            <small suppressHydrationWarning>{syncDetail}</small>
           </button>
           <button className={styles.heroMini} type="button" onClick={() => go("/reports")}>
             <span>Estimated Profit</span>

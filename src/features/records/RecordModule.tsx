@@ -253,6 +253,18 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
   }, [addDefaultValues, form, open, pathname, router, searchParams]);
 
   useEffect(() => {
+    const currentValues = form.getValues();
+    if (!open || !hasSiteField) return;
+    const currentSiteId = safeString(currentValues.site_id);
+    const currentSiteIsValid = currentSiteId ? lookups.sites.some((site) => site.id === currentSiteId) : false;
+    const requestedSiteId = searchParams.get("siteId");
+    const onlySiteId = lookups.sites.length === 1 ? lookups.sites[0]?.id || "" : "";
+    const nextSiteId = (currentSiteIsValid ? currentSiteId : "") || requestedSiteId || selectedSiteId || savedSelectedSiteId() || onlySiteId;
+    if (!nextSiteId || !lookups.sites.some((site) => site.id === nextSiteId)) return;
+    form.reset({ ...currentValues, site_id: nextSiteId });
+  }, [form, hasSiteField, lookups.sites, open, searchParams, selectedSiteId]);
+
+  useEffect(() => {
     if (searchFromUrl) setQuery(searchFromUrl);
   }, [searchFromUrl]);
 

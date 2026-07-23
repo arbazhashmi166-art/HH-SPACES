@@ -165,17 +165,22 @@ export default function LoginPage() {
   const offline = () => {
     if (offlineContinuing) return;
     setOfflineContinuing(true);
+    clearFeedback();
     const nextCompany = continueOffline();
     if (!nextCompany.id) {
+      setError("Offline mode could not start on this device. Check browser storage and try again.");
       setOfflineContinuing(false);
       return;
     }
+    const offlineDashboardPath = `${basePath}/dashboard/`;
+    setOfflineWarningOpen(false);
     router.replace("/dashboard");
     window.setTimeout(() => {
       if (window.location.pathname.endsWith("/login") || window.location.pathname.endsWith("/login/")) {
-        window.location.assign(`${basePath}/dashboard/`);
+        window.location.assign(offlineDashboardPath);
       }
-    }, 250);
+    }, 80);
+    window.setTimeout(() => setOfflineContinuing(false), 1800);
   };
 
   return (

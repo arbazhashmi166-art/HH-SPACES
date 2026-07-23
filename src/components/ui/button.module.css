@@ -12,13 +12,8 @@
   cursor: pointer;
   box-shadow: var(--app-shadow-soft);
   transition:
-    transform 160ms ease,
     box-shadow 160ms ease,
     background 160ms ease;
-}
-
-.button:active {
-  transform: scale(0.98);
 }
 
 .button:disabled {

@@ -25,13 +25,8 @@
   cursor: pointer;
   box-shadow: 0 12px 26px rgba(17, 24, 39, 0.07);
   transition:
-    transform 150ms ease,
     box-shadow 150ms ease,
     border-color 150ms ease;
-}
-
-.setting:active {
-  transform: scale(0.98);
 }
 
 .setting:focus-visible {
@@ -132,13 +127,7 @@
   padding: 13px;
   color: var(--app-text);
   box-shadow: 0 10px 22px rgba(17, 24, 39, 0.06);
-  transition:
-    transform 150ms ease,
-    border-color 150ms ease;
-}
-
-.module:active {
-  transform: scale(0.985);
+  transition: border-color 150ms ease;
 }
 
 .module p {

@@ -124,6 +124,13 @@ export function SettingsScreen() {
           </div>
         </div>
         <div className={styles.actions}>
+          <Button
+            variant="secondary"
+            aria-label="Open Cloud Sync status"
+            onClick={() => document.getElementById("supabase-sync")?.scrollIntoView({ behavior: "auto", block: "start" })}
+          >
+            Cloud Sync Status
+          </Button>
           <Button variant="secondary" onClick={openCloudLogin}>
             Login for Supabase Sync
           </Button>
@@ -208,8 +215,8 @@ export function SettingsScreen() {
           <button
             className={styles.setting}
             type="button"
-            aria-label="Open Cloud Sync status"
-            onClick={() => document.getElementById("supabase-sync")?.scrollIntoView({ behavior: "smooth" })}
+            aria-label="Open Cloud Sync shortcut"
+            onClick={() => document.getElementById("supabase-sync")?.scrollIntoView({ behavior: "auto", block: "start" })}
           >
             <span>Cloud Sync</span>
             <strong>Supabase status and retry sync</strong>
