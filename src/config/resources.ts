@@ -97,6 +97,20 @@ export const resources = {
       { name: "client_mobile", label: "Client Mobile", type: "tel" },
       { name: "address", label: "Site Address", type: "textarea", rows: 3 },
       { name: "work_type", label: "Work Type", type: "text" },
+      {
+        name: "scope_of_work",
+        label: "Scope Of Work",
+        type: "textarea",
+        rows: 4,
+        helper: "Write all work to be done at this site, for example waterproofing, tiling, POP, electrical, painting, plumbing."
+      },
+      {
+        name: "finalized_scope",
+        label: "Finalized With Client",
+        type: "textarea",
+        rows: 4,
+        helper: "Write only the scope and terms agreed with the client, including exclusions, rates, payment stages, and pending decisions."
+      },
       { name: "start_date", label: "Start Date", type: "date", required: true },
       { name: "expected_completion_date", label: "Expected Completion", type: "date" },
       { name: "status", label: "Status", type: "select", required: true, options: statusOptions },
@@ -107,8 +121,19 @@ export const resources = {
     cardTitle: (row) => row.name,
     cardSubtitle: (row) => `${row.client_name} - ${row.work_type} - ${row.progress_percent}%`,
     amount: (row) => row.budget,
-    searchText: (row) => `${row.name} ${row.client_name} ${row.client_mobile || ""} ${row.address} ${row.work_type}`,
-    defaults: () => ({ client_name: "", address: "", work_type: "", start_date: todayIso(), expected_completion_date: todayIso(), status: "active", budget: 0, progress_percent: 0 })
+    searchText: (row) => `${row.name} ${row.client_name} ${row.client_mobile || ""} ${row.address} ${row.work_type} ${row.scope_of_work || ""} ${row.finalized_scope || ""}`,
+    defaults: () => ({
+      client_name: "",
+      address: "",
+      work_type: "",
+      scope_of_work: "",
+      finalized_scope: "",
+      start_date: todayIso(),
+      expected_completion_date: todayIso(),
+      status: "active",
+      budget: 0,
+      progress_percent: 0
+    })
   },
   labour: {
     table: "labour",

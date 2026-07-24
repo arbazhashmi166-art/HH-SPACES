@@ -122,8 +122,10 @@ function siteSummary(site: EntityMap["sites"], companyName?: string) {
     `Budget: ${formatMoney(site.budget)}`,
     `Progress: ${Number(site.progress_percent || 0)}%`,
     `Work: ${site.work_type || "General"}`,
+    site.scope_of_work ? `Scope of work: ${site.scope_of_work}` : "",
+    site.finalized_scope ? `Finalized with client: ${site.finalized_scope}` : "",
     `Address: ${site.address || "Not added"}`
-  ].join("\n");
+  ].filter(Boolean).join("\n");
 }
 
 function fallbackCopyText(text: string) {
@@ -401,6 +403,7 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
           {filtered.map((row) => {
             const amount = config.amount?.(row as any);
             const status = safeString((row as Record<string, unknown>).status || (row as Record<string, unknown>).payment_status);
+            const siteRow = table === "sites" ? (row as EntityMap["sites"]) : null;
             return (
               <Card key={row.id} className={styles.record}>
                 <div className={styles.rowTop}>
@@ -414,6 +417,22 @@ function RecordModuleInner({ resourceKey }: { resourceKey: ResourceKey }) {
                   {status ? <Badge tone={status.includes("paid") || status === "active" || status === "present" ? "success" : status.includes("over") || status === "absent" ? "danger" : "info"}>{toTitle(status)}</Badge> : null}
                   <Badge tone={(row as AnyEntity).sync_status === "pending" ? "warning" : "neutral"}>{toTitle((row as AnyEntity).sync_status)}</Badge>
                 </div>
+                {siteRow && (siteRow.scope_of_work || siteRow.finalized_scope) ? (
+                  <div className={styles.scopePreview}>
+                    {siteRow.scope_of_work ? (
+                      <div>
+                        <span>Scope Of Work</span>
+                        <p>{siteRow.scope_of_work}</p>
+                      </div>
+                    ) : null}
+                    {siteRow.finalized_scope ? (
+                      <div>
+                        <span>Finalized With Client</span>
+                        <p>{siteRow.finalized_scope}</p>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
                 <div className={`${styles.actions} ${table === "sites" ? styles.siteActions : ""}`}>
                   {table === "sites" ? (
                     <Button variant="success" className={styles.copyAction} onClick={() => copySummary(row)} icon={<Copy aria-hidden="true" strokeWidth={2.4} />}>

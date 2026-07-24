@@ -133,6 +133,38 @@
   gap: 8px;
 }
 
+.scopePreview {
+  display: grid;
+  gap: 8px;
+}
+
+.scopePreview div {
+  display: grid;
+  gap: 5px;
+  border: 1px solid color-mix(in srgb, var(--app-primary) 14%, var(--app-border));
+  border-radius: 18px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--app-primary) 6%, var(--app-surface));
+}
+
+.scopePreview span {
+  color: var(--app-primary);
+  font-size: 11px;
+  font-weight: 950;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.scopePreview p {
+  margin: 0;
+  color: var(--app-text);
+  font-size: 13px;
+  font-weight: 760;
+  line-height: 1.42;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .actions {
   display: grid;
   grid-template-columns: 1fr 1fr;

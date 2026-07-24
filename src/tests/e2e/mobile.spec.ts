@@ -120,9 +120,13 @@ test("site add flow keeps new site visible and available in scanner dropdown", a
   await page.goto("/sites/");
   await page.getByRole("button", { name: "Add Site" }).first().click();
   await page.getByLabel("Site Name").fill("Kondhwa Test Site");
+  await page.getByLabel("Scope Of Work").fill("Bathroom waterproofing, POP ceiling, 2x4 wall tiles, floor tiles and electrical points.");
+  await page.getByLabel("Finalized With Client").fill("Waterproofing with material, tile labour only, POP standard finish, payment in stages.");
   await page.getByRole("button", { name: "Save Entry" }).click();
 
   await expect(page.getByRole("heading", { name: "Kondhwa Test Site" })).toBeVisible();
+  await expect(page.getByText("Bathroom waterproofing, POP ceiling")).toBeVisible();
+  await expect(page.getByText("Waterproofing with material, tile labour only")).toBeVisible();
   await page.getByRole("button", { name: "Search everything" }).click();
   await page.getByPlaceholder("Search any feature").fill("Kondhwa");
   const searchDialog = page.getByRole("dialog", { name: "Search Everything" });

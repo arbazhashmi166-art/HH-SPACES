@@ -140,6 +140,8 @@ export function ReportsScreen() {
           client: site.client_name,
           mobile: site.client_mobile || "",
           status: site.status,
+          scope_of_work: site.scope_of_work || "",
+          finalized_scope: site.finalized_scope || "",
           budget: formatMoney(site.budget),
           progress: `${site.progress_percent}%`
         }))

@@ -66,6 +66,24 @@ export function SyncStatusCard({ compact = false }: { compact?: boolean }) {
     hasSession: Boolean(session),
     cloudLoginIssue
   });
+
+  if (!syncStatus.hydrated) {
+    if (compact) return null;
+    return (
+      <Card>
+        <CardHeader
+          title="Sync Status"
+          subtitle="Checking this phone and Supabase connection..."
+          action={<Badge tone="neutral">Checking sync</Badge>}
+        />
+        <div className={styles.clearState}>
+          <strong>Checking saved entries</strong>
+          <p>The app is verifying whether records are synced, waiting, offline, or need a retry.</p>
+        </div>
+      </Card>
+    );
+  }
+
   const subtitle = !syncStatus.cloudReady
     ? "Supabase keys are missing in this GitHub build. Add GitHub Actions secrets or use the connected build."
     : offlineMode

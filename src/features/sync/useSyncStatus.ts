@@ -22,7 +22,8 @@ type SyncStatusInput = {
 export function useSyncStatus({ companyId, offlineMode, hasSession, cloudLoginIssue }: SyncStatusInput) {
   const [pendingRows, setPendingRows] = useState<PendingMutation[]>([]);
   const [syncing, setSyncing] = useState(false);
-  const [online, setOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine));
+  const [hydrated, setHydrated] = useState(false);
+  const [online, setOnline] = useState(true);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const cloudReady = Boolean(supabase);
 
@@ -40,6 +41,7 @@ export function useSyncStatus({ companyId, offlineMode, hasSession, cloudLoginIs
   }, [companyId]);
 
   useEffect(() => {
+    setHydrated(true);
     refresh().catch(() => undefined);
     const onSyncSignal = () => refresh().catch(() => undefined);
     const timer = window.setInterval(onSyncSignal, 4000);
@@ -137,6 +139,7 @@ export function useSyncStatus({ companyId, offlineMode, hasSession, cloudLoginIs
       firstIssue,
       friendlyIssue,
       online,
+      hydrated,
       cloudReady,
       syncing,
       lastSyncedAt,
@@ -147,7 +150,7 @@ export function useSyncStatus({ companyId, offlineMode, hasSession, cloudLoginIs
       sync,
       refresh
     };
-  }, [cloudLoginIssue, cloudReady, hasSession, lastSyncedAt, offlineMode, online, pendingRows, refresh, sync, syncing]);
+  }, [cloudLoginIssue, cloudReady, hasSession, hydrated, lastSyncedAt, offlineMode, online, pendingRows, refresh, sync, syncing]);
 }
 
 export function explainSyncIssue(issue: string) {

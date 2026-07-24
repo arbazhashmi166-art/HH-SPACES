@@ -97,6 +97,8 @@ export type Site = BaseRecord & {
   client_mobile: string | null;
   address: string;
   work_type: string;
+  scope_of_work?: string | null;
+  finalized_scope?: string | null;
   start_date: string;
   expected_completion_date: string | null;
   status: SiteStatus;

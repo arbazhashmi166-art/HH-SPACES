@@ -20,6 +20,8 @@ export const siteSchema = z.object({
   client_mobile: mobile,
   address: defaultText("Address not added"),
   work_type: defaultText("general"),
+  scope_of_work: optionalText,
+  finalized_scope: optionalText,
   start_date: isoDate,
   expected_completion_date: z.string().optional().nullable(),
   status: z.enum(["active", "paused", "completed"]),

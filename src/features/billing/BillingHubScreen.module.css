@@ -1,0 +1,112 @@
+.stack {
+  display: grid;
+  gap: 14px;
+  padding-bottom: calc(150px + env(safe-area-inset-bottom));
+}
+
+.hero {
+  display: grid;
+  gap: 10px;
+  border-radius: 30px;
+  padding: 20px;
+  color: #fff;
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.28), transparent 34%),
+    linear-gradient(135deg, #132454 0%, #2454ff 52%, #7f49ff 100%);
+  box-shadow: 0 24px 56px rgba(36, 84, 255, 0.26);
+}
+
+.hero span {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.78rem;
+  font-weight: 950;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.hero strong {
+  font-size: clamp(2rem, 10vw, 3rem);
+  line-height: 0.95;
+}
+
+.hero p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.84);
+  font-weight: 780;
+  line-height: 1.45;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.actionCard {
+  display: grid;
+  min-width: 0;
+  min-height: 146px;
+  align-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  padding: 16px;
+  color: var(--text-strong);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-glass-strong) 94%, transparent), color-mix(in srgb, var(--app-glass-control) 74%, transparent));
+  box-shadow: var(--app-shadow-soft);
+  text-decoration: none;
+}
+
+.actionCard:focus-visible {
+  outline: 3px solid rgba(80, 101, 255, 0.28);
+  outline-offset: 3px;
+}
+
+.iconWrap {
+  display: inline-grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border-radius: 18px;
+  color: #fff;
+  background: linear-gradient(135deg, #2454ff, #7f49ff);
+  box-shadow: 0 14px 30px rgba(36, 84, 255, 0.22);
+}
+
+.actionCard strong {
+  display: block;
+  color: var(--text-strong);
+  font-size: 1.02rem;
+  line-height: 1.2;
+}
+
+.actionCard p {
+  margin: 5px 0 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  font-weight: 780;
+  line-height: 1.4;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--app-primary);
+  font-size: 0.85rem;
+  font-weight: 950;
+}
+
+.footer svg,
+.iconWrap svg {
+  width: 22px;
+  height: 22px;
+}
+
+@media (max-width: 430px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

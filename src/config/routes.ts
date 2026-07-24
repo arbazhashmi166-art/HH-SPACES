@@ -68,6 +68,8 @@ export const appRoutes: AppRoute[] = [
   { path: "/expenses", label: "Expenses", icon: ReceiptText, group: "business", description: "Daily site expenses, receipts, categories, and monthly summary." },
   { path: "/supplier-payments", label: "Supplier Payments", shortLabel: "Supplier Pay", icon: CircleDollarSign, group: "business", description: "Supplier payment records, bill references, and dues." },
   { path: "/payment-recovery", label: "Payment Recovery", shortLabel: "Recovery", icon: CircleDollarSign, group: "business", description: "Pending client payments, overdue follow-ups, reminders, and WhatsApp recovery messages." },
+  { path: "/bills", label: "Bills", icon: FileText, group: "business", description: "Client bills, supplier bill scanner, quotations, extra work billing, and billing reports." },
+  { path: "/quotations", label: "Quotations", shortLabel: "Quotes", icon: Calculator, group: "business", description: "Customer quotation, BOQ, GST, profit, rate explanation, and rate analyzer." },
   { path: "/partner-draws", label: "Partner Draws", shortLabel: "Draws", icon: WalletCards, group: "business", description: "Company money taken by partners, profit sharing, emergency draws, and owner withdrawals." },
   { path: "/partner-ledger", label: "Partner Ledger", shortLabel: "Ledger", icon: WalletCards, group: "business", description: "Partner-wise company cash taken, equal share comparison, and settlement view." },
   { path: "/progress", label: "Site Progress", shortLabel: "Progress", icon: Hammer, group: "business", description: "Progress timeline, notes, percentages, and photos." },

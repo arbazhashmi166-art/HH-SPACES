@@ -127,6 +127,8 @@ create table if not exists public.sites (
   client_mobile text,
   address text not null,
   work_type text not null,
+  scope_of_work text,
+  finalized_scope text,
   start_date date not null,
   expected_completion_date date,
   status text not null default 'active' check (status in ('active', 'paused', 'completed')),
@@ -143,6 +145,9 @@ create table if not exists public.sites (
   archived boolean not null default false,
   deleted_at timestamptz
 );
+
+alter table public.sites add column if not exists scope_of_work text;
+alter table public.sites add column if not exists finalized_scope text;
 
 create table if not exists public.labour (
   id text primary key,

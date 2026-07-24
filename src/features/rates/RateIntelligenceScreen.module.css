@@ -1334,6 +1334,13 @@
   font-weight: 900;
 }
 
+.toggleRow input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  accent-color: var(--app-primary);
+}
+
 :global(:root[data-theme="dark"]) .toggleRow label {
   background: rgba(15, 23, 42, 0.82);
 }
